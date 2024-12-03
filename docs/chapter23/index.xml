@@ -1,0 +1,18 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>PostgreSQL 14 Internals – 第 23 章：排序与归并</title>
+    <link>//localhost:1313/docs/chapter23/</link>
+    <description>Recent content in 第 23 章：排序与归并 on PostgreSQL 14 Internals</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    
+	  <atom:link href="//localhost:1313/docs/chapter23/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+  </channel>
+</rss>

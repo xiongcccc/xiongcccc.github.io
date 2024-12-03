@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 25 章：B-tree – PostgreSQL 14 Internals</title>
+  <meta name="description" content="25.1 总览 B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。1 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。
+下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶子节点垂直对齐。
+每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。
+B 树具有以下重要属性：
+它们是平衡的，这意味着树的所有叶节点都位于同一深度。因此，这保证了所有值的搜索时间相等。
+它们的分支很多，也就是说，每个节点包含许多元素，通常有数百个 (插图为了清晰起见仅显示了三个元素的节点)。因此，即使对于非常大的表，B 树的深度也总是很小。
+我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
+索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
+25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。" />
+
+  
+    <link rel="canonical" href="//localhost:1313/docs/chapter25/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 25 章：B-tree" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="//localhost:1313/docs/chapter25/" />
+
+  
+  <meta itemprop="name" content="第 25 章：B-tree">
+  <meta itemprop="description" content="25.1 总览 B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。1 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。
+下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶子节点垂直对齐。
+每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。
+B 树具有以下重要属性：
+它们是平衡的，这意味着树的所有叶节点都位于同一深度。因此，这保证了所有值的搜索时间相等。
+它们的分支很多，也就是说，每个节点包含许多元素，通常有数百个 (插图为了清晰起见仅显示了三个元素的节点)。因此，即使对于非常大的表，B 树的深度也总是很小。
+我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
+索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
+25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。">
+  <meta itemprop="wordCount" content="2098">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 25 章：B-tree">
+  <meta name="twitter:description" content="25.1 总览 B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。1 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。
+下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶子节点垂直对齐。
+每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。
+B 树具有以下重要属性：
+它们是平衡的，这意味着树的所有叶节点都位于同一深度。因此，这保证了所有值的搜索时间相等。
+它们的分支很多，也就是说，每个节点包含许多元素，通常有数百个 (插图为了清晰起见仅显示了三个元素的节点)。因此，即使对于非常大的表，B 树的深度也总是很小。
+我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
+索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
+25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。">
+
+    <link href="/css/compiled/main.css" rel="stylesheet" />
+
+
+
+  <link href="/css/custom.css" rel="stylesheet" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'system';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  
+</head>
+<body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 14 Internals">PostgreSQL 14 Internals</span>
+    </a><a
+            title="Docs"
+            href="/docs"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
+          >
+            <span class="hx-text-center">Docs</span>
+          </a><a
+            title="About"
+            href="/about"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">About</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/about/"
+    
+  >About
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/"
+    
+  >Docs
+        <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
+    </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
+        <ul class='hx-relative hx-flex hx-flex-col hx-gap-1 before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] ltr:hx-ml-3 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-mr-3 rtl:hx-pr-3 rtl:before:hx-right-0 dark:before:hx-bg-neutral-800'><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#251-%e6%80%bb%e8%a7%88"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >25.1 总览</a>
+            </li>
+          <li>
+              <a
+                href="#252-%e6%a3%80%e7%b4%a2%e5%92%8c%e6%8f%92%e5%85%a5"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >25.2 检索和插入</a>
+            </li>
+          <li>
+              <a
+                href="#253-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >25.3 页面布局</a>
+            </li>
+          <li>
+              <a
+                href="#254-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >25.4 操作符类</a>
+            </li>
+          <li>
+              <a
+                href="#255-%e5%b1%9e%e6%80%a7"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >25.5 属性</a>
+            </li>
+          </ul>
+  
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a>
+              
+            </li></ul>
+      </div></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/recommend/"
+    
+  >Recommend
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#251-%e6%80%bb%e8%a7%88">25.1 总览
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#252-%e6%a3%80%e7%b4%a2%e5%92%8c%e6%8f%92%e5%85%a5">25.2 检索和插入
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2521-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2">25.2.1 等值检索
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2522-%e9%9d%9e%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2">25.2.2 非等值检索
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2">25.2.3 范围检索
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2524-%e6%8f%92%e5%85%a5">25.2.4 插入
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#253-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80">25.3 页面布局
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2531-%e5%8e%bb%e9%87%8d">25.3.1 去重
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2532-%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8">25.3.2 内部索引条目的紧凑存储
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#254-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb">25.4 操作符类
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2541-%e6%af%94%e8%be%83%e8%af%ad%e4%b9%89">25.4.1 比较语义
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2542-%e5%a4%9a%e5%88%97%e7%b4%a2%e5%bc%95%e5%92%8c%e6%8e%92%e5%ba%8f">25.4.2 多列索引和排序
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#255-%e5%b1%9e%e6%80%a7">25.5 属性
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2551-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e5%b1%9e%e6%80%a7">25.5.1 访问方法属性
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2552-%e7%b4%a2%e5%bc%95%e7%ba%a7%e5%b1%9e%e6%80%a7">25.5.2 索引级属性
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2553-%e5%88%97%e7%ba%a7%e5%b1%9e%e6%80%a7">25.5.3 列级属性
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        
+  <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
+        <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
+          <a href="/docs/">Docs</a>
+        </div><svg class="hx-w-3.5 hx-shrink-0 rtl:-hx-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx-whitespace-nowrap hx-transition-colors hx-font-medium hx-text-gray-700 contrast-more:hx-font-bold contrast-more:hx-text-current dark:hx-text-gray-100 contrast-more:dark:hx-text-current">第 25 章：B-tree</div>
+  </div>
+
+        <div class="content">
+          <h1>第 25 章：B-tree</h1>
+          <h2>25.1 总览<span class="hx-absolute -hx-mt-20" id="251-总览"></span>
+    <a href="#251-%e6%80%bb%e8%a7%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。</p>
+<p>下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶子节点垂直对齐。</p>
+<p><img src="25-1.png" alt="" loading="lazy" /></p>
+<p>每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。</p>
+<p>B 树具有以下重要属性：</p>
+<ul>
+<li>
+<p>它们是平衡的，这意味着树的所有叶节点都位于同一深度。因此，这保证了所有值的搜索时间相等。</p>
+</li>
+<li>
+<p>它们的分支很多，也就是说，每个节点包含许多元素，通常有数百个 (插图为了清晰起见仅显示了三个元素的节点)。因此，即使对于非常大的表，B 树的深度也总是很小。</p>
+<blockquote>
+<p>我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。</p>
+</blockquote>
+</li>
+<li>
+<p>索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。</p>
+</li>
+</ul>
+<h2>25.2 检索和插入<span class="hx-absolute -hx-mt-20" id="252-检索和插入"></span>
+    <a href="#252-%e6%a3%80%e7%b4%a2%e5%92%8c%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>25.2.1 等值检索<span class="hx-absolute -hx-mt-20" id="2521-等值检索"></span>
+    <a href="#2521-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看看如何通过 &ldquo;<em>indexed-column</em> = <em>expression</em>&rdquo; 的条件在树中搜索值。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 我们尝试找到 KJA 机场 (Krasnoyarsk)。</p>
+<p>搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ <em>expression</em> &lt; Ki+1 的 Ki 键。</p>
+<p>根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。</p>
+<p><img src="25-2.png" alt="" loading="lazy" /></p>
+<p>递归重复此过程，直到我们到达包含所需元组 ID 的叶节点。在此特例下，子节点满足条件 DME ⩽ KJA &lt; KZN，所以我们必须下降到含有 DME 键的元素所引用的叶节点。</p>
+<p>你可能已注意到，树的内部节点中最左边的键是冗余的：要选择根的子节点，满足条件 KJA &lt; OVB 就足够了。B 树不存储这样的键，因此在接下来的图中，我会将相应的元素留空。</p>
+<p>叶节点中所需元素可以通过二分搜索快速找到。</p>
+<p>然而，搜索过程并不像看起来那么简单。必须要考虑到索引中数据的排序顺序可以是升序 (如上所示)，也可以是降序。即使是唯一索引，也可能有多个匹配的值，所有这些值都必须返回。此外，可能有太多的重复项以至于它们不适合单个节点，因此还必须处理相邻的叶节点。</p>
+<blockquote>
+<p>由于索引可以包含非唯一值，因此将其顺序称为非降序而不是升序 (以及非升序而不是降序) 会更准确。但我将坚持使用更简单的术语。此外，元组 ID 是索引键的一部分，这让我们可以认为索引条目是唯一的，即使值实际上是相同的。</p>
+</blockquote>
+<p>最重要的是，在搜索过程中，其他进程可能会修改数据，页面可能会分裂为两个，树的结构可能会发生变化。所有算法都旨在尽可能减少这些并发操作之间的冲突，并避免过多的锁定，但我们不打算在这里讨论这些技术细节。</p>
+<h3>25.2.2 非等值检索<span class="hx-absolute -hx-mt-20" id="2522-非等值检索"></span>
+    <a href="#2522-%e9%9d%9e%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果按照 &ldquo;<em>indexed-column</em> ⩽ <em>expression</em>&rdquo; (或 &ldquo;<em>indexed-column</em> ⩾ <em>expression</em>&rdquo;) 进行搜索，首先要在索引中查找满足相等条件的值，然后沿着需要的方向遍历其叶节点，直到到达树的末端。</p>
+<p>下图说明了搜索机场代码小于或等于 DME (Domodedovo) 的过程。</p>
+<p><img src="25-3.png" alt="" loading="lazy" /></p>
+<p>对于小于和大于操作符，过程是相同的，除了需要排除第一个找到的值。</p>
+<h3>25.2.3 范围检索<span class="hx-absolute -hx-mt-20" id="2523-范围检索"></span>
+    <a href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当通过范围 &ldquo;<em>expression</em>1 ⩽ <em>indexed-column</em> ⩽ <em>expression</em>2&rdquo; 进行检索时，我们必须
+先找到 <em>expression1</em>，然后向右遍历叶节点，直至找到 <em>expression2</em>。下图说明了在 LED (Saint Petersburg) 和 ROV (Rostov-on-Don) 之间搜索机场代码的过程，包括两端。</p>
+<p><img src="25-4.png" alt="" loading="lazy" /></p>
+<h3>25.2.4 插入<span class="hx-absolute -hx-mt-20" id="2524-插入"></span>
+    <a href="#2524-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>新元素的插入位置由键的顺序明确定义。例如，如果将 RTW 机场代码 (Saratov) 插入到表中，新元素将出现在倒数第二个叶节点中，位于 ROV 和 SGC 之间。</p>
+<p>但如果叶节点没有足够的空间容纳新元素怎么办？例如 (假设一个节点最多可以容纳三个元素)，如果我们插入 TJM 机场代码 (Tyumen)，最后一个叶节点将溢出。在这种情况下，节点被分裂成两个，旧节点的一些元素被移动到新节点中，并在父节点中添加一个指向新子节点的指针。显然，父节点也可能溢出。然后它也分裂成两个节点，依次类推。如果涉及到根节点的分裂，则在目标节点之上再创建一个节点，成为树的新的根节点。在这种情况下，树的深度增加了一层。</p>
+<p>在此例中，插入 TJM 机场会导致两个节点分裂；由此产生的新节点在下图中高亮显示。为了确保任何节点都可以分裂，一个双向列表绑定了所有层级的节点，而不仅仅是最低层级的节点。</p>
+<p><img src="25-5.png" alt="" loading="lazy" /></p>
+<p>所描述的插入和分裂过程确保了树保持平衡，并且由于一个节点可以容纳的元素数量通常非常大，因此树的深度很少增加。</p>
+<p>问题是，一旦分裂，节点就永远不能合并在一起，即使在清理之后只包含很少的元素。这个限制不是 B 树数据结构本身的问题，而是其在 PostgreSQL 实现中的问题。因此，如果在尝试插入时节点满了，访问方法首先会尝试剪枝多余的数据以清理一些空间，避免额外的分裂。</p>
+<h2>25.3 页面布局<span class="hx-absolute -hx-mt-20" id="253-页面布局"></span>
+    <a href="#253-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树的每个节点占用一个页面。页面的大小定义了节点的容量。</p>
+<p>由于页面分裂，树根在不同时间可以由不同的页面表示。但是搜索算法必须始终从根节点开始扫描。它在零索引页面 (称为元页面) 中找到当前根页面的 ID。元页面还包含一些其他元数据。</p>
+<p><img src="25-6.png" alt="" loading="lazy" /></p>
+<p>索引页中的数据布局与我们迄今为止看到的有些不同。每一层除了最右边的页面外，所有页面都包含一个额外的&quot;高键&quot;，这个高键保证不小于此页面中的任何键。在上图中，高键被高亮显示。</p>
+<p>让我们使用 pageinspect 扩展来查看基于六位数预订参考号的实际索引页面。元页面列出了根页面 ID 和树的深度 (层级编号从叶节点开始，从零开始)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT root, level
+</span></span><span class="line"><span class="cl">FROM bt_metap<span class="o">(</span><span class="s1">&#39;bookings_pkey&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> root <span class="p">|</span> level
+</span></span><span class="line"><span class="cl">−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">290</span> <span class="p">|</span> <span class="m">2</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>存储在索引条目中的键以字节序显式，这不是很方便：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT data
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;bookings_pkey&#39;</span>,290<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">itemoffset</span> <span class="o">=</span> 2<span class="p">;</span>
+</span></span><span class="line"><span class="cl">          data
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> 0f <span class="m">30</span> <span class="m">43</span> <span class="m">39</span> <span class="m">41</span> <span class="m">42</span> <span class="m">31</span> <span class="m">00</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>为了解读这些值，我们将不得不编写一个特定功能的函数。这个函数可能不支持所有平台，并且在某些特定情况下可能无法工作，但对于本章中的示例来说，它将足够使用：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION data_to_text<span class="o">(</span>data text<span class="o">)</span>
+</span></span><span class="line"><span class="cl">RETURNS text
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">DECLARE
+</span></span><span class="line"><span class="cl">  raw bytea :<span class="o">=</span> <span class="o">(</span><span class="s1">&#39;\x&#39;</span><span class="o">||</span>replace<span class="o">(</span>data,<span class="s1">&#39; &#39;</span>,<span class="s1">&#39;&#39;</span><span class="o">))</span>::bytea<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  pos integer :<span class="o">=</span> 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  len integer<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  res text :<span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  WHILE <span class="o">(</span>octet_length<span class="o">(</span>raw<span class="o">)</span> &gt; pos<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  LOOP
+</span></span><span class="line"><span class="cl">    len :<span class="o">=</span> <span class="o">(</span>get_byte<span class="o">(</span>raw,pos<span class="o">)</span> - 3<span class="o">)</span> / 2<span class="p">;</span>
+</span></span><span class="line"><span class="cl">    EXIT WHEN len &lt;<span class="o">=</span> 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">    IF pos &gt; <span class="m">0</span> THEN
+</span></span><span class="line"><span class="cl">      res :<span class="o">=</span> res <span class="o">||</span> <span class="s1">&#39;, &#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    END IF<span class="p">;</span>
+</span></span><span class="line"><span class="cl">    res :<span class="o">=</span> res <span class="o">||</span> <span class="o">(</span>
+</span></span><span class="line"><span class="cl">      SELECT string_agg<span class="o">(</span> chr<span class="o">(</span>get_byte<span class="o">(</span>raw, i<span class="o">))</span>,<span class="s1">&#39;&#39;</span><span class="o">)</span>
+</span></span><span class="line"><span class="cl">      FROM generate_series<span class="o">(</span>pos+1,pos+len<span class="o">)</span> i
+</span></span><span class="line"><span class="cl">    <span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    pos :<span class="o">=</span> pos + len + 1<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  END LOOP<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  RETURN res<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在让我们看一下根页面的内容：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, ctid, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;bookings_pkey&#39;</span>,290<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>   ctid   <span class="p">|</span> data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">1</span> <span class="p">|</span> <span class="o">(</span>3,0<span class="o">)</span>    <span class="p">|</span>
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> <span class="o">(</span>289,1<span class="o">)</span>  <span class="p">|</span> 0C9AB1
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> <span class="o">(</span>575,1<span class="o">)</span>  <span class="p">|</span> 192F03
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> <span class="o">(</span>860,1<span class="o">)</span>  <span class="p">|</span> 25D715
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> <span class="o">(</span>1145,1<span class="o">)</span> <span class="p">|</span> 32785C
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">         <span class="m">17</span> <span class="p">|</span> <span class="o">(</span>4565,1<span class="o">)</span> <span class="p">|</span> C993F6
+</span></span><span class="line"><span class="cl">         <span class="m">18</span> <span class="p">|</span> <span class="o">(</span>4850,1<span class="o">)</span> <span class="p">|</span> D63931
+</span></span><span class="line"><span class="cl">         <span class="m">19</span> <span class="p">|</span> <span class="o">(</span>5135,1<span class="o">)</span> <span class="p">|</span> E2CB14
+</span></span><span class="line"><span class="cl">         <span class="m">20</span> <span class="p">|</span> <span class="o">(</span>5420,1<span class="o">)</span> <span class="p">|</span> EF6FEA
+</span></span><span class="line"><span class="cl">         <span class="m">21</span> <span class="p">|</span> <span class="o">(</span>5705,1<span class="o">)</span> <span class="p">|</span> FC147D
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">21</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>正如我所说，第一个条目不包含键值。ctid 列提供了指向子页面的链接。</p>
+<p>假设我们正在查找预订号 E2D725。在这种情况下，我们必须选择条目 19 (因为 E2CB14 ⩽ E2D725 &lt; EF6FEA) 并下降到页面 5135。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, ctid, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;bookings_pkey&#39;</span>,5135<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>   ctid   <span class="p">|</span> data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">1</span> <span class="p">|</span> <span class="o">(</span>5417,1<span class="o">)</span> <span class="p">|</span> EF6FEA		← high key
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> <span class="o">(</span>5132,0<span class="o">)</span> <span class="p">|</span>
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> <span class="o">(</span>5133,1<span class="o">)</span> <span class="p">|</span> E2D71D
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> <span class="o">(</span>5134,1<span class="o">)</span> <span class="p">|</span> E2E2F4
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> <span class="o">(</span>5136,1<span class="o">)</span> <span class="p">|</span> E2EDE7
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">        <span class="m">282</span> <span class="p">|</span> <span class="o">(</span>5413,1<span class="o">)</span> <span class="p">|</span> EF41BE
+</span></span><span class="line"><span class="cl">        <span class="m">283</span> <span class="p">|</span> <span class="o">(</span>5414,1<span class="o">)</span> <span class="p">|</span> EF4D69
+</span></span><span class="line"><span class="cl">        <span class="m">284</span> <span class="p">|</span> <span class="o">(</span>5415,1<span class="o">)</span> <span class="p">|</span> EF58D4
+</span></span><span class="line"><span class="cl">        <span class="m">285</span> <span class="p">|</span> <span class="o">(</span>5416,1<span class="o">)</span> <span class="p">|</span> EF6410
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">285</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此页面中的第一个条目包含高键，这似乎有点出乎意料。从逻辑上讲，它应该放在页面的末尾，但从实现的角度来看，将其放在开头更为方便，这样每次页面内容改变时就无需移动它。</p>
+<p>此处我们选择条目 3 (因为 E2D71D ⩽ E2D725 &lt; E2E2F4) 并下降到页面 11919。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, ctid, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;bookings_pkey&#39;</span>,5133<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>    ctid     <span class="p">|</span> data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">1</span> <span class="p">|</span> <span class="o">(</span>11921,1<span class="o">)</span>   <span class="p">|</span> E2E2F4
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> <span class="o">(</span>11919,76<span class="o">)</span>  <span class="p">|</span> E2D71D
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> <span class="o">(</span>11919,77<span class="o">)</span>  <span class="p">|</span> E2D725
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> <span class="o">(</span>11919,78<span class="o">)</span>  <span class="p">|</span> E2D72D
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> <span class="o">(</span>11919,79<span class="o">)</span>  <span class="p">|</span> E2D733
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">        <span class="m">363</span> <span class="p">|</span> <span class="o">(</span>11921,123<span class="o">)</span> <span class="p">|</span> E2E2C9
+</span></span><span class="line"><span class="cl">        <span class="m">364</span> <span class="p">|</span> <span class="o">(</span>11921,124<span class="o">)</span> <span class="p">|</span> E2E2DB
+</span></span><span class="line"><span class="cl">        <span class="m">365</span> <span class="p">|</span> <span class="o">(</span>11921,125<span class="o">)</span> <span class="p">|</span> E2E2DF
+</span></span><span class="line"><span class="cl">        <span class="m">366</span> <span class="p">|</span> <span class="o">(</span>11921,126<span class="o">)</span> <span class="p">|</span> E2E2E5
+</span></span><span class="line"><span class="cl">        <span class="m">367</span> <span class="p">|</span> <span class="o">(</span>11921,127<span class="o">)</span> <span class="p">|</span> E2E2ED
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">367</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这是索引的叶子页面。第一个条目是高键；所有其他条目都指向堆元组。</p>
+<p>在这里找到了我们的预订信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">ctid</span> <span class="o">=</span> <span class="s1">&#39;(11919,77)&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> book_ref <span class="p">|</span>       book_date        <span class="p">|</span> total_amount
+</span></span><span class="line"><span class="cl">−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> E2D725   <span class="p">|</span> 2017−01−25 04:10:00+03 <span class="p">|</span>     28000.00
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这大致就是当我们通过预订号搜索预订时，在底层发生的事情：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span>
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;E2D725&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                 QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan using bookings_pkey on bookings
+</span></span><span class="line"><span class="cl">   Index Cond: <span class="o">(</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;E2D725&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>25.3.1 去重<span class="hx-absolute -hx-mt-20" id="2531-去重"></span>
+    <a href="#2531-%e5%8e%bb%e9%87%8d" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>非唯一索引可以包含许多指向不同堆元组的重复键。由于非唯一键出现不止一次，并因此占用大量空间，所以重复键被折叠收敛成一个单独的索引条目，其中包含键和相应元组 ID 的列表。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 在某些情况下，这个过程 (称为去重) 可以显著减小索引的大小。</p>
+<p>但是，由于 MVCC 的原因，即使是唯一索引也可能包含重复项：因为索引保留对表行所有版本的引用。HOT 更新机制可以减少因为引用过时且通常是短暂的行版本而导致的索引膨胀，但有时这可能不适用。在这种情况下，去重可以花费一些时间来清理冗余堆元组并避免额外的页面分裂。</p>
+<p>为了避免在去重不会带来立竿见影的效果时浪费资源，仅当叶子页面没有足够空间容纳更多元组时才会执行这种折叠。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 然后，页面剪枝和去重 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 可以释放一些空间并防止不必要的页面分裂。但是，如果重复项很少，你可以通过关闭 deduplicate_items 存储参数来禁用去重功能。</p>
+<p>一些索引不支持去重。主要限制是键的等价性必须通过它们内部表示的简单二进制比较来检查。到目前为止，并非所有数据类型都可以通过这种方式进行比较。例如，浮点数 (float 和 double precision) 有两种不同的零值表示形式。任意精度的数字 (numeric) 可以以不同标度表示同一个数字，而 jsonb 类型可以使用这样的数字。如果使用非确定性的排序规则，<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> text 类型也无法进行去重，因为这允许由不同的字节序表示同一个符号 (标准排序规则是确定性的)。</p>
+<p>另外，复合类型、range 类型和数组以及使用 INCUDE 子句声明的索引目前均不支持去重。</p>
+<p>要检查特定索引是否可以使用去重，你可以查看其元页面中的 allequalimage 字段：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON tickets<span class="o">(</span>book_ref<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT allequalimage FROM bt_metap<span class="o">(</span><span class="s1">&#39;tickets_book_ref_idx&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> allequalimage
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> t
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此例中支持去重。实际上，我们可以看到其中一个叶子页面既包含带有单个元组 ID (htid) 的索引条目，也包含带有 ID 列表 (tids) 的索引条目：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, htid, left<span class="o">(</span>tids::text,27<span class="o">)</span> tids,
+</span></span><span class="line"><span class="cl">	data_to_text<span class="o">(</span>data<span class="o">)</span> AS data
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;tickets_book_ref_idx&#39;</span>,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE itemoffset &gt; 1<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>    htid    <span class="p">|</span>            tids             <span class="p">|</span> data
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−−−−−−+−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> <span class="o">(</span>32965,40<span class="o">)</span> <span class="p">|</span>                             <span class="p">|</span> <span class="m">000004</span>
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> <span class="o">(</span>47429,51<span class="o">)</span> <span class="p">|</span>                             <span class="p">|</span> 00000F
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> <span class="o">(</span>3648,56<span class="o">)</span>  <span class="p">|</span> <span class="o">{</span><span class="s2">&#34;(3648,56)&#34;</span>,<span class="s2">&#34;(3648,57)&#34;</span><span class="o">}</span>   <span class="p">|</span> <span class="m">000010</span>
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> <span class="o">(</span>6498,47<span class="o">)</span>  <span class="p">|</span>                             <span class="p">|</span> <span class="m">000012</span>
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">        <span class="m">271</span> <span class="p">|</span> <span class="o">(</span>21492,46<span class="o">)</span> <span class="p">|</span>                             <span class="p">|</span> <span class="m">000890</span> 
+</span></span><span class="line"><span class="cl">        <span class="m">272</span> <span class="p">|</span> <span class="o">(</span>26601,57<span class="o">)</span> <span class="p">|</span> <span class="o">{</span><span class="s2">&#34;(26601,57)&#34;</span>,<span class="s2">&#34;(26601,58)&#34;</span><span class="o">}</span> <span class="p">|</span> 0008AC
+</span></span><span class="line"><span class="cl">        <span class="m">273</span> <span class="p">|</span> <span class="o">(</span>25669,37<span class="o">)</span> <span class="p">|</span>                             <span class="p">|</span> 0008B6
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">272</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>25.3.2 内部索引条目的紧凑存储<span class="hx-absolute -hx-mt-20" id="2532-内部索引条目的紧凑存储"></span>
+    <a href="#2532-%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>去重使得索引的叶子页面能够容纳更多的条目。但是，尽管叶子页面构成了索引的大部分，但在内部页面上执行的数据压缩以防止额外的分裂同样重要，因为搜索效率直接依赖于树的深度。</p>
+<p>内部索引条目包含索引键，但它们的值仅用于在搜索过程中确定要下降到的子树。在多列索引中，通常只需取第一个键属性 (或几个首属性)。为了在页面中节省空间，可以截断其他属性。</p>
+<p>当叶子页面被分裂且内部页面需要容纳一个新指针时，便会发生这种 <em>suffix truncation</em> (后缀截断)。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
+<blockquote>
+<p>理论上，我们甚至可以更进一步，只保留属性中有意义的部分，例如，一行的前几个符号，这足以区分子树。但这还没有实现：索引条目要么包含整个属性，要么完全不包含这个属性。</p>
+</blockquote>
+<p>例如，以下是索引根页面的几个条目，索引基于 tickets 表的 book_ref 和 passenger_name 列创建。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX tickets_bref_name_idx
+</span></span><span class="line"><span class="cl">ON tickets<span class="o">(</span>book_ref, passenger_name<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, ctid, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;tickets_bref_name_idx&#39;</span>,229<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE itemoffset BETWEEN <span class="m">8</span> AND 13<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>   ctid   <span class="p">|</span>        data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">8</span> <span class="p">|</span> <span class="o">(</span>1607,1<span class="o">)</span> <span class="p">|</span> 1A98A0
+</span></span><span class="line"><span class="cl">          <span class="m">9</span> <span class="p">|</span> <span class="o">(</span>1833,2<span class="o">)</span> <span class="p">|</span> 1E57D1, SVETLANA MAKSIMOVA
+</span></span><span class="line"><span class="cl">         <span class="m">10</span> <span class="p">|</span> <span class="o">(</span>2054,1<span class="o">)</span> <span class="p">|</span> <span class="m">220797</span>
+</span></span><span class="line"><span class="cl">         <span class="m">11</span> <span class="p">|</span> <span class="o">(</span>2282,1<span class="o">)</span> <span class="p">|</span> 25DB06
+</span></span><span class="line"><span class="cl">         <span class="m">12</span> <span class="p">|</span> <span class="o">(</span>2509,2<span class="o">)</span> <span class="p">|</span> 299FE4, YURIY AFANASEV
+</span></span><span class="line"><span class="cl">         <span class="m">13</span> <span class="p">|</span> <span class="o">(</span>2736,1<span class="o">)</span> <span class="p">|</span> 2D62C9
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">6</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>我们可以看到有些索引条目没有第二个属性。</p>
+<p>自然地，叶子页面必须保留所有键属性和 INCLUDE 列值 (如果有的话)。否则，将无法执行仅索引扫描。唯一的例外是高键；它们可以部分保留。</p>
+<h2>25.4 操作符类<span class="hx-absolute -hx-mt-20" id="254-操作符类"></span>
+    <a href="#254-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>25.4.1 比较语义<span class="hx-absolute -hx-mt-20" id="2541-比较语义"></span>
+    <a href="#2541-%e6%af%94%e8%be%83%e8%af%ad%e4%b9%89" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>除了哈希值之外，系统还必须知道如何对各种类型的值进行排序，包括自定义类型。这对于排序、分组、归并连接和一些其他操作是必不可少的。就像哈希一样，特定数据类型的比较操作符是由操作符类定义的。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
+<p>操作符类允许我们从名称 (如 &gt;, &lt;, =) 中抽象出来，甚至可以提供多种方式来对同一类型的值进行排序。</p>
+<p>以下是任何 btree 方法的操作符类必须定义的强制性比较操作符 (显式为 bool_ops 族)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT amopopr::regoperator AS opfamily_operator,
+</span></span><span class="line"><span class="cl">  amopstrategy
+</span></span><span class="line"><span class="cl">FROM pg_am am
+</span></span><span class="line"><span class="cl">  JOIN pg_opfamily opf ON <span class="nv">opfmethod</span> <span class="o">=</span> am.oid
+</span></span><span class="line"><span class="cl">  JOIN pg_amop amop ON <span class="nv">amopfamily</span> <span class="o">=</span> opf.oid
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">amname</span> <span class="o">=</span> <span class="s1">&#39;btree&#39;</span>
+</span></span><span class="line"><span class="cl">AND <span class="nv">opfname</span> <span class="o">=</span> <span class="s1">&#39;bool_ops&#39;</span>
+</span></span><span class="line"><span class="cl">ORDER BY amopstrategy<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  opfamily_operator  <span class="p">|</span> amopstrategy
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> &lt;<span class="o">(</span>boolean,boolean<span class="o">)</span>  <span class="p">|</span>            <span class="m">1</span>
+</span></span><span class="line"><span class="cl"> &lt;<span class="o">=(</span>boolean,boolean<span class="o">)</span> <span class="p">|</span>            <span class="nv">2</span>
+</span></span><span class="line"><span class="cl"> <span class="o">=(</span>boolean,boolean<span class="o">)</span>  <span class="p">|</span>            <span class="m">3</span>
+</span></span><span class="line"><span class="cl"> &gt;<span class="o">=(</span>boolean,boolean<span class="o">)</span> <span class="p">|</span>            <span class="m">4</span>
+</span></span><span class="line"><span class="cl"> &gt;<span class="o">(</span>boolean,boolean<span class="o">)</span>  <span class="p">|</span>            <span class="m">5</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这五个比较操作符中的每一个都对应于一种策略，<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 策略定义了它们的语义：</p>
+<ol>
+<li>
+<p>小于</p>
+</li>
+<li>
+<p>小于或等于</p>
+</li>
+<li>
+<p>等于</p>
+</li>
+<li>
+<p>大于或等于</p>
+</li>
+<li>
+<p>大于</p>
+</li>
+</ol>
+<p>B 树操作符类还包括几个支持函数。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 第一个函数必须在第一个参数大于第二个参数时返回 1，如果它小于第二个参数，则返回 -1，如果参数相等，则返回 0。</p>
+<p>其他支持函数是可选的，但它们可以提升访问方法的性能。</p>
+<p>为了更好地理解这种机制，我们可以定义一个带有非默认排序规则的新数据类型。文档给出了复数的示例，<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 但它是用 C 语言编写的。幸运的是，B 树操作符类也可以使用解释型语言来实现，因此我将利用这一点，尽可能简单地制作一个示例 (即使明知效率低下)。</p>
+<p>接下来，让我们定义一个用于信息单位的新复合类型：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TYPE capacity_units AS ENUM <span class="o">(</span>
+</span></span><span class="line"><span class="cl">  <span class="s1">&#39;B&#39;</span>, <span class="s1">&#39;kB&#39;</span>, <span class="s1">&#39;MB&#39;</span>, <span class="s1">&#39;GB&#39;</span>, <span class="s1">&#39;TB&#39;</span>, <span class="s1">&#39;PB&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TYPE capacity AS <span class="o">(</span>
+</span></span><span class="line"><span class="cl">  amount integer,
+</span></span><span class="line"><span class="cl">  unit capacity_units
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在创建一个包含新类型列的表，并用随机值填充：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE <span class="nb">test</span> AS
+</span></span><span class="line"><span class="cl">  SELECT <span class="o">(</span> <span class="o">(</span>random<span class="o">()</span>*1023<span class="o">)</span>::integer, u.unit <span class="o">)</span>::capacity AS cap
+</span></span><span class="line"><span class="cl">  FROM generate_series<span class="o">(</span>1,100<span class="o">)</span>,
+</span></span><span class="line"><span class="cl">    unnest<span class="o">(</span>enum_range<span class="o">(</span>NULL::capacity_units<span class="o">))</span> AS u<span class="o">(</span>unit<span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>默认情况下，复合类型的值按字典顺序排序，这与本示例中的自然顺序不同。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM <span class="nb">test</span> ORDER BY cap<span class="p">;</span>
+</span></span><span class="line"><span class="cl">    cap
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>3,GB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>4,MB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>9,kB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> ...
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1017,kB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1017,GB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1018,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1020,MB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span><span class="m">600</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在让我们开始创建操作符类。我们将从定义一个将容量转换为字节的函数开始：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_to_bytes<span class="o">(</span>a capacity<span class="o">)</span> RETURNS numeric
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">SELECT a.amount::numeric *
+</span></span><span class="line"><span class="cl">  1024::numeric ^ <span class="o">(</span> array_position<span class="o">(</span>enum_range<span class="o">(</span>a.unit<span class="o">)</span>, a.unit<span class="o">)</span> - <span class="m">1</span> <span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE sql STRICT IMMUTABLE<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT capacity_to_bytes<span class="o">(</span><span class="s1">&#39;(1,kB)&#39;</span>::capacity<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   capacity_to_bytes
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> 1024.0000000000000000
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>为将来的操作符类创建一个支持函数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_cmp<span class="o">(</span>a capacity, b capacity<span class="o">)</span>
+</span></span><span class="line"><span class="cl">RETURNS integer
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">SELECT sign<span class="o">(</span>capacity_to_bytes<span class="o">(</span>a<span class="o">)</span> - capacity_to_bytes<span class="o">(</span>b<span class="o">))</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE sql STRICT IMMUTABLE<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，使用这个支持函数定义比较操作符就变得简单了。我故意使用了奇特的名称来展示这些名称可以是任意的：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_lt<span class="o">(</span>a capacity, b capacity<span class="o">)</span> RETURNS boolean
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  RETURN capacity_cmp<span class="o">(</span>a,b<span class="o">)</span> &lt; 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql IMMUTABLE STRICT<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR <span class="c1">#&lt;# (</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">LEFTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">RIGHTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">FUNCTION</span> <span class="o">=</span> capacity_lt
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>其他四个操作符以类似方式进行定义。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_le<span class="o">(</span>a capacity, b capacity<span class="o">)</span> RETURNS boolean
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  RETURN capacity_cmp<span class="o">(</span>a,b<span class="o">)</span> &lt;<span class="o">=</span> 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql IMMUTABLE STRICT<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR <span class="c1">#&lt;=# (</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">LEFTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">RIGHTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">FUNCTION</span> <span class="o">=</span> capacity_le
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_eq<span class="o">(</span>a capacity, b capacity<span class="o">)</span> RETURNS boolean
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  RETURN capacity_cmp<span class="o">(</span>a,b<span class="o">)</span> <span class="o">=</span> 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql IMMUTABLE STRICT<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR <span class="c1">#=# (</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">LEFTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">RIGHTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">FUNCTION</span> <span class="o">=</span> capacity_eq,
+</span></span><span class="line"><span class="cl">  MERGES -- can be used in merge joins
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_ge<span class="o">(</span>a capacity, b capacity<span class="o">)</span> RETURNS boolean
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  RETURN capacity_cmp<span class="o">(</span>a,b<span class="o">)</span> &gt;<span class="o">=</span> 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql IMMUTABLE STRICT<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR <span class="c1">#&gt;=# (</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">LEFTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">RIGHTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">FUNCTION</span> <span class="o">=</span> capacity_ge
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION capacity_gt<span class="o">(</span>a capacity, b capacity<span class="o">)</span> RETURNS boolean
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">BEGIN
+</span></span><span class="line"><span class="cl">  RETURN capacity_cmp<span class="o">(</span>a,b<span class="o">)</span> &gt; 0<span class="p">;</span>
+</span></span><span class="line"><span class="cl">END<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE plpgsql IMMUTABLE STRICT<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR <span class="c1">#&gt;# (</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">LEFTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">RIGHTARG</span> <span class="o">=</span> capacity,
+</span></span><span class="line"><span class="cl">  <span class="nv">FUNCTION</span> <span class="o">=</span> capacity_gt
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在这个阶段，我们已经可以比较容量了：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT <span class="o">(</span>1,<span class="s1">&#39;MB&#39;</span><span class="o">)</span>::capacity <span class="c1">#&gt;# (512, &#39;kB&#39;)::capacity;</span>
+</span></span><span class="line"><span class="cl"> ?column?
+</span></span><span class="line"><span class="cl">−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> t
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>一旦操作符类创建好之后，排序也将按预期工作。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE OPERATOR CLASS capacity_ops
+</span></span><span class="line"><span class="cl">DEFAULT FOR TYPE capacity -- to be used by default
+</span></span><span class="line"><span class="cl">USING btree AS
+</span></span><span class="line"><span class="cl">  OPERATOR <span class="m">1</span> <span class="c1">#&lt;#,</span>
+</span></span><span class="line"><span class="cl">  OPERATOR <span class="m">2</span> <span class="c1">#&lt;=#,</span>
+</span></span><span class="line"><span class="cl">  OPERATOR <span class="m">3</span> <span class="c1">#=#,</span>
+</span></span><span class="line"><span class="cl">  OPERATOR <span class="m">4</span> <span class="c1">#&gt;=#,</span>
+</span></span><span class="line"><span class="cl">  OPERATOR <span class="m">5</span> <span class="c1">#&gt;#,</span>
+</span></span><span class="line"><span class="cl">FUNCTION <span class="m">1</span> capacity_cmp<span class="o">(</span>capacity,capacity<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM <span class="nb">test</span> ORDER BY cap<span class="p">;</span>
+</span></span><span class="line"><span class="cl">    cap
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>21,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>27,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>35,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>46,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> ...
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1002,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1013,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1014,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1014,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1018,PB<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">600</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>创建新索引时默认使用我们的操作符类，该索引以正确的顺序返回结果：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON test<span class="o">(</span>cap<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM <span class="nb">test</span> WHERE cap <span class="c1">#&lt;# (100,&#39;B&#39;)::capacity ORDER BY cap;</span>
+</span></span><span class="line"><span class="cl">  cap
+</span></span><span class="line"><span class="cl">−−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>1,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>21,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>27,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>35,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>46,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>57,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>68,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>70,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>72,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>76,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>78,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>94,B<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">12</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM <span class="nb">test</span> WHERE cap <span class="c1">#&lt;# (100,&#39;B&#39;)::capacity ORDER BY cap;</span>
+</span></span><span class="line"><span class="cl">                 QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Only Scan using test_cap_idx on <span class="nb">test</span>
+</span></span><span class="line"><span class="cl">   Index Cond: <span class="o">(</span>cap <span class="c1">#&lt;# &#39;(100,B)&#39;::capacity)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>等值操作符声明中指定的 MERGE 子句使得这个数据类型支持归并连接。</p>
+<h3>25.4.2 多列索引和排序<span class="hx-absolute -hx-mt-20" id="2542-多列索引和排序"></span>
+    <a href="#2542-%e5%a4%9a%e5%88%97%e7%b4%a2%e5%bc%95%e5%92%8c%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们仔细看一下多列索引的排序。</p>
+<p>首先，在声明索引时选择列的最佳顺序非常重要：页面内的数据排序将从第一列开始，然后第二列，依此类推。只有当提供的过滤条件涵盖从第一列开始的连续的列时，多列索引才能保证高效的搜索：第一列、前两列、第一列至第三列之间的范围等。其他类型的条件只能用来过滤掉基于其他标准获取的冗余值。</p>
+<p>以下是在 tickets 表上创建的索引，其第一页中索引条目的顺序，此索引包括预订参考号和乘客姓名：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;tickets_bref_name_idx&#39;</span>,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE itemoffset &gt; 1<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>        data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> 000004, PETR MAKAROV
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> 00000F, ANNA ANTONOVA
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> 000010, ALEKSANDR SOKOLOV
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> 000010, LYUDMILA BOGDANOVA
+</span></span><span class="line"><span class="cl">          <span class="m">6</span> <span class="p">|</span> 000012, TAMARA ZAYCEVA
+</span></span><span class="line"><span class="cl">          <span class="m">7</span> <span class="p">|</span> 000026, IRINA PETROVA
+</span></span><span class="line"><span class="cl">          <span class="m">8</span> <span class="p">|</span> 00002D, ALEKSANDR SMIRNOV
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">        <span class="m">187</span> <span class="p">|</span> 0003EF, VLADIMIR CHERNOV
+</span></span><span class="line"><span class="cl">        <span class="m">188</span> <span class="p">|</span> 00040C, ANTONINA KOROLEVA
+</span></span><span class="line"><span class="cl">        <span class="m">189</span> <span class="p">|</span> 00040C, DMITRIY FEDOROV
+</span></span><span class="line"><span class="cl">        <span class="m">190</span> <span class="p">|</span> 00041E, EGOR FEDOROV
+</span></span><span class="line"><span class="cl">        <span class="m">191</span> <span class="p">|</span> 00041E, ILYA STEPANOV
+</span></span><span class="line"><span class="cl">        <span class="m">192</span> <span class="p">|</span> 000447, VIKTOR VASILEV
+</span></span><span class="line"><span class="cl">        <span class="m">193</span> <span class="p">|</span> 00044D, NADEZHDA KULIKOVA
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">192</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在这种情况下，只有通过预订参考号和乘客姓名，或仅通过预订参考号，才能高效地检索 tickets 表。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;000010&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                    QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan using tickets_book_ref_idx on tickets
+</span></span><span class="line"><span class="cl">   Index Cond: <span class="o">(</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;000010&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;000010&#39;</span> AND <span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan using tickets_bref_name_idx on tickets
+</span></span><span class="line"><span class="cl">   Index Cond: <span class="o">((</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;000010&#39;</span>::bpchar<span class="o">)</span> AND <span class="o">(</span>passenger_name...
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>但如果我们查找乘客姓名，则必须扫描所有的行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Gather
+</span></span><span class="line"><span class="cl">   Workers Planned: <span class="m">2</span>
+</span></span><span class="line"><span class="cl">   −&gt; Parallel Seq Scan on tickets
+</span></span><span class="line"><span class="cl">       Filter: <span class="o">(</span><span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span>::text<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>即使规划器选择执行索引扫描，也仍然需要遍历所有索引条目。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 不幸的是，计划并不会显示条件实际上仅用于过滤结果。</p>
+<blockquote>
+<p>如果第一列没有太多不同的值 v1,v2, …, vn，通过以下条件进行一系列搜索而不是使用单一条件 &ldquo;col2 = value&rdquo; 的搜索，可能会有益处，这样可以在对应的子树上进行多次遍历：</p>
+<p>col1 = v1 and col2 = value</p>
+<p>col1 = v2 and col2 = value</p>
+<p>⋯</p>
+<p>col1 = vn and col2 = value</p>
+<p>这种类型的索引访问被称之为 Skip Scan，但目前尚未实现。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
+</blockquote>
+<p>反之亦然，如果根据乘客姓名和预订号创建索引，那么它将更适合仅按乘客姓名，或者按乘客姓名和预订参考号两者进行查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX tickets_name_bref_idx
+</span></span><span class="line"><span class="cl">ON tickets<span class="o">(</span>passenger_name, book_ref<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT itemoffset, data_to_text<span class="o">(</span>data<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span><span class="s1">&#39;tickets_name_bref_idx&#39;</span>,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE itemoffset &gt; 1<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span>         data_to_text
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> ADELINA ABRAMOVA, E37EDB
+</span></span><span class="line"><span class="cl">          <span class="m">3</span> <span class="p">|</span> ADELINA AFANASEVA, 1133B7
+</span></span><span class="line"><span class="cl">          <span class="m">4</span> <span class="p">|</span> ADELINA AFANASEVA, 4F3370
+</span></span><span class="line"><span class="cl">          <span class="m">5</span> <span class="p">|</span> ADELINA AKIMOVA, 7D2881
+</span></span><span class="line"><span class="cl">          <span class="m">6</span> <span class="p">|</span> ADELINA ALEKSANDROVA, 3C3ADD
+</span></span><span class="line"><span class="cl">          <span class="m">7</span> <span class="p">|</span> ADELINA ALEKSANDROVA, 52801E
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">        <span class="m">185</span> <span class="p">|</span> ADELINA LEBEDEVA, 0A00E3
+</span></span><span class="line"><span class="cl">        <span class="m">186</span> <span class="p">|</span> ADELINA LEBEDEVA, DAEADE
+</span></span><span class="line"><span class="cl">        <span class="m">187</span> <span class="p">|</span> ADELINA LEBEDEVA, DFD7E5
+</span></span><span class="line"><span class="cl">        <span class="m">188</span> <span class="p">|</span> ADELINA LOGINOVA, 8022F3
+</span></span><span class="line"><span class="cl">        <span class="m">189</span> <span class="p">|</span> ADELINA LOGINOVA, EE67B9
+</span></span><span class="line"><span class="cl">        <span class="m">190</span> <span class="p">|</span> ADELINA LUKYANOVA, <span class="m">292786</span>
+</span></span><span class="line"><span class="cl">        <span class="m">191</span> <span class="p">|</span> ADELINA LUKYANOVA, 54D3F9
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">190</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT * FROM tickets
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                           QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on tickets
+</span></span><span class="line"><span class="cl">   Recheck Cond: <span class="o">(</span><span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span>::text<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Bitmap Index Scan on tickets_name_bref_idx
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">passenger_name</span> <span class="o">=</span> <span class="s1">&#39;LYUDMILA BOGDANOVA&#39;</span>::text<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>除了列顺序之外，在创建新索引时，还应该注意排序顺序。默认情况下，值按升序 (ASC) 排序，但如果需要，可以将其反转为降序 (DESC)。如果索引是在单个列上构建的，这并不重要，因为它可以沿任何方向扫描。但在多列索引中，排序顺序变得很重要。</p>
+<p>我们新创建的索引可以用来按升序或降序检索按两列排序的数据：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">ORDER BY passenger_name, book_ref<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                    QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan using tickets_name_bref_idx on tickets
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets ORDER BY passenger_name DESC, book_ref DESC<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan Backward using tickets_name_bref_idx on tickets
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>但是，如果需要同时按一个列升序和另一个列降序排序，那么此索引将无法立即返回数据。</p>
+<p>在这种情况下，索引提供的是部分排序的数据，必须进一步按第二个属性排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets ORDER BY passenger_name ASC, book_ref DESC<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                       QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Incremental Sort
+</span></span><span class="line"><span class="cl">   Sort Key: passenger_name, book_ref DESC
+</span></span><span class="line"><span class="cl">   Presorted Key: passenger_name
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using tickets_name_bref_idx on tickets
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>空值的位置也会影响使用索引进行排序的能力。默认情况下，出于排序目的，空值被视为比常规值&quot;更大&quot;，也就是说，如果排序顺序为升序，它们位于树的右侧，如果排序顺序为降序，则位于左侧。可以使用 NULLS LAST 和 NULLS FIRST 子句更改空值的位置。</p>
+<p>在下一个示例中，索引不满足 ORDER BY 子句，因此必须对结果进行排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets ORDER BY passenger_name NULLS FIRST, book_ref DESC<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                        QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Gather Merge
+</span></span><span class="line"><span class="cl">   Workers Planned: <span class="m">2</span>
+</span></span><span class="line"><span class="cl">   −&gt; Sort
+</span></span><span class="line"><span class="cl">       Sort Key: passenger_name NULLS FIRST, book_ref DESC
+</span></span><span class="line"><span class="cl">       −&gt; Parallel Seq Scan on tickets
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>但如果我们创建一个遵循所需顺序的索引，那么它便会被使用：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX tickets_name_bref_idx2
+</span></span><span class="line"><span class="cl">ON tickets<span class="o">(</span>passenger_name NULLS FIRST, book_ref DESC<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets ORDER BY passenger_name NULLS FIRST, book_ref DESC<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                     QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan using tickets_name_bref_idx2 on tickets
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h2>25.5 属性<span class="hx-absolute -hx-mt-20" id="255-属性"></span>
+    <a href="#255-%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>让我们看一下 B 树的接口属性。</p>
+<h3>25.5.1 访问方法属性<span class="hx-absolute -hx-mt-20" id="2551-访问方法属性"></span>
+    <a href="#2551-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT a.amname, p.name, pg_indexam_has_property<span class="o">(</span>a.oid, p.name<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM pg_am a, unnest<span class="o">(</span>array<span class="o">[</span>
+</span></span><span class="line"><span class="cl">  <span class="s1">&#39;can_order&#39;</span>, <span class="s1">&#39;can_unique&#39;</span>, <span class="s1">&#39;can_multi_col&#39;</span>,
+</span></span><span class="line"><span class="cl">  <span class="s1">&#39;can_exclude&#39;</span>, <span class="s1">&#39;can_include&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">])</span> p<span class="o">(</span>name<span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE a.amname <span class="o">=</span> <span class="s1">&#39;btree&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> amname <span class="p">|</span>     name      <span class="p">|</span> pg_indexam_has_property
+</span></span><span class="line"><span class="cl">−−−−−−−−+−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> btree  <span class="p">|</span> can_order     <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> btree  <span class="p">|</span> can_unique    <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> btree 	<span class="p">|</span> can_multi_col <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> btree  <span class="p">|</span> can_exclude   <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> btree  <span class="p">|</span> can_include   <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>B 树可以对数据进行排序并确保其唯一性。它是唯一具有这些属性的访问方法。</p>
+<p>许多访问方法都支持多列索引，但由于 B 树中的值是有序的，因此你需要密切关注索引中列的顺序。</p>
+<p>从形式上讲，支持排它约束，但它们仅限于等值条件，这使它们类似于唯一约束。使用完整的唯一约束更为可取。</p>
+<p>B 树索引还可以通过不参与搜索的额外的 INCLUDE 列进行扩展。</p>
+<h3>25.5.2 索引级属性<span class="hx-absolute -hx-mt-20" id="2552-索引级属性"></span>
+    <a href="#2552-%e7%b4%a2%e5%bc%95%e7%ba%a7%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT p.name, pg_index_has_property<span class="o">(</span><span class="s1">&#39;flights_pkey&#39;</span>, p.name<span class="o">)</span>
+</span></span><span class="line"><span class="cl">FROM unnest<span class="o">(</span>array<span class="o">[</span>
+</span></span><span class="line"><span class="cl">  <span class="s1">&#39;clusterable&#39;</span>, <span class="s1">&#39;index_scan&#39;</span>, <span class="s1">&#39;bitmap_scan&#39;</span>, <span class="s1">&#39;backward_scan&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">])</span> p<span class="o">(</span>name<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     name      <span class="p">|</span> pg_index_has_property
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> clusterable   <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> index_scan    <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> bitmap_scan   <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"> backward_scan <span class="p">|</span> t
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>B 树索引可用于聚簇。</p>
+<p>也支持索引扫描和位图扫描。由于叶子页面被绑定到双向列表中，因此也可以向后遍历索引，从而导致相反的排序顺序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM bookings ORDER BY book_ref DESC<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                     QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Index Scan Backward using bookings_pkey on bookings
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>25.5.3 列级属性<span class="hx-absolute -hx-mt-20" id="2553-列级属性"></span>
+    <a href="#2553-%e5%88%97%e7%ba%a7%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="o">=&gt;</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">pg_index_column_has_property</span><span class="p">(</span><span class="s1">&#39;flights_pkey&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">name</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">FROM</span><span class="w"> </span><span class="k">unnest</span><span class="p">(</span><span class="nb">array</span><span class="p">[</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="s1">&#39;asc&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;desc&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;nulls_first&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;nulls_last&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;orderable&#39;</span><span class="p">,</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="s1">&#39;distance_orderable&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;returnable&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;search_array&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;search_nulls&#39;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">])</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">name</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">name</span><span class="w">        </span><span class="o">|</span><span class="w"> </span><span class="n">pg_index_column_has_property</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="err">−−−−−−−−−−−−−−−−−−−−</span><span class="o">+</span><span class="err">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="k">asc</span><span class="w">                </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="k">desc</span><span class="w">               </span><span class="o">|</span><span class="w"> </span><span class="n">f</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">nulls_first</span><span class="w">        </span><span class="o">|</span><span class="w"> </span><span class="n">f</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">nulls_last</span><span class="w">         </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">orderable</span><span class="w">          </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">distance_orderable</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">f</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">returnable</span><span class="w">         </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">search_array</span><span class="w">       </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">search_nulls</span><span class="w">       </span><span class="o">|</span><span class="w"> </span><span class="n">t</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">(</span><span class="mi">9</span><span class="w"> </span><span class="k">rows</span><span class="p">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>ORDERABLE 属性表明存储在 B 树中的数据是有序的，而前四个属性 (ASC 和 DESC、NULLS FIRST 和 NULLS LAST) 定义了特定列中实际的排序顺序。在此例中，列值按升序排序，空值在最后。</p>
+<p>SEARCH NULLS 属性表明是否可以搜索空值。</p>
+<p>B 树不支持排序运算符 (DISTANCE ORDERABLE)，尽管已经尝试去实现它们。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
+<p>B 树支持在数组中搜索多个元素 (SEARCH ARRAY 属性)，并且可以在不访问堆的情况下返回结果数据 (RETURNABLE)。</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>postgresql.org/docs/14/btree.html<br>backend/access/nbtree/README&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>backend/access/nbtree/nbtsearch.c, _bt_search function&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>postgresql.org/docs/14/btree-implementation#BTREE-DEDUPLICATION.html&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p>backend/access/nbtree/nbtinsert.c, _bt_delete_or_dedup_one_page function&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p>backend/access/nbtree/nbtdedup.c, _bt_dedup_pass function&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p>postgresql.org/docs/14/collation.html&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p>backend/access/nbtree/nbtinsert.c, _bt_split function&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p>postgresql.org/docs/14/btree-behavior.html&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p>postgresql.org/docs/14/xindex#XINDEX-STRATEGIES.html&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:10">
+<p>postgresql.org/docs/14/btree-support-funcs.html&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:11">
+<p>postgresql.org/docs/14/xindex#XINDEX-EXAMPLE.html&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:12">
+<p>backend/access/nbtree/nbtsearch.c, _bt_first function&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:13">
+<p>commitfest.postgresql.org/34/1741&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:14">
+<p>commitfest.postgresql.org/27/1804&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.js" integrity=""></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.js" integrity=""></script>
+<link type="text/css" rel="stylesheet" href="/lib/katex/katex.min.7e5db7914b97e596a36c1abb67ccc7f174f8bb71d38c9a88c55b262ed1737f97.css" integrity="sha256-fl23kUuX5ZajbBq7Z8zH8XT4u3HTjJqIxVsmLtFzf5c=" />
+  <script defer src="/lib/katex/katex.min.9f45307c5794ed247a0d095f3a62e52ef2215a67b2327203a7fd919959ae79d1.js" integrity="sha256-n0UwfFeU7SR6DQlfOmLlLvIhWmeyMnIDp/2RmVmuedE="></script>
+  <script defer src="/lib/katex/auto-render.min.7b57d427ac6270677daf8d8380ded2cc73336f9149a167b8e1fe0d6ef66604ae.js" integrity="sha256-e1fUJ6xicGd9r42DgN7SzHMzb5FJoWe44f4NbvZmBK4="></script>
+  <script defer src="/lib/katex/mhchem.min.f0ca03df194b8c3d6017ff455db6a0ef98857905663fa311a6cded788b15340b.js" integrity="sha256-8MoD3xlLjD1gF/9FXbag75iFeQVmP6MRps3teIsVNAs="></script>
+  <script>
+    
+    
+    document.addEventListener("DOMContentLoaded", function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\begin{equation}", right: "\\end{equation}", display: true },
+          {left: "\\begin{align}", right: "\\end{align}", display: true},
+          {left: "\\begin{alignat}", right: "\\end{alignat}", display: true},
+          {left: "\\begin{gather}", right: "\\end{gather}", display: true},
+          {left: "\\begin{CD}", right: "\\end{CD}", display: true},
+          { left: "\\[", right: "\\]", display: true },
+        ],
+        throwOnError: false,
+      });
+    });
+  </script>
+
+
+  </body>
+</html>

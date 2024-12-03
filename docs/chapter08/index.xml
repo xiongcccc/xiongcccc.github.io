@@ -1,0 +1,18 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>PostgreSQL 14 Internals – 第 8 章：重建表与索引</title>
+    <link>//localhost:1313/docs/chapter08/</link>
+    <description>Recent content in 第 8 章：重建表与索引 on PostgreSQL 14 Internals</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    
+	  <atom:link href="//localhost:1313/docs/chapter08/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+  </channel>
+</rss>

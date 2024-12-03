@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 3 章：页与元组 – PostgreSQL 14 Internals</title>
+  <meta name="description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
+页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
+这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) " />
+
+  
+    <link rel="canonical" href="//localhost:1313/docs/chapter03/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 3 章：页与元组" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="//localhost:1313/docs/chapter03/" />
+
+  
+  <meta itemprop="name" content="第 3 章：页与元组">
+  <meta itemprop="description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
+页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
+这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row)">
+  <meta itemprop="wordCount" content="1582">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 3 章：页与元组">
+  <meta name="twitter:description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
+页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
+这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row)">
+
+    <link href="/css/compiled/main.css" rel="stylesheet" />
+
+
+
+  <link href="/css/custom.css" rel="stylesheet" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'system';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  
+</head>
+<body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 14 Internals">PostgreSQL 14 Internals</span>
+    </a><a
+            title="Docs"
+            href="/docs"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
+          >
+            <span class="hx-text-center">Docs</span>
+          </a><a
+            title="About"
+            href="/about"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">About</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/about/"
+    
+  >About
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/"
+    
+  >Docs
+        <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
+    </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
+        <ul class='hx-relative hx-flex hx-flex-col hx-gap-1 before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] ltr:hx-ml-3 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-mr-3 rtl:hx-pr-3 rtl:before:hx-right-0 dark:before:hx-bg-neutral-800'><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#31-%e9%a1%b5%e9%9d%a2%e7%bb%93%e6%9e%84"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.1 页面结构</a>
+            </li>
+          <li>
+              <a
+                href="#32-%e8%a1%8c%e7%89%88%e6%9c%ac%e5%b8%83%e5%b1%80"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.2 行版本布局</a>
+            </li>
+          <li>
+              <a
+                href="#33-%e5%85%83%e7%bb%84%e6%93%8d%e4%bd%9c"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.3 元组操作</a>
+            </li>
+          <li>
+              <a
+                href="#34-%e7%b4%a2%e5%bc%95"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.4 索引</a>
+            </li>
+          <li>
+              <a
+                href="#35-toast"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.5 TOAST</a>
+            </li>
+          <li>
+              <a
+                href="#36-%e8%99%9a%e6%8b%9f%e4%ba%8b%e5%8a%a1"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.6 虚拟事务</a>
+            </li>
+          <li>
+              <a
+                href="#37-%e5%ad%90%e4%ba%8b%e5%8a%a1"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.7 子事务</a>
+            </li>
+          </ul>
+  
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a>
+              
+            </li></ul>
+      </div></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/recommend/"
+    
+  >Recommend
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#31-%e9%a1%b5%e9%9d%a2%e7%bb%93%e6%9e%84">3.1 页面结构
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#311-%e9%a1%b5%e5%a4%b4">3.1.1 页头
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#312-%e7%89%b9%e6%ae%8a%e7%a9%ba%e9%97%b4">3.1.2 特殊空间
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#313-%e5%85%83%e7%bb%84">3.1.3 元组
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#314-%e9%a1%b9%e6%8c%87%e9%92%88">3.1.4 项指针
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#315-%e7%a9%ba%e9%97%b2%e7%a9%ba%e9%97%b4">3.1.5 空闲空间
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#32-%e8%a1%8c%e7%89%88%e6%9c%ac%e5%b8%83%e5%b1%80">3.2 行版本布局
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#33-%e5%85%83%e7%bb%84%e6%93%8d%e4%bd%9c">3.3 元组操作
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#331-%e6%8f%92%e5%85%a5">3.3.1 插入
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#332-%e6%8f%90%e4%ba%a4">3.3.2 提交
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#333-%e5%88%a0%e9%99%a4">3.3.3 删除
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#334-%e4%b8%ad%e6%ad%a2">3.3.4 中止
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#335-%e6%9b%b4%e6%96%b0">3.3.5 更新
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#34-%e7%b4%a2%e5%bc%95">3.4 索引
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#35-toast">3.5 TOAST
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#36-%e8%99%9a%e6%8b%9f%e4%ba%8b%e5%8a%a1">3.6 虚拟事务
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#37-%e5%ad%90%e4%ba%8b%e5%8a%a1">3.7 子事务
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#371-%e4%bf%9d%e5%ad%98%e7%82%b9">3.7.1 保存点
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#372-%e9%94%99%e8%af%af%e4%b8%8e%e5%8e%9f%e5%ad%90%e6%80%a7">3.7.2 错误与原子性
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        
+  <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
+        <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
+          <a href="/docs/">Docs</a>
+        </div><svg class="hx-w-3.5 hx-shrink-0 rtl:-hx-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx-whitespace-nowrap hx-transition-colors hx-font-medium hx-text-gray-700 contrast-more:hx-font-bold contrast-more:hx-text-current dark:hx-text-gray-100 contrast-more:dark:hx-text-current">第 3 章：页与元组</div>
+  </div>
+
+        <div class="content">
+          <h1>第 3 章：页与元组</h1>
+          <h2>3.1 页面结构<span class="hx-absolute -hx-mt-20" id="31-页面结构"></span>
+    <a href="#31-%e9%a1%b5%e9%9d%a2%e7%bb%93%e6%9e%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>每个页面都有特定的内部布局，通常由以下部分组成 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>：</p>
+<ul>
+<li>页头</li>
+<li>项指针数组</li>
+<li>空闲空间</li>
+<li>项 (行版本)</li>
+<li>特殊空间</li>
+</ul>
+<h3>3.1.1 页头<span class="hx-absolute -hx-mt-20" id="311-页头"></span>
+    <a href="#311-%e9%a1%b5%e5%a4%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。</p>
+<p>这些大小可以通过 pageinspect 扩展 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 查看。让我们看下表的第一个页面，页号从零开始：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="o">=&gt;</span><span class="w"> </span><span class="k">CREATE</span><span class="w"> </span><span class="n">EXTENSION</span><span class="w"> </span><span class="n">pageinspect</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="o">=&gt;</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="k">lower</span><span class="p">,</span><span class="w"> </span><span class="k">upper</span><span class="p">,</span><span class="w"> </span><span class="n">special</span><span class="p">,</span><span class="w"> </span><span class="n">pagesize</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">FROM</span><span class="w"> </span><span class="n">page_header</span><span class="p">(</span><span class="n">get_raw_page</span><span class="p">(</span><span class="s1">&#39;accounts&#39;</span><span class="p">,</span><span class="mi">0</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="k">lower</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="k">upper</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">special</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">pagesize</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="err">−−−−−−−</span><span class="o">+</span><span class="err">−−−−−−−</span><span class="o">+</span><span class="err">−−−−−−−−−</span><span class="o">+</span><span class="err">−−−−−−−−−−</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">   </span><span class="mi">152</span><span class="w"> </span><span class="o">|</span><span class="w">  </span><span class="mi">6904</span><span class="w"> </span><span class="o">|</span><span class="w">    </span><span class="mi">8192</span><span class="w"> </span><span class="o">|</span><span class="w">     </span><span class="mi">8192</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="k">row</span><span class="p">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p><img src="3-1.png" alt="" loading="lazy" /></p>
+<h3>3.1.2 特殊空间<span class="hx-absolute -hx-mt-20" id="312-特殊空间"></span>
+    <a href="#312-%e7%89%b9%e6%ae%8a%e7%a9%ba%e9%97%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。</p>
+<p>一般来说，索引页面的布局相当多样；它们的内容很大程度上取决于特定的索引类型。即使是同一个索引也可以有不同类型的页面：例如，B 树有一个特殊结构的元数据页面 (第零页) 和与表页面非常相似的常规页面。</p>
+<h3>3.1.3 元组<span class="hx-absolute -hx-mt-20" id="313-元组"></span>
+    <a href="#313-%e5%85%83%e7%bb%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>行 (rows) 包含存储在数据库中的实际数据以及一些额外信息。它们位于特殊空间之前。</p>
+<p>在处理表时，我们需要处理的是行版本而不是行，因为多版本并发控制意味着同一行有多个版本。索引不使用这种 MVCC 机制；相反，它们必须引用所有可用的行版本，然后依靠可见性规则来选择合适的行版本。</p>
+<blockquote>
+<p>表的行版本和索引条目通常都被称为元组。这个术语源自关系理论 — 这是 PostgreSQL 学术历史的另一项遗产。</p>
+</blockquote>
+<h3>3.1.4 项指针<span class="hx-absolute -hx-mt-20" id="314-项指针"></span>
+    <a href="#314-%e9%a1%b9%e6%8c%87%e9%92%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>指向元组的指针数组作为页面的目录。它位于页头之后。</p>
+<p>索引条目必须以某种方式引用特定的堆元组。为此 PostgreSQL 使用六字节的元组标识符 (TIDS)。每个 TID 由主分支的页号以及对该页面中特定行版本的引用所组成。</p>
+<p>理论上，元组可以通过它们从页面开始的偏移量来引用。但这样一来，如果不破坏这些引用，就无法在页面内移动元组，进而导致页面碎片以及其他不愉快的后果。</p>
+<p>为此，PostgreSQL 使用间接寻址：元组标识符指向相应的指针号，而这个指针指定了元组的当前偏移量。如果元组在页面内移动，其 TID 仍然保持不变，只需修改位于该页面中的指针即可。</p>
+<p>每个指针占用四个字节，并包含以下数据：</p>
+<ul>
+<li>元组从页面开始的偏移量</li>
+<li>元组长度</li>
+<li>定义元组状态的若干比特位</li>
+</ul>
+<h3>3.1.5 空闲空间<span class="hx-absolute -hx-mt-20" id="315-空闲空间"></span>
+    <a href="#315-%e7%a9%ba%e9%97%b2%e7%a9%ba%e9%97%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>页面在指针和元组之间会留下一些空闲空间 (这反映在空闲空间映射中)。页面不会碎片化：所有可用的空闲空间总是聚集成一个块 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>。</p>
+<h2>3.2 行版本布局<span class="hx-absolute -hx-mt-20" id="32-行版本布局"></span>
+    <a href="#32-%e8%a1%8c%e7%89%88%e6%9c%ac%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>每个行版本都包含一个行头，后面跟着实际的数据。行头由多个字段组成，包括以下内容：</p>
+<p><strong>xmin, xmax</strong> 代表事务 ID；它们用于区分同一行的当前版本与其他版本。</p>
+<p><strong>infomask</strong> 提供了一组用于定义行版本属性的信息位。</p>
+<p><strong>ctid</strong> 是指向同一行的下一个更新版本的指针。</p>
+<p><strong>null bitmap</strong> 是一个位数组，用于标记列中是否包含空值。</p>
+<p>因此，行头会变得非常大：每个元组至少需要 23 个字节，并且由于空值位图以及用于数据对齐的强制填充，通常情况下会超过此值。在&quot;窄&quot;表中，各种元数据的大小很容易超过实际存储数据的大小。</p>
+<p>磁盘上的数据布局与 RAM 中的数据表示完全一致。页面及其元组按原样读入缓冲区缓存中，无需任何转换。这就是为什么数据文件在不同平台之间不兼容的原因 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。</p>
+<p>不兼容的原因之一是字节序。例如，x86 架构是小端序，z/Architecture 是大端序，而 ARM 的字节序是可配置的。</p>
+<p>另一个原因是按照机器字边界进行数据对齐，这也是许多架构所要求的。例如，在 32 位 x86 系统中，整数 (integer 类型，占用四个字节) 按四字节字边界对齐，就像双精度浮点数 (double precision 类型，占用八个字节)。但在 64 位系统中，双精度数按八字节字边界对齐。</p>
+<p>数据对齐使得元组的大小取决于表中字段的顺序。这种影响通常可以忽略不计，但在某些情况下，它会导致大小显著增加。此处是一个例子：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE padding<span class="o">(</span>
+</span></span><span class="line"><span class="cl">  b1 boolean,
+</span></span><span class="line"><span class="cl">  i1 integer,
+</span></span><span class="line"><span class="cl">  b2 boolean,
+</span></span><span class="line"><span class="cl">  i2 integer
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO padding VALUES <span class="o">(</span>true,1,false,2<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT lp_len FROM heap_page_items<span class="o">(</span>get_raw_page<span class="o">(</span><span class="s1">&#39;padding&#39;</span>, 0<span class="o">))</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> lp_len
+</span></span><span class="line"><span class="cl">−−−−−−−−
+</span></span><span class="line"><span class="cl">     <span class="m">40</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>我使用了 pageinspect 扩展中的 heap_page_items 函数来显示关于指针和元组的一些细节。</p>
+<blockquote>
+<p>在 PostgreSQL 中，表通常被称为堆 (heap)。这是另一个晦涩的术语，暗示了元组的空间分配和动态内存分配之间的相似性。确实可以看到某种类比，但表由完全不同的算法管理。与有序索引相比，我们可以将这个术语理解为&quot;一切都堆积成堆&quot;。</p>
+</blockquote>
+<p>这一行的大小是 40 个字节，其行头占 24 个字节，integer 类型的列占用 4 个字节，每个 boolean 类型的列占用 1 个字节。总共 34 个字节，因此浪费了 6 个字节用于整数列的四字节对齐。</p>
+<p>如果我们重建表，空间将被更有效地利用：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; DROP TABLE padding<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE padding<span class="o">(</span>
+</span></span><span class="line"><span class="cl">  i1 integer,
+</span></span><span class="line"><span class="cl">  i2 integer,
+</span></span><span class="line"><span class="cl">  b1 boolean,
+</span></span><span class="line"><span class="cl">  b2 boolean
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO padding VALUES <span class="o">(</span>1,2,true,false<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT lp_len FROM heap_page_items<span class="o">(</span>get_raw_page<span class="o">(</span><span class="s1">&#39;padding&#39;</span>, 0<span class="o">))</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> lp_len
+</span></span><span class="line"><span class="cl">−−−−−−−−
+</span></span><span class="line"><span class="cl">     <span class="m">34</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>另一种可能的微优化是在表的开头放置不包含空值的固定长度的列。对这些列的访问会更有效率，因为可以缓存它们在元组内的偏移量 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
+<h2>3.3 元组操作<span class="hx-absolute -hx-mt-20" id="33-元组操作"></span>
+    <a href="#33-%e5%85%83%e7%bb%84%e6%93%8d%e4%bd%9c" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>为了识别同一行的不同版本，PostgreSQL 使用两个值来标记每个版本：xmin 和 xmax。这些值定义了每个行版本的&quot;有效时间&quot;，但它们不是实际时间，而是依赖于不断增加的事务 ID。</p>
+<p>当创建一行时，其 xmin 值被设置为 INSERT 命令的事务 ID。</p>
+<p>当删除一行时，其当前版本的 xmax 值被设置为 DELETE 命令的事务 ID。</p>
+<p>UPDATE 命令具有一定程度的抽象性，可以将其看作是两个独立的操作：DELETE 和 INSERT。首先，当前行版本的 xmax 值设置为 UPDATE 命令的事务 ID。然后创建该行的新版本；其 xmin 值与前一个版本的 xmax 值相同。</p>
+<p>现在，让我们深入了解一些关于元组操作的底层细节 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>。</p>
+<p>对于这些实验，我们需要一个含有两列的表，并在其中一列上创建索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE t<span class="o">(</span>
+</span></span><span class="line"><span class="cl">  id integer GENERATED ALWAYS AS IDENTITY,
+</span></span><span class="line"><span class="cl">  s text
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON t<span class="o">(</span>s<span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.1 插入<span class="hx-absolute -hx-mt-20" id="331-插入"></span>
+    <a href="#331-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>开启一个事务并插入一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO t<span class="o">(</span>s<span class="o">)</span> VALUES <span class="o">(</span><span class="s1">&#39;FOO&#39;</span><span class="o">)</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这是当前的事务ID</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; -- txid_current<span class="o">()</span> before v.13
+</span></span><span class="line"><span class="cl">SELECT pg_current_xact_id<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                <span class="m">776</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<blockquote>
+<p>为了表示事务的概念，PostgreSQL 使用了术语 xact，这个术语可以在 SQL 函数名和源代码中找到。因此，事务 ID 可以称为 xact ID、TXID 或简称为 XID。我们会反复遇到这些缩写。</p>
+</blockquote>
+<p>让我们看一下页面内容。heap_page_items 函数可以提供我们所有需要的信息，但是它&quot;按原样&quot;显示数据，因此输出格式有点难以理解：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT *
+</span></span><span class="line"><span class="cl">FROM heap_page_items<span class="o">(</span>get_raw_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">))</span> <span class="se">\g</span>x
+</span></span><span class="line"><span class="cl">−<span class="o">[</span> RECORD <span class="m">1</span> <span class="o">]</span>−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">lp          <span class="p">|</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">lp_off      <span class="p">|</span> <span class="m">8160</span>
+</span></span><span class="line"><span class="cl">lp_flags    <span class="p">|</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">lp_len      <span class="p">|</span> <span class="m">32</span>
+</span></span><span class="line"><span class="cl">t_xmin      <span class="p">|</span> <span class="m">776</span>
+</span></span><span class="line"><span class="cl">t_xmax      <span class="p">|</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">t_field3    <span class="p">|</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">t_ctid      <span class="p">|</span> <span class="o">(</span>0,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">t_infomask2 <span class="p">|</span> <span class="m">2</span>
+</span></span><span class="line"><span class="cl">t_infomask 	<span class="p">|</span> <span class="m">2050</span>
+</span></span><span class="line"><span class="cl">t_hoff      <span class="p">|</span> <span class="m">24</span>
+</span></span><span class="line"><span class="cl">t_bits      <span class="p">|</span>
+</span></span><span class="line"><span class="cl">t_oid       <span class="p">|</span>
+</span></span><span class="line"><span class="cl">t_data      <span class="p">|</span> <span class="se">\x</span>0100000009464f4f</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>为了使其更具有可读性，我们可以省略一些信息并扩展一些列：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT <span class="s1">&#39;(0,&#39;</span><span class="o">||</span>lp<span class="o">||</span><span class="s1">&#39;)&#39;</span> AS ctid,
+</span></span><span class="line"><span class="cl">     CASE lp_flags
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">0</span> THEN <span class="s1">&#39;unused&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">1</span> THEN <span class="s1">&#39;normal&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">2</span> THEN <span class="s1">&#39;redirect to &#39;</span><span class="o">||</span>lp_off
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">3</span> THEN <span class="s1">&#39;dead&#39;</span>
+</span></span><span class="line"><span class="cl">     END AS state,
+</span></span><span class="line"><span class="cl">     t_xmin as xmin,
+</span></span><span class="line"><span class="cl">     t_xmax as xmax,
+</span></span><span class="line"><span class="cl">     <span class="o">(</span>t_infomask <span class="p">&amp;</span> 256<span class="o">)</span> &gt; <span class="m">0</span> AS xmin_committed,
+</span></span><span class="line"><span class="cl">     <span class="o">(</span>t_infomask <span class="p">&amp;</span> 512<span class="o">)</span> &gt; <span class="m">0</span> AS xmin_aborted,
+</span></span><span class="line"><span class="cl">     <span class="o">(</span>t_infomask <span class="p">&amp;</span> 1024<span class="o">)</span> &gt; <span class="m">0</span> AS xmax_committed,
+</span></span><span class="line"><span class="cl">     <span class="o">(</span>t_infomask <span class="p">&amp;</span> 2048<span class="o">)</span> &gt; <span class="m">0</span> AS xmax_aborted
+</span></span><span class="line"><span class="cl">FROM heap_page_items<span class="o">(</span>get_raw_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">))</span> <span class="se">\g</span>x
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">−<span class="o">[</span> RECORD <span class="m">1</span> <span class="o">]</span>−−+−−−−−−−
+</span></span><span class="line"><span class="cl">ctid           <span class="p">|</span> <span class="o">(</span>0,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">state          <span class="p">|</span> normal
+</span></span><span class="line"><span class="cl">xmin           <span class="p">|</span> <span class="m">776</span>
+</span></span><span class="line"><span class="cl">xmax           <span class="p">|</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">xmin_committed <span class="p">|</span> f
+</span></span><span class="line"><span class="cl">xmin_aborted   <span class="p">|</span> f
+</span></span><span class="line"><span class="cl">xmax_committed <span class="p">|</span> f
+</span></span><span class="line"><span class="cl">xmax_aborted   <span class="p">|</span> t</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此查询完成了以下操作：</p>
+<ul>
+<li>lp 指针被转换为元组 ID 的标准格式：页号，指针号。</li>
+<li>lp_flags 的状态被详细展示出来。此处它被设为 normal，意味着确实指向一个元组。</li>
+<li>在所有信息位中，到目前为止我们只挑选出了两对。xmin_committed 和 xmin_aborted 表示 xmin 对应的事务已提交或者已中止。xmax_committed 和 xmax_aborted 提供了关于 xmax 事务的类似信息。</li>
+</ul>
+<blockquote>
+<p>pageinspect 扩展提供了 heap_tuple_infomask_flags 函数，用于解释所有的信息位 ，但我目前只检索需要的那些信息位，并以更简洁的形式展示。</p>
+</blockquote>
+<p>让我们回到我们的实验。INSERT 命令已将指针 1 添加到堆页面中，它引用第一个元组，这也是目前唯一的一个元组。</p>
+<p>元组的 xmin 字段被设置为当前事务 ID。此事务目前仍然活跃，因此 xmin_committed 和 xmin_aborted 位均还没有设置。</p>
+<p>xmax 字段包含 0，这是一个虚拟数字，用于表示该元组尚未被删除，并且代表该行的当前版本。事务会忽略这个数字，因为 xmax_aborted 位被设置了。</p>
+<blockquote>
+<p>为尚未发生的事务设置对应于已中止事务的位可能看起来有些奇怪。但是从隔离的角度来看，这些事务之间没有区别：一个已中止的事务不留下任何痕迹，因此就好像它从未存在过一样。</p>
+</blockquote>
+<p>我们会多次使用这个查询，所以我将它封装成一个函数。同时，我还会隐藏信息位的列，并将事务的状态与其 ID 一起显示，以使输出更加简洁。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION heap_page<span class="o">(</span>relname text, pageno integer<span class="o">)</span>
+</span></span><span class="line"><span class="cl">RETURNS TABLE<span class="o">(</span>ctid tid, state text, xmin text, xmax text<span class="o">)</span>
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">SELECT <span class="o">(</span>pageno,lp<span class="o">)</span>::text::tid AS ctid,
+</span></span><span class="line"><span class="cl">     CASE lp_flags
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">0</span> THEN <span class="s1">&#39;unused&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">1</span> THEN <span class="s1">&#39;normal&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">2</span> THEN <span class="s1">&#39;redirect to &#39;</span><span class="o">||</span>lp_off
+</span></span><span class="line"><span class="cl">       WHEN <span class="m">3</span> THEN <span class="s1">&#39;dead&#39;</span>
+</span></span><span class="line"><span class="cl">     END AS state,
+</span></span><span class="line"><span class="cl">     t_xmin <span class="o">||</span> CASE
+</span></span><span class="line"><span class="cl">       WHEN <span class="o">(</span>t_infomask <span class="p">&amp;</span> 256<span class="o">)</span> &gt; <span class="m">0</span> THEN <span class="s1">&#39; c&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="o">(</span>t_infomask <span class="p">&amp;</span> 512<span class="o">)</span> &gt; <span class="m">0</span> THEN <span class="s1">&#39; a&#39;</span>
+</span></span><span class="line"><span class="cl">       ELSE <span class="s1">&#39;&#39;</span>
+</span></span><span class="line"><span class="cl">     END AS xmin,
+</span></span><span class="line"><span class="cl">     t_xmax <span class="o">||</span> CASE
+</span></span><span class="line"><span class="cl">       WHEN <span class="o">(</span>t_infomask <span class="p">&amp;</span> 1024<span class="o">)</span> &gt; <span class="m">0</span> THEN <span class="s1">&#39; c&#39;</span>
+</span></span><span class="line"><span class="cl">       WHEN <span class="o">(</span>t_infomask <span class="p">&amp;</span> 2048<span class="o">)</span> &gt; <span class="m">0</span> THEN <span class="s1">&#39; a&#39;</span>
+</span></span><span class="line"><span class="cl">       ELSE <span class="s1">&#39;&#39;</span>
+</span></span><span class="line"><span class="cl">     END AS xmax
+</span></span><span class="line"><span class="cl">FROM heap_page_items<span class="o">(</span>get_raw_page<span class="o">(</span>relname,pageno<span class="o">))</span>
+</span></span><span class="line"><span class="cl">ORDER BY lp<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE sql<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，元组头中发生的事情更加清晰了：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span>  <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>通过查询 xmin 和 xmax 伪列，你可以从表本身获得类似但不太详细的信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT xmin, xmax, * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> xmin <span class="p">|</span> xmax <span class="p">|</span> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−−−+−−−−−−+−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">776</span> <span class="p">|</span>    <span class="m">0</span> <span class="p">|</span>  <span class="m">1</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.2 提交<span class="hx-absolute -hx-mt-20" id="332-提交"></span>
+    <a href="#332-%e6%8f%90%e4%ba%a4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>一旦事务成功完成，其状态必须以某种方式存储 — 必须记录该事务已提交。为此，PostgreSQL 使用了一种特殊的 CLOG (提交日志) 结构 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。它作为文件存储在 PGDATA/pg_xact 目录中，而不是系统表。</p>
+<blockquote>
+<p>以前，这些文件位于 PGDATA/pg_clog，但在 10 版本中，该目录被重命名了 <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>：对于不熟悉 PostgreSQL 的数据库管理员来说，认为&quot;日志&quot;是不必要的，因此删除它们以释放可用磁盘空间的情况并不少见。</p>
+</blockquote>
+<p>CLOG 被划分成多个文件只是为了方便。这些文件通过服务器共享内存中的缓冲区逐页访问 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>。</p>
+<p>就像元组头一样，CLOG 用两个位表示每个事务：已提交和已中止。</p>
+<p>一旦提交，事务会在 CLOG 中被标记为 committed。当任何其他事务访问堆页面时，它必须回答以下问题：xmin 事务是否已经完成？</p>
+<ul>
+<li>
+<p>如果没有，那么创建的元组一定是不可见的。</p>
+<p>为了检查事务是否仍处于活跃状态，PostgreSQL 使用了另一个位于实例共享内存中的结构；它被称为 ProcArray。该结构包含所有活动进程的列表，每个进程对应的当前 (活动) 事务也在其中指定。</p>
+</li>
+<li>
+<p>如果是的，它是已提交还是已中止了？如果是后者，相应的元组也不可见。</p>
+<p>正是这种检查需要查询 CLOG。尽管最近的 CLOG 页面存储在内存缓冲区中，每次执行这种检查仍然很昂贵。一旦确定，事务状态就被写入到元组头部 — 更具体地说，写入 xmin_committed 和 xmin_aborted 信息位，也被称为提示位。如果设置了这些位中的一个，则认为 xmin 事务状态是已知的，并且下一个事务将不需要再访问 CLOG 或 ProcArray。</p>
+</li>
+</ul>
+<p>为什么插入这些行的事务没有设置这些提示位？问题在于，当时尚不知道此事务是否会成功完成。并且当事务提交时，已经不清楚哪些元组和页面被更改了。如果一个事务影响了许多页面，那么跟踪它们的成本可能太高。此外，其中一些页面可能已不在缓存中了；再次读取它们仅仅为了更新提示位会严重降低提交的速度。</p>
+<p>这种成本削减的负面影响是任何事务 (甚至是只读 SELECT 命令) 都可以设置提示位，从而在缓冲区缓存中留下脏页的痕迹。</p>
+<p>最后，让我们提交以 INSERT 语句开始的事务：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>页面中没有任何变化 (但我们知道事务状态已经写入 CLOG)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span>  <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，第一个访问页面的事务 (以&quot;标准&quot;方式，不使用 pageinspect) 必须确认 xmin 事务的状态，并更新了提示位：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">1</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin 	<span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span> c <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.3 删除<span class="hx-absolute -hx-mt-20" id="333-删除"></span>
+    <a href="#333-%e5%88%a0%e9%99%a4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当删除一行时，其当前版本的 xmax 字段被设置为执行删除操作的事务 ID，并且 xmax_aborted 位还未被设置。</p>
+<blockquote>
+<p>当此事务处于活跃状态时，xmax 值用于行锁。如果另一个事务打算更新或删除这一行，则必须等待，直至 xmax 事务完成。</p>
+</blockquote>
+<p>让我们删除一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; DELETE FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_xact_id<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                <span class="m">777</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>事务 ID 已写入 xmax 字段，但信息位尚未被设置：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span> c <span class="p">|</span> <span class="m">777</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.4 中止<span class="hx-absolute -hx-mt-20" id="334-中止"></span>
+    <a href="#334-%e4%b8%ad%e6%ad%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>事务中止的机制与提交类似，同样迅速，但它在 CLOG 中设置的是中止位而不是提交位。尽管相应的命令称为 ROLLBACK，但实际上并没有发生数据回滚：数据页中被中止事务所做的所有更改都保持原样。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ROLLBACK<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> ctid  <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span> c <span class="p">|</span> <span class="m">777</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>当访问页面时，会检查事务状态，然后元组接收到 xmax_aborted 提示位。xmax 数字本身仍然保留在页面中，但没有人会再关注它：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">1</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span> c <span class="p">|</span> <span class="m">777</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.5 更新<span class="hx-absolute -hx-mt-20" id="335-更新"></span>
+    <a href="#335-%e6%9b%b4%e6%96%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>更新的执行方式就像删除当前元组，然后插入一个新元组：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; UPDATE t SET <span class="nv">s</span> <span class="o">=</span> <span class="s1">&#39;BAR&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_xact_id<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                <span class="m">778</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>查询返回一行 (其新版本)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">1</span> <span class="p">|</span> BAR
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>但是页面中保留了两个版本：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">776</span> c <span class="p">|</span> <span class="m">778</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,2<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">778</span> 	<span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>之前删除的版本的 xmax 字段包含当前事务 ID。这个值被写入到旧值之上，因为前一个事务被中止了。xmax_aborted 位未被设置，因为当前事务仍然属于未知状态。</p>
+<p>为了完成这个实验，让我们提交事务。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h2>3.4 索引<span class="hx-absolute -hx-mt-20" id="34-索引"></span>
+    <a href="#34-%e7%b4%a2%e5%bc%95" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>不管索引的类型如何，均不使用行版本控制；每行都由一个确切的元组表示。换句话说，索引行头不包含 xmin 和 xmax 字段。索引条目指向相应表行的所有版本。要确定哪个行版本是可见的，事务必须访问表 (除非所需的页面出现在可见性映射中)。</p>
+<p>为方便起见，让我们创建一个简单的函数，该函数使用 pageinspect 显示页面中的所有索引条目 (B 树索引页将它们存储为一个扁平列表)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE FUNCTION index_page<span class="o">(</span>relname text, pageno integer<span class="o">)</span>
+</span></span><span class="line"><span class="cl">RETURNS TABLE<span class="o">(</span>itemoffset smallint, htid tid<span class="o">)</span>
+</span></span><span class="line"><span class="cl">AS <span class="nv">$$</span>
+</span></span><span class="line"><span class="cl">SELECT itemoffset,
+</span></span><span class="line"><span class="cl">       htid -- ctid before v.13
+</span></span><span class="line"><span class="cl">FROM bt_page_items<span class="o">(</span>relname,pageno<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">$$</span> LANGUAGE sql<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>页面引用了两个堆元组，当前的和之前的：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM index_page<span class="o">(</span><span class="s1">&#39;t_s_idx&#39;</span>,1<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> itemoffset <span class="p">|</span> htid
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl">          <span class="m">1</span> <span class="p">|</span> <span class="o">(</span>0,2<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="m">2</span> <span class="p">|</span> <span class="o">(</span>0,1<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>由于 BAR &lt; FOO，因此在索引中指向第二个元组的指针排在前面。</p>
+<h2>3.5 TOAST<span class="hx-absolute -hx-mt-20" id="35-toast"></span>
+    <a href="#35-toast" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>TOAST 表实际上是一个普通的表，并且它有自己的版本控制，不依赖于主表的行版本。但是，TOAST 表里的行永远不会被更新；要么添加，要么删除，因此其版本控制在某种程度上是人为的。</p>
+<p>每次数据修改都会在主表中创建一条新元组。但是，如果更新不影响存储在 TOAST 中的任何长值，则新元组将引用现有的 TOAST 值。只有当长值被更新时，PostgreSQL 才会在主表中创建一个新元组和新的 &ldquo;toasts&rdquo;。</p>
+<h2>3.6 虚拟事务<span class="hx-absolute -hx-mt-20" id="36-虚拟事务"></span>
+    <a href="#36-%e8%99%9a%e6%8b%9f%e4%ba%8b%e5%8a%a1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>为了节约使用事务 ID，PostgreSQL 提供了一种特殊的优化机制。</p>
+<p>如果事务是只读的，它不会以任何方式影响行的可见性。这就是为什么这样一个事务首先被赋予一个虚拟的 XID <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup>，它由后端进程 ID 和一个序号组成。分配虚拟 XID 不需要不同进程之间的任何同步，所以分配的速度非常快。此时，事务还没有真正的 ID：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<pre><code>=&gt; BEGIN;
+=&gt; -- txid_current_if_assigned() before v.13
+SELECT pg_current_xact_id_if_assigned();
+ pg_current_xact_id_if_assigned
+−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+
+(1 row)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在不同的时间点，系统可以包含一些已经使用过的虚拟 XID。这是完全正常的：虚拟 XID 只存在于 RAM 中，并且仅在相应的事务处于活动状态时才存在；虚拟 ID 永远不会写入数据页面，也永远不会存储到磁盘上。</p>
+<p>一旦事务开始修改数据，它便会收到一个真实的唯一 ID：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; UPDATE accounts
+</span></span><span class="line"><span class="cl">SET <span class="nv">amount</span> <span class="o">=</span> amount - 1.00<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_xact_id_if_assigned<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id_if_assigned
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                            <span class="m">780</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h2>3.7 子事务<span class="hx-absolute -hx-mt-20" id="37-子事务"></span>
+    <a href="#37-%e5%ad%90%e4%ba%8b%e5%8a%a1" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>3.7.1 保存点<span class="hx-absolute -hx-mt-20" id="371-保存点"></span>
+    <a href="#371-%e4%bf%9d%e5%ad%98%e7%82%b9" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>SQL 支持保存点，允许在不中止整个事务的情况下取消事务内的某些操作。但是这样的场景不适合上面描述的操作过程：事务的状态应用到其所有操作，并且不会执行物理数据回滚。</p>
+<p>为了实现这个功能，一个包含保存点的事务被分成若干子事务 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>，这样它们的状态就可以分别管理。</p>
+<p>子事务有其自己的 ID (比主事务 ID 大)。子事务的状态以往常的方式写入到 CLOG 中；但是，已提交的子事务会同时接收到已提交和已中止的位。最终决定取决于主事务的状态：如果主事务被中止，那么它所有的子事务也将被视为已中止。</p>
+<p>有关子事务的信息存储在 PGDATA/pg_subtrans 目录下。文件访问通过实例共享内存中的缓冲区进行，这些缓冲区的结构与 CLOG 缓冲区 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 相同。</p>
+<blockquote>
+<p>不要将子事务与自治事务相混淆。与子事务不同，后者彼此之间完全互不依赖。原生的 PostgreSQL 不支持自治事务，这可能是最好的：它们在极少数情况下才需要，但在其他数据库系统中的可用性往往会引起误用，这可能会导致很多麻烦。</p>
+</blockquote>
+<p>让我们截断表，开启一个新的事务并插入一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; TRUNCATE TABLE t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO t<span class="o">(</span>s<span class="o">)</span> VALUES <span class="o">(</span><span class="s1">&#39;FOO&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_xact_id<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                <span class="m">782</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在创建一个保存点，并插入另一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SAVEPOINT sp<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO t<span class="o">(</span>s<span class="o">)</span> VALUES <span class="o">(</span><span class="s1">&#39;XYZ&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_xact_id<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> pg_current_xact_id
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">                <span class="m">782</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>请注意，pg_current_xact_id 函数返回的是主事务 ID，而不是子事务 ID。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT *
+</span></span><span class="line"><span class="cl">FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span> p
+</span></span><span class="line"><span class="cl">  LEFT JOIN t ON p.ctid <span class="o">=</span> t.ctid<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin <span class="p">|</span> xmax <span class="p">|</span> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−+−−−−−−+−−−−+−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">782</span>  <span class="p">|</span> <span class="m">0</span> a  <span class="p">|</span>  <span class="m">2</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,2<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">783</span>  <span class="p">|</span> <span class="m">0</span> a  <span class="p">|</span>  <span class="m">3</span> <span class="p">|</span> XYZ
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>让我们回滚到保存点，并插入第三行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ROLLBACK TO sp<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO t<span class="o">(</span>s<span class="o">)</span> VALUES <span class="o">(</span><span class="s1">&#39;BAR&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT *
+</span></span><span class="line"><span class="cl">FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span> p
+</span></span><span class="line"><span class="cl">  LEFT JOIN t ON p.ctid <span class="o">=</span> t.ctid<span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin <span class="p">|</span> xmax <span class="p">|</span> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−+−−−−−−+−−−−+−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">782</span>  <span class="p">|</span> <span class="m">0</span> a  <span class="p">|</span> <span class="m">2</span>  <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,2<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">783</span>  <span class="p">|</span> <span class="m">0</span> a  <span class="p">|</span>    <span class="p">|</span>	
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,3<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">784</span>  <span class="p">|</span> <span class="m">0</span> a  <span class="p">|</span> <span class="m">4</span>  <span class="p">|</span> BAR
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">3</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>页面仍然包含由已中止的子事务添加的行。</p>
+<p>提交更改：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span> s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">2</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl">  <span class="m">4</span> <span class="p">|</span> BAR
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">782</span> c <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,2<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">783</span> a <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,3<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">784</span> c <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">3</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在我们可以清楚地看到，每个子事务都有其自己的状态。</p>
+<p>SQL 不允许直接使用子事务，也就是说，你不能在完成当前事务之前开始一个新事务：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">BEGIN</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl">WARNING: there is already a transaction in progress
+</span></span><span class="line"><span class="cl"><span class="nv">BEGIN</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">COMMIT</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span>
+</span></span><span class="line"><span class="cl">WARNING: there is no transaction in progress
+</span></span><span class="line"><span class="cl">COMMIT</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>子事务是隐式使用的：为了实现保存点，处理 PL/pgSQL 中的异常，以及一些其他更罕见的情况。</p>
+<h3>3.7.2 错误与原子性<span class="hx-absolute -hx-mt-20" id="372-错误与原子性"></span>
+    <a href="#372-%e9%94%99%e8%af%af%e4%b8%8e%e5%8e%9f%e5%ad%90%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在执行语句期间，如果出现了错误会发生什么？</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">2</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl">  <span class="m">4</span> <span class="p">|</span> BAR
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; UPDATE t SET <span class="nv">s</span> <span class="o">=</span> repeat<span class="o">(</span><span class="s1">&#39;X&#39;</span>, 1/<span class="o">(</span>id-4<span class="o">))</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">ERROR: division by zero</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>失败后，整个事务将被视为已中止，并且无法执行任何进一步的操作：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl">ERROR: current transaction is aborted, commands ignored <span class="k">until</span> end of transaction block</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>并且即使你尝试提交更改，PostgreSQL 也会提示事务已回滚：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span>
+</span></span><span class="line"><span class="cl">ROLLBACK</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>为什么在失败之后禁止继续执行事务？因为已执行的操作永远不会回滚，我们将能够访问在错误之前所做的一些更改 — 这将打破语句的原子性，从而破坏事务本身的原子性。</p>
+<p>例如，在我们的实验中，操作符在失败之前，已经成功更新了两行中的一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM heap_page<span class="o">(</span><span class="s1">&#39;t&#39;</span>,0<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  ctid <span class="p">|</span> state  <span class="p">|</span> xmin  <span class="p">|</span> xmax
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−+−−−−−−−+−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,1<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">782</span> c <span class="p">|</span> <span class="m">785</span>
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,2<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">783</span> a <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,3<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">784</span> c <span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"> <span class="o">(</span>0,4<span class="o">)</span> <span class="p">|</span> normal <span class="p">|</span> <span class="m">785</span> 	<span class="p">|</span> <span class="m">0</span> a
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>顺带说明一下，psql 提供了一种特殊模式，允许在失败后继续执行事务，就好像错误的语句已经回滚了一样：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; <span class="se">\s</span>et ON_ERROR_ROLLBACK <span class="nv">on</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; UPDATE t SET <span class="nv">s</span> <span class="o">=</span> repeat<span class="o">(</span><span class="s1">&#39;X&#39;</span>, 1/<span class="o">(</span>id-4<span class="o">))</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">ERROR: division by <span class="nv">zero</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM t<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> id <span class="p">|</span>  s
+</span></span><span class="line"><span class="cl">−−−−+−−−−−
+</span></span><span class="line"><span class="cl">  <span class="m">2</span> <span class="p">|</span> FOO
+</span></span><span class="line"><span class="cl">  <span class="m">4</span> <span class="p">|</span> BAR
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span>
+</span></span><span class="line"><span class="cl">COMMIT</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>如你所料，psql 在此模式下运行时，会在每个命令之前隐式添加一个保存点；如果发生错误，则会执行回滚。默认情况下不会使用此模式，因为执行保存点 (即使它们没有被回滚) 会产生大量开销。</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p><span> postgresql.org/docs/14/storage-page-layout.html</span><br><span>include/storage/bufpage.h</span>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>postgresql.org/docs/14/pageinspect.html&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>backend/storage/page/bufpage.c, PageRepairFragmentation function&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p>include/access/htup_details.h&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p>backend/access/common/heaptuple.c, heap_deform_tuple function&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p>backend/access/transam/README&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p><span>include/access/clog.h</span><br><span>backend/access/transam/clog.c</span>&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p>commitfest.postgresql.org/13/750&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p>backend/access/transam/clog.c&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:10">
+<p>backend/access/transam/xact.c&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:11">
+<p>backend/access/transam/subtrans.c&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:12">
+<p>backend/access/transam/slru.c&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.js" integrity=""></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.js" integrity=""></script>
+
+
+  </body>
+</html>

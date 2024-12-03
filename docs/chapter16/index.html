@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 16 章：查询执行阶段 – PostgreSQL 14 Internals</title>
+  <meta name="description" content="16.1 示例数据库 本书前面部分的示例都是基于仅有少量行的表。此章节及后续部分将讨论查询执行，这方面的要求会更高：我们需要行数更多的表。我没有为每个例子都创建一个新的数据集，而是使用了一个现有的示例数据库，其展示了俄罗斯的客运航空量 1。它有多个版本；我们将使用于 2017 年 8 月 15 日创建的数据量更大的版本。要安装此版本，你需要从归档中提取包含数据库副本的文件 2，并在 psql 中运行此文件。
+在开发这个示例数据库时，我们尽量让其模式简单到无需额外解释即可理解；同时，我们希望它也足够复杂，能够编写有意义的查询语句。数据库中填充了贴近现实的数据，这使得示例更加全面，使用起来应该会很有趣。
+此处我只会简要介绍主要的数据库对象；如果你想查看整个模式，可以查看脚注中引用的完整描述。
+主要实体是预订 (映射到 bookings 表)。一次预订可以包含几个乘客，每个乘客都有一张单独的电子机票 (tickets)。乘客不构成单独的实体；为了我们的实验，我们将假设所有的乘客都是唯一的。
+每张机票包括一个或多个航段 (映射到 ticket_fights 表)。在两种情况下，单张机票可以有多个航段：要么是往返机票，要么是为转机而签发的。尽管在模式中没有相应的约束，但假定一个预订中的所有机票都有相同的航段。
+每个航班 (flights) 从一个机场 (airports) 飞往另一个机场。具有相同航班号的航班具有相同的出发点和目的地，但出发日期不同。
+routes 视图基于 flights 表；它显示了与特定航班日期无关的航线信息。
+在办理登机手续时，每位乘客都会被签发一张带有座位号的登机牌 (boarding_passes)。只有在机票中包含该航班时，乘客才能办理登机手续。航班与座位的组合必须是唯一的，因此不可能为同一个座位签发两张登机牌。
+飞机上的座位 (seats) 数量及其在不同舱位之间的分布取决于执飞的特定飞机模型 (aircrafts)。假设每个飞机模型只能有一个座舱配置。
+一些表有代理主键，而其他表使用原生主键 (其中一些是复合主键)。这仅仅是出于演示的目的，并不是一个可以效仿的例子。
+示例数据库可以被视为真实系统的转储：它包含了过去某个特定时刻获取的数据快照。要显示此时间，你可以调用 bookings.now() 函数。在示例查询中使用此函数，需要在现实世界中使用 now() 函数。
+机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 bookings.lang 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。
+16.2 简单查询协议 一个简单版本的 client-server 协议 3 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 4。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。" />
+
+  
+    <link rel="canonical" href="//localhost:1313/docs/chapter16/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 16 章：查询执行阶段" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="//localhost:1313/docs/chapter16/" />
+
+  
+  <meta itemprop="name" content="第 16 章：查询执行阶段">
+  <meta itemprop="description" content="16.1 示例数据库 本书前面部分的示例都是基于仅有少量行的表。此章节及后续部分将讨论查询执行，这方面的要求会更高：我们需要行数更多的表。我没有为每个例子都创建一个新的数据集，而是使用了一个现有的示例数据库，其展示了俄罗斯的客运航空量 1。它有多个版本；我们将使用于 2017 年 8 月 15 日创建的数据量更大的版本。要安装此版本，你需要从归档中提取包含数据库副本的文件 2，并在 psql 中运行此文件。
+在开发这个示例数据库时，我们尽量让其模式简单到无需额外解释即可理解；同时，我们希望它也足够复杂，能够编写有意义的查询语句。数据库中填充了贴近现实的数据，这使得示例更加全面，使用起来应该会很有趣。
+此处我只会简要介绍主要的数据库对象；如果你想查看整个模式，可以查看脚注中引用的完整描述。
+主要实体是预订 (映射到 bookings 表)。一次预订可以包含几个乘客，每个乘客都有一张单独的电子机票 (tickets)。乘客不构成单独的实体；为了我们的实验，我们将假设所有的乘客都是唯一的。
+每张机票包括一个或多个航段 (映射到 ticket_fights 表)。在两种情况下，单张机票可以有多个航段：要么是往返机票，要么是为转机而签发的。尽管在模式中没有相应的约束，但假定一个预订中的所有机票都有相同的航段。
+每个航班 (flights) 从一个机场 (airports) 飞往另一个机场。具有相同航班号的航班具有相同的出发点和目的地，但出发日期不同。
+routes 视图基于 flights 表；它显示了与特定航班日期无关的航线信息。
+在办理登机手续时，每位乘客都会被签发一张带有座位号的登机牌 (boarding_passes)。只有在机票中包含该航班时，乘客才能办理登机手续。航班与座位的组合必须是唯一的，因此不可能为同一个座位签发两张登机牌。
+飞机上的座位 (seats) 数量及其在不同舱位之间的分布取决于执飞的特定飞机模型 (aircrafts)。假设每个飞机模型只能有一个座舱配置。
+一些表有代理主键，而其他表使用原生主键 (其中一些是复合主键)。这仅仅是出于演示的目的，并不是一个可以效仿的例子。
+示例数据库可以被视为真实系统的转储：它包含了过去某个特定时刻获取的数据快照。要显示此时间，你可以调用 bookings.now() 函数。在示例查询中使用此函数，需要在现实世界中使用 now() 函数。
+机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 bookings.lang 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。
+16.2 简单查询协议 一个简单版本的 client-server 协议 3 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 4。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。">
+  <meta itemprop="wordCount" content="1140">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 16 章：查询执行阶段">
+  <meta name="twitter:description" content="16.1 示例数据库 本书前面部分的示例都是基于仅有少量行的表。此章节及后续部分将讨论查询执行，这方面的要求会更高：我们需要行数更多的表。我没有为每个例子都创建一个新的数据集，而是使用了一个现有的示例数据库，其展示了俄罗斯的客运航空量 1。它有多个版本；我们将使用于 2017 年 8 月 15 日创建的数据量更大的版本。要安装此版本，你需要从归档中提取包含数据库副本的文件 2，并在 psql 中运行此文件。
+在开发这个示例数据库时，我们尽量让其模式简单到无需额外解释即可理解；同时，我们希望它也足够复杂，能够编写有意义的查询语句。数据库中填充了贴近现实的数据，这使得示例更加全面，使用起来应该会很有趣。
+此处我只会简要介绍主要的数据库对象；如果你想查看整个模式，可以查看脚注中引用的完整描述。
+主要实体是预订 (映射到 bookings 表)。一次预订可以包含几个乘客，每个乘客都有一张单独的电子机票 (tickets)。乘客不构成单独的实体；为了我们的实验，我们将假设所有的乘客都是唯一的。
+每张机票包括一个或多个航段 (映射到 ticket_fights 表)。在两种情况下，单张机票可以有多个航段：要么是往返机票，要么是为转机而签发的。尽管在模式中没有相应的约束，但假定一个预订中的所有机票都有相同的航段。
+每个航班 (flights) 从一个机场 (airports) 飞往另一个机场。具有相同航班号的航班具有相同的出发点和目的地，但出发日期不同。
+routes 视图基于 flights 表；它显示了与特定航班日期无关的航线信息。
+在办理登机手续时，每位乘客都会被签发一张带有座位号的登机牌 (boarding_passes)。只有在机票中包含该航班时，乘客才能办理登机手续。航班与座位的组合必须是唯一的，因此不可能为同一个座位签发两张登机牌。
+飞机上的座位 (seats) 数量及其在不同舱位之间的分布取决于执飞的特定飞机模型 (aircrafts)。假设每个飞机模型只能有一个座舱配置。
+一些表有代理主键，而其他表使用原生主键 (其中一些是复合主键)。这仅仅是出于演示的目的，并不是一个可以效仿的例子。
+示例数据库可以被视为真实系统的转储：它包含了过去某个特定时刻获取的数据快照。要显示此时间，你可以调用 bookings.now() 函数。在示例查询中使用此函数，需要在现实世界中使用 now() 函数。
+机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 bookings.lang 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。
+16.2 简单查询协议 一个简单版本的 client-server 协议 3 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 4。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。">
+
+    <link href="/css/compiled/main.css" rel="stylesheet" />
+
+
+
+  <link href="/css/custom.css" rel="stylesheet" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'system';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  
+</head>
+<body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 14 Internals">PostgreSQL 14 Internals</span>
+    </a><a
+            title="Docs"
+            href="/docs"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
+          >
+            <span class="hx-text-center">Docs</span>
+          </a><a
+            title="About"
+            href="/about"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">About</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/about/"
+    
+  >About
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/"
+    
+  >Docs
+        <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
+    </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
+        <ul class='hx-relative hx-flex hx-flex-col hx-gap-1 before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] ltr:hx-ml-3 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-mr-3 rtl:hx-pr-3 rtl:before:hx-right-0 dark:before:hx-bg-neutral-800'><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#161-%e7%a4%ba%e4%be%8b%e6%95%b0%e6%8d%ae%e5%ba%93"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >16.1 示例数据库</a>
+            </li>
+          <li>
+              <a
+                href="#162-%e7%ae%80%e5%8d%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >16.2 简单查询协议</a>
+            </li>
+          <li>
+              <a
+                href="#163-%e6%89%a9%e5%b1%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >16.3 扩展查询协议</a>
+            </li>
+          </ul>
+  
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a>
+              
+            </li></ul>
+      </div></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/recommend/"
+    
+  >Recommend
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#161-%e7%a4%ba%e4%be%8b%e6%95%b0%e6%8d%ae%e5%ba%93">16.1 示例数据库
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#162-%e7%ae%80%e5%8d%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae">16.2 简单查询协议
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1621-%e8%a7%a3%e6%9e%90">16.2.1 解析
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1622-%e8%bd%ac%e6%8d%a2">16.2.2 转换
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1623-%e8%a7%84%e5%88%92">16.2.3 规划
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1624-%e6%89%a7%e8%a1%8c">16.2.4 执行
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#163-%e6%89%a9%e5%b1%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae">16.3 扩展查询协议
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1631-%e9%a2%84%e5%a4%87">16.3.1 预备
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1632-%e5%8f%82%e6%95%b0%e7%bb%91%e5%ae%9a">16.3.2 参数绑定
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1633-%e8%a7%84%e5%88%92%e5%92%8c%e6%89%a7%e8%a1%8c">16.3.3 规划和执行
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1634-%e8%8e%b7%e5%8f%96%e7%bb%93%e6%9e%9c">16.3.4 获取结果
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        
+  <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
+        <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
+          <a href="/docs/">Docs</a>
+        </div><svg class="hx-w-3.5 hx-shrink-0 rtl:-hx-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx-whitespace-nowrap hx-transition-colors hx-font-medium hx-text-gray-700 contrast-more:hx-font-bold contrast-more:hx-text-current dark:hx-text-gray-100 contrast-more:dark:hx-text-current">第 16 章：查询执行阶段</div>
+  </div>
+
+        <div class="content">
+          <h1>第 16 章：查询执行阶段</h1>
+          <h2>16.1 示例数据库<span class="hx-absolute -hx-mt-20" id="161-示例数据库"></span>
+    <a href="#161-%e7%a4%ba%e4%be%8b%e6%95%b0%e6%8d%ae%e5%ba%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>本书前面部分的示例都是基于仅有少量行的表。此章节及后续部分将讨论查询执行，这方面的要求会更高：我们需要行数更多的表。我没有为每个例子都创建一个新的数据集，而是使用了一个现有的示例数据库，其展示了俄罗斯的客运航空量 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。它有多个版本；我们将使用于 2017 年 8 月 15 日创建的数据量更大的版本。要安装此版本，你需要从归档中提取包含数据库副本的文件 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>，并在 psql 中运行此文件。</p>
+<p>在开发这个示例数据库时，我们尽量让其模式简单到无需额外解释即可理解；同时，我们希望它也足够复杂，能够编写有意义的查询语句。数据库中填充了贴近现实的数据，这使得示例更加全面，使用起来应该会很有趣。</p>
+<p>此处我只会简要介绍主要的数据库对象；如果你想查看整个模式，可以查看脚注中引用的完整描述。</p>
+<p>主要实体是<strong>预订</strong> (映射到 bookings 表)。一次预订可以包含几个乘客，每个乘客都有一张单独的电子<strong>机票</strong> (tickets)。乘客不构成单独的实体；为了我们的实验，我们将假设所有的乘客都是唯一的。</p>
+<p>每张机票包括一个或多个<strong>航段</strong> (映射到 ticket_fights 表)。在两种情况下，单张机票可以有多个航段：要么是往返机票，要么是为转机而签发的。尽管在模式中没有相应的约束，但假定一个预订中的所有机票都有相同的航段。</p>
+<p>每个<strong>航班</strong> (flights) 从一个<strong>机场</strong> (airports) 飞往另一个机场。具有相同航班号的航班具有相同的出发点和目的地，但出发日期不同。</p>
+<p><strong>routes</strong> 视图基于 flights 表；它显示了与特定航班日期无关的航线信息。</p>
+<p>在办理登机手续时，每位乘客都会被签发一张带有座位号的<strong>登机牌</strong> (boarding_passes)。只有在机票中包含该航班时，乘客才能办理登机手续。航班与座位的组合必须是唯一的，因此不可能为同一个座位签发两张登机牌。</p>
+<p>飞机上的<strong>座位</strong> (seats) 数量及其在不同舱位之间的分布取决于执飞的特定<strong>飞机</strong>模型 (aircrafts)。假设每个飞机模型只能有一个座舱配置。</p>
+<p>一些表有代理主键，而其他表使用原生主键 (其中一些是复合主键)。这仅仅是出于演示的目的，并不是一个可以效仿的例子。</p>
+<p>示例数据库可以被视为真实系统的转储：它包含了过去某个特定时刻获取的数据快照。要显示此时间，你可以调用 bookings.now() 函数。在示例查询中使用此函数，需要在现实世界中使用 now() 函数。</p>
+<p>机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 bookings.lang 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。</p>
+<p><img src="16-1.png" alt="" loading="lazy" /></p>
+<h2>16.2 简单查询协议<span class="hx-absolute -hx-mt-20" id="162-简单查询协议"></span>
+    <a href="#162-%e7%ae%80%e5%8d%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>一个简单版本的 client-server 协议 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。</p>
+<h3>16.2.1 解析<span class="hx-absolute -hx-mt-20" id="1621-解析"></span>
+    <a href="#1621-%e8%a7%a3%e6%9e%90" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>首先，PostgreSQL 需要解析 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 查询文本以了解需要执行什么。</p>
+<p><strong>词法和语法分析</strong>。词法分析器将查询文本分割为一组词素 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>  (如关键字、字符串字面量和数值字面量)，而语法分析器根据 SQL 语言的语法 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> 验证这组词素。PostgreSQL 依赖标准解析工具，即 Flex 和 Bison 工具。</p>
+<p>解析后的查询在后端进程的内存中体现为一颗抽象语法树。</p>
+<p>例如，让我们看一下以下查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">SELECT schemaname, tablename
+</span></span><span class="line"><span class="cl">FROM pg_tables
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">tableowner</span> <span class="o">=</span> <span class="s1">&#39;postgres&#39;</span>
+</span></span><span class="line"><span class="cl">ORDER BY tablename<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>词法分析器识别出五个关键字、五个标识符、一个字符串字面量和三个单字母词素 (逗号、等号和分号)。语法分析器使用这些词素来构建语法树，下图以非常简化的形式显示了语法树。树节点旁边的说明文字指定了查询的相应部分：</p>
+<p><img src="16-2.png" alt="" loading="lazy" /></p>
+<p>一个相当晦涩的 RTE 缩写代表 Range Table Entry。PostgreSQL 源代码中使用术语 range table 来表示表、子查询、关联结果，换句话说，指那些可以由 SQL 操作符处理的任何行集。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
+<p><strong>语义分析</strong>。语义分析 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 的目的是确认数据库中是否包含查询根据名称引用的表或其他对象，以及用户是否具有访问这些对象的权限。所有语义分析需要的信息都存储在系统表中。</p>
+<p>获得语法分析树后，语义分析器执行进一步的重构，包括添加对特定数据库对象、数据类型和其他信息的引用。</p>
+<p>如果打开了 debug_print_parse 参数，你可以在服务器日志中看到完整的语法分析树，尽管这没有什么实际的意义。</p>
+<h3>16.2.2 转换<span class="hx-absolute -hx-mt-20" id="1622-转换"></span>
+    <a href="#1622-%e8%bd%ac%e6%8d%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在下一阶段，查询会被转换(重写)。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
+<p>内核出于多种目的使用转换。其中之一是用视图的基本查询所对应的子树来替换语法树中的视图名称。</p>
+<p>另一种使用转换的情况是行级安全的实现。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup></p>
+<p>递归查询的 SEARCH 和 CYCLE 子句也在这个阶段进行转换。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
+<p>在上面的示例中，pg_tables 是一个视图；如果我们将其定义放在查询文本中，它将如下所示：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">SELECT schemaname, tablename
+</span></span><span class="line"><span class="cl">FROM <span class="o">(</span>
+</span></span><span class="line"><span class="cl">    -- pg_tables
+</span></span><span class="line"><span class="cl">    SELECT n.nspname AS schemaname,
+</span></span><span class="line"><span class="cl">      c.relname AS tablename,
+</span></span><span class="line"><span class="cl">      pg_get_userbyid<span class="o">(</span>c.relowner<span class="o">)</span> AS tableowner,
+</span></span><span class="line"><span class="cl">      ...
+</span></span><span class="line"><span class="cl">    FROM pg_class c
+</span></span><span class="line"><span class="cl">      LEFT JOIN pg_namespace n ON n.oid <span class="o">=</span> c.relnamespace
+</span></span><span class="line"><span class="cl">      LEFT JOIN pg_tablespace t ON t.oid <span class="o">=</span> c.reltablespace
+</span></span><span class="line"><span class="cl">    WHERE c.relkind <span class="o">=</span> ANY <span class="o">(</span>ARRAY<span class="o">[</span><span class="s1">&#39;r&#39;</span>::char, <span class="s1">&#39;p&#39;</span>::char<span class="o">])</span>
+</span></span><span class="line"><span class="cl"><span class="o">)</span>
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">tableowner</span> <span class="o">=</span> <span class="s1">&#39;postgres&#39;</span>
+</span></span><span class="line"><span class="cl">ORDER BY tablename<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>然而，服务器并不处理查询的文本表示；所有操作都在语法树上执行。下图显示了转换后树的简化版本 (如果打开了 debug_print_rewrite 参数，你可以在服务器日志中看到其完整版本)。</p>
+<p>语法树反映了查询的语法结构，但它并没有说明操作应该以何种顺序执行。</p>
+<p>PostgreSQL 还支持用户通过重写规则系统实现的自定义转换。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
+<p><img src="16-3.png" alt="" loading="lazy" /></p>
+<blockquote>
+<p>规则系统的支持被宣称为 Postgres 发展的主要目标之一；<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 当规则首次实现时，它还是一个学术项目，但从那时起，规则已经被多次重新设计。规则系统是一个非常强大的机制，但理解和调试它相当困难。甚至有人提议完全从 PostgreSQL 中移除规则，但这个想法并没有获得一致支持。在大多数情况下，使用触发器而不是规则会更安全也更容易。</p>
+</blockquote>
+<h3>16.2.3 规划<span class="hx-absolute -hx-mt-20" id="1623-规划"></span>
+    <a href="#1623-%e8%a7%84%e5%88%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>SQL 是一种声明式语言：查询仅指定了要获取哪些数据，但没有指定如何去获取。</p>
+<p>任何查询都有多条执行路径。语法树中显示的每个操作都可以通过多种方式完成：例如，可以通过读取整个表以获取结果 (并过滤掉冗余项) ，或者通过索引扫描找到所需的行。数据集总是成对连接的，因此有大量不同的选项，这些选项在连接的顺序上各不相同。除此之外，还有多种连接算法：例如，执行器可以扫描第一个数据集的行，并在另一个数据集中检索匹配的行，或者可以先对两个数据集进行排序，然后合并在一起。对于每种算法，我们都可以找到一个使用案例，其中它的表现优于其他算法。</p>
+<p>最佳和非最佳的计划，其执行时间可能相差几个数量级，因此负责优化解析后的查询的规划器 <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 是系统中最复杂的组件之一。</p>
+<p><strong>计划树</strong>。执行计划也以树的形式表示，但其节点涉及的是数据的物理操作，而非逻辑操作。</p>
+<p>如果你想探索完整的计划树，可以通过打开 debug_print_plan 参数将它们转储到服务器日志中。但在实践中，通常查看 EXPLAIN 命令 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 显示的计划的文本表示就足够了。</p>
+<p>下图着重显示了树的主要节点。这些节点正是 EXPLAIN 命令输出中显示的节点。</p>
+<p>现在，让我们关注以下两点：</p>
+<ul>
+<li>树仅包含三个查询表中的两个：规划器发现检索结果并不需要其中一个表，并将其从计划树中移除。</li>
+<li>对于树中的每个节点，规划器提供了预估成本和预估要处理的行数。</li>
+</ul>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT schemaname, tablename
+</span></span><span class="line"><span class="cl">FROM pg_tables
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">tableowner</span> <span class="o">=</span> <span class="s1">&#39;postgres&#39;</span>
+</span></span><span class="line"><span class="cl">ORDER BY tablename<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Sort <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>21.03..21.04 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>128<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Sort Key: c.relname
+</span></span><span class="line"><span class="cl">   −&gt; Nested Loop Left Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..21.02 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>128<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Join Filter: <span class="o">(</span>n.oid <span class="o">=</span> c.relnamespace<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       −&gt; Seq Scan on pg_class c <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..19.93 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Filter: <span class="o">((</span><span class="nv">relkind</span> <span class="o">=</span> ANY <span class="o">(</span><span class="s1">&#39;{r,p}&#39;</span>::<span class="s2">&#34;char&#34;</span><span class="o">[]))</span> AND <span class="o">(</span>pg_g...
+</span></span><span class="line"><span class="cl">       −&gt; Seq Scan on pg_namespace n <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.04 <span class="nv">rows</span><span class="o">=</span><span class="m">4</span> wid...
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>查询计划中显示的 Seq Scan 节点对应读取表的操作，而 Nested Loop 节点代表连接操作。</p>
+<p><img src="16-4.png" alt="" loading="lazy" /></p>
+<p><strong>计划搜索</strong>。PostgreSQL 使用基于成本的优化器；<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 它会检查潜在的计划，并估算执行它们所需的资源 (比如 I/O 操作或 CPU 周期)。这种评估会具体细化成一个数字，称为计划的成本。在所有考虑的计划中，优化器会选择成本最低的计划。</p>
+<p>但问题在于，随着连接表的数量增加，潜在可用计划的数量呈指数级增长，因此即使是相对简单的查询，也不可能将全部计划考虑在内。通常情况下，会使用动态规划算法，同时结合一些启发式算法来缩小搜索范围。这使得规划器能够在可接受的时间内为包含大量表的查询找到数学上精确的解决方案。</p>
+<blockquote>
+<p>精确的解决方案并不能保证所选计划确实是最优的，因为规划器使用的是简化的数学模型，并且可能缺乏可靠的输入数据。</p>
+</blockquote>
+<p><strong>管理连接顺序</strong>。查询可以以某种方式构建，以在一定程度上限制搜索范围 (但有可能错过最优计划)。</p>
+<ul>
+<li>通用表表达式 (CTE) 和主查询可以单独优化；为了保证这种行为，你可以指定 MATERIALIZED 子句。<sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup></li>
+<li>在非 SQL 函数中运行的子查询总是单独优化的。(SQL 函数有时可以内联到主查询中。<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup>）</li>
+<li>如果设置了 join_collapse_limit 参数并在查询中使用显式 join 子句，那么某些连接的顺序将由查询语法结构定义；from_cllapse_limit 参数对子查询有相同的影响。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></li>
+</ul>
+<p>最后一点可能需要解释一下。让我们看一个查询，它没有为 FROM 子句中列出的表指定任何显式连接：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">SELECT ...
+</span></span><span class="line"><span class="cl">FROM a, b, c, d, e
+</span></span><span class="line"><span class="cl">WHERE ...</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此处，规划期必须考虑所有可能的连接组合。查询由语法树的以下部分表示 (示意性地展示)：</p>
+<p><img src="16-5.png" alt="" loading="lazy" /></p>
+<p>在下一个示例中，连接有一个由 JOIN 子句定义的特定结构。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">SELECT ...
+</span></span><span class="line"><span class="cl">FROM a, b JOIN c ON ..., d, e
+</span></span><span class="line"><span class="cl">WHERE ...</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>语法分析树表明了这种结构：</p>
+<p><img src="16-6.png" alt="" loading="lazy" /></p>
+<p>规划器通常会展平连接树，使其看起来像第一个例子中的那样。规划器算法会遍历树，并用其元素的平面列表替换每个 JOINEXPR 节点。<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup></p>
+<p>然而，只有当生成的平面列表中的元素不超过 join_collapse_limit 时，才会执行这种展平。在这个特定案例中，如果 join_collapse_limit 值小于 5，那么 JOINEXPR 节点将不会被展平。</p>
+<p>对于规划器来说，它意味着：</p>
+<ul>
+<li>表 B 必须与表 C 连接 (反之亦然，表 C 必须与表 B 连接；一对连接内的顺序不受限制)。</li>
+<li>表 A、D、E 以及 B 与 C 的连接结果可以按任何顺序连接。</li>
+</ul>
+<p>如果 join_collapse_limit 参数设置为 1，那么由显式 JOIN 子句定义的顺序会被保留。</p>
+<p>对于 FULL OUTER JOIN 操作，无论 join_collapse_limit 参数的值如何，它们都不会被展平。</p>
+<p>from_collapse_limit 参数以类似的方式控制子查询的展平。尽管子查询看起来不像 JOIN 子句，但在语法分析树级别，这种相似性便会变得很明显。</p>
+<p>这里有一个示例查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">SELECT ...
+</span></span><span class="line"><span class="cl">FROM a,
+</span></span><span class="line"><span class="cl">  <span class="o">(</span>
+</span></span><span class="line"><span class="cl">    SELECT ... FROM b, c WHERE ...
+</span></span><span class="line"><span class="cl">  <span class="o">)</span> bc,
+</span></span><span class="line"><span class="cl">  d, e
+</span></span><span class="line"><span class="cl">WHERE ...</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>相应的连接树如下所示。这里唯一的区别是这颗树包含 FROMEXPR 节点，而不是 JOINEXPR (参数名称由此而来)。</p>
+<p><img src="16-7.png" alt="" loading="lazy" /></p>
+<p><strong>遗传查询优化</strong>。一旦展平之后，树可能在同一层包含太多元素 — 无论是表还是必须单独优化的连接结果。规划时间会随着需要连接的数据集数量指数级增长，因此可能会超出所有合理的限制。</p>
+<p>如果启用了 geqo 参数，且某一层的元素个数超过了 geqo_threshold 值，那么规划器将使用遗传算法来优化查询。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup> 这种算法比动态规划算法快得多，但不能保证找到的计划是最优的。因此，通常的做法是通过减少必须优化的元素数量来避免使用遗传算法。</p>
+<p>遗传算法有多个可配置的参数，<sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup> 但我不打算在这里进行介绍。</p>
+<p><strong>选择最优计划</strong>。一个计划是否可以被认为是最优的，取决于特定客户端如何使用查询结果。如果客户端需要一次性获取完整结果 (例如，用于创建一份报告)，那么计划应优化对所有行的检索。但如果优先级是尽快返回第一行 (例如，用于屏幕显式)，最优计划可能完全不同。</p>
+<p>为了做出选择，PostgreSQL 会计算成本的两个组成部分：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN
+</span></span><span class="line"><span class="cl">SELECT schemaname, tablename
+</span></span><span class="line"><span class="cl">FROM pg_tables
+</span></span><span class="line"><span class="cl">WHERE <span class="nv">tableowner</span> <span class="o">=</span> <span class="s1">&#39;postgres&#39;</span>
+</span></span><span class="line"><span class="cl">ORDER BY tablename<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Sort <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>21.03..21.04 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>128<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  Sort Key: c.relname
+</span></span><span class="line"><span class="cl">  −&gt; Nested Loop Left Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..21.02 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>128<span class="o">)</span>
+</span></span><span class="line"><span class="cl">      Join Filter: <span class="o">(</span>n.oid <span class="o">=</span> c.relnamespace<span class="o">)</span>
+</span></span><span class="line"><span class="cl">      −&gt; Seq Scan on pg_class c <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..19.93 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          Filter: <span class="o">((</span><span class="nv">relkind</span> <span class="o">=</span> ANY <span class="o">(</span><span class="s1">&#39;{r,p}&#39;</span>::<span class="s2">&#34;char&#34;</span><span class="o">[]))</span> AND <span class="o">(</span>pg_g...
+</span></span><span class="line"><span class="cl">      −&gt; Seq Scan on pg_namespace n <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.04 <span class="nv">rows</span><span class="o">=</span><span class="m">4</span> wid...
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>第一个部分 (启动成本) 表示为节点执行做准备所付出的成本，而第二个部分 (总成本) 包括获取结果所产生的所有开销。</p>
+<blockquote>
+<p>有时人们说启动成本是检索结果集第一行的成本，但这并不是太准确。</p>
+</blockquote>
+<p>为了挑选出首选计划，优化器会检查查询是否使用了游标 (通过 SQL 中提供的 DECLARE 命令或在 PL/PGSQL 中显式声明)。<sup id="fnref:24"><a href="#fn:24" class="footnote-ref" role="doc-noteref">24</a></sup> 如果没有，则假定客户端需要一次性获取整个结果，那么优化器会选择总成本最低的计划。</p>
+<p>如果查询是通过游标执行的，所选计划必须优化仅检索占所有数据 cursor_tuple_fraction 比例的行。更准确地说，PostgreSQL 会选择以下表达式值最小的计划：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
+<blockquote>
+<p>startup cost + cursor_tuple_fraction (total cost − startup cost)</p>
+</blockquote>
+<p><strong>成本估算概要</strong>。为了估算计划的总成本，我们必须获取其所有节点的成本估算值。节点的成本取决于它的类型 (很明显，读取堆数据的成本与排序的成本不同) 和该节点处理的数据量 (更大的数据量通常会产生更高的成本) 。虽然节点类型已知，但数据量只能基于输入集的预估基数 (节点需要的行数作为输入) 和节点的选择率 (输出中剩余行的比例) 来估算。这些计算依赖于收集的统计信息，例如表的大小和表列中数据的分布情况。</p>
+<p>因此，执行的优化取决于由 AUTOVACUUM 收集和更新的统计信息的准确性。</p>
+<p>如果每个节点的基数估算都很准确，那么计算出的成本很可能充分反映出实际成本。主要的规划缺陷通常是由于对基数和选择率的估算不准确造成的，这可能是由于不准确或过时的统计信息、无法使用统计信息或者 — 在较小程度上，由于不完善的规划模型造成的。</p>
+<p><strong>基数估算</strong>。为了计算节点的基数，规划器必须递归完成以下步骤：</p>
+<ol>
+<li>
+<p>估算每个子节点的基数，并评估节点将从这些子节点接收到的输入行数。</p>
+</li>
+<li>
+<p>估算节点的选择率，也就是将保留在输出中的行的比例。</p>
+</li>
+</ol>
+<p>节点的基数是这两个值的乘积。</p>
+<blockquote>
+<p>选择率用从 0 到 1 的数字表示。数字越小，选择率越高，反之亦然，数字越接近 1，选择率越低。这似乎不合逻辑，但其想法是，高选择率的条件几乎会排除所有行，而仅排除少数行的条件则具有低选择率。</p>
+</blockquote>
+<p>首先，规划器估算定义数据访问方法的叶节点的基数。这些计算依赖于收集的统计信息，例如表的总大小。</p>
+<p>过滤条件的选择率取决于它们的类型。在最简单的情况下，可以假设它是一个常数值，尽管规划器试图使用所有可用的信息来细化评估。通常，了解如何估算简单的过滤条件就足够了；如果条件包含逻辑运算，那么选择率按以下公式计算：<sup id="fnref:26"><a href="#fn:26" class="footnote-ref" role="doc-noteref">26</a></sup>
+$$
+sel_{x \text{ and } y} = sel_x sel_y \quad
+$$</p>
+<p>$$
+sel_{x \text{ or } y} = 1 - (1 - sel_x)(1 - sel_y) = sel_x + sel_y - sel_x sel_y
+$$</p>
+<p>不幸的是，这些公式假设谓词 x 和 y 不相互依赖。对于相互依赖的谓词，这样的估算是不准确的。</p>
+<p>为了估算连接的基数，规划器必须获得笛卡尔积的基数 (即两个数据集基数的乘积) 并估算连接条件的选择率，这同样取决于条件类型。</p>
+<p>其他节点的基数 (例如排序或聚集) 估算以类似的方式进行。</p>
+<p>需要注意的是，对于下层计划节点的基数若估算不准确会影响所有后续的计算，进而导致总成本估算不准确以及计划选择不佳。更糟糕的是，规划器没有关联结果的统计信息，只有表的统计信息。</p>
+<p><strong>成本估算</strong>。成本估算的过程也是递归的。要计算一棵子树的成本，需要计算并累加其所有子节点的成本，然后加上父节点本身的成本。</p>
+<p>为了估算一个节点的成本，PostgreSQL 会将已经估算出的节点基数为输入，应用该节点所执行操作的数学模型。对于每个节点，都会计算启动成本和总成本。</p>
+<p>有些操作没有前置条件，因此它们的执行会立即开始；这些节点的启动成本为零。</p>
+<p>相反，其他操作需要等待一些准备动作完成。例如，排序节点通常需要等待其子节点所有的数据到位，才能继续执行自己的任务。此类节点的启动成本通常大于零：即使上层节点 (或客户端) 只需要全部输出中的一行数据，也必须付出此成本。</p>
+<p>规划器执行的所有计算都只是估算，可能与实际执行时间无关。唯一目的是在相同条件下，对同一查询的不同计划进行比较。在其他情况下，比较查询 (尤其是不同的查询) 的成本是没有意义的。例如，由于过时的统计信息，成本可能被低估了；一旦刷新统计信息，计算出的数字可能会上升，随着估算越来越准确，规划器将选择一个更好的计划。</p>
+<h3>16.2.4 执行<span class="hx-absolute -hx-mt-20" id="1624-执行"></span>
+    <a href="#1624-%e6%89%a7%e8%a1%8c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>查询优化期间创建的计划现在需要被执行。<sup id="fnref:27"><a href="#fn:27" class="footnote-ref" role="doc-noteref">27</a></sup></p>
+<p>执行器在后端进程内存中打开一个 <em>portal</em>；<sup id="fnref:28"><a href="#fn:28" class="footnote-ref" role="doc-noteref">28</a></sup> 它是一个保持当前正在执行的查询状态的对象。这个状态以一棵树的形式表示，展示了计划树的结构。</p>
+<p><img src="16-8.png" alt="" loading="lazy" /></p>
+<p>这棵树的节点就像一条流水线一样运行，相互请求以及发送数据。</p>
+<p>查询执行从根开始。根节点 (在本例中代表 SORT 操作) 从它的子节点中拉取数据。接收到所有行之后，会对它们进行排序并传递给客户端。</p>
+<p>一些节点 (如本例中所示的 NESTLOOP 节点) 从不同来源接收数据集并进行连接。这样的节点从两个子节点拉取数据，一旦接收到满足连接条件的一对行，就立即向上层传递结果 (不像排序，排序必须先获取所有行)。此时，节点的执行被中断，直到其父节点请求下一行。如果只需要部分结果 (例如，查询中有 LIMIT 子句)，那么操作将不会全部执行。</p>
+<p>树的两个 SEQSCAN 叶节点负责表扫描。当父节点向这些节点请求数据时，它们从相应的表中获取后续的行。</p>
+<p>然而一些节点不存储任何行，而是立即向上传递，但其他节点 (例如 SORT) 需要保留潜在的大量数据。为此，在后端进程内存中分配了一个 work_mem 内存块；如果此内存不够，剩余的数据会溢出到磁盘上的临时文件中。<sup id="fnref:29"><a href="#fn:29" class="footnote-ref" role="doc-noteref">29</a></sup></p>
+<p>一个计划可能有多个需要存储数据的节点，因此 PostgreSQL 可能会分配多个内存块，每个内存块的大小为 work_mem。查询可使用的总 RAM 大小不受任何限制。</p>
+<h2>16.3 扩展查询协议<span class="hx-absolute -hx-mt-20" id="163-扩展查询协议"></span>
+    <a href="#163-%e6%89%a9%e5%b1%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>在使用简单查询协议时，每个命令 (即使是重复多次的命令) 都必须经过前面提及的所有阶段：</p>
+<ol>
+<li>
+<p>解析</p>
+</li>
+<li>
+<p>转化</p>
+</li>
+<li>
+<p>规划</p>
+</li>
+<li>
+<p>执行</p>
+</li>
+</ol>
+<p>然而，多次解析同一个查询是没有意义的。重复解析仅常量不同的查询也没有多大意义 — 语法树的结构仍然是相同的。</p>
+<p>简单查询协议的另一个缺点是，客户端一次性接收整个结果，无论可能包含多少行。</p>
+<p>通常，你可以使用 SQL 命令克服这些限制。为了解决第一个问题，你可以在执行 EXECUTE 命令之前 PREPARE 查询；第二个问题可以通过使用 DECLARE 创建一个游标并通过 FETCH 返回行来解决。但在这种情况下，这些新创建对象的命名必须由客户端来处理，而服务端则需要额外的开销来解析额外的命令。</p>
+<p>扩展 client-server 协议提供了另一种替代解决方案，使得可以在协议本身的命令级别上精确控制各个操作符的执行阶段。</p>
+<h3>16.3.1 预备<span class="hx-absolute -hx-mt-20" id="1631-预备"></span>
+    <a href="#1631-%e9%a2%84%e5%a4%87" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在预备阶段，查询像往常一样被解析和转换，但是生成的语法树会保留在后端进程的内存中。</p>
+<p>PostgreSQL 没有用于查询的全局缓存。这种架构的缺点很明显：每个后端进程都必须解析所有传入的查询，即使同一个查询已经被另一个后端进程解析过，但也有一些好处。全局缓存很容易因为锁而成为瓶颈。客户端运行多个短小但不同的查询 (比如那些只有常量有所不同的查询) 会产生大量负载，并且会对整个实例的性能产生负面影响。在 PostgreSQL 中，查询是在本地解析的，因此不会对其他进程产生影响。</p>
+<p>预备查询可以参数化。此处是一个使用 SQL 命令的简单示例 (尽管和协议级别的预备语句不同，但最终的效果是一致的)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; PREPARE plane<span class="o">(</span>text<span class="o">)</span> AS
+</span></span><span class="line"><span class="cl">SELECT * FROM aircrafts WHERE <span class="nv">aircraft_code</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>所有已命名的预备语句都会显示在 pg_prepared_statements 视图中：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT name, statement, parameter_types
+</span></span><span class="line"><span class="cl">FROM pg_prepared_statements <span class="se">\g</span>x
+</span></span><span class="line"><span class="cl">−<span class="o">[</span> RECORD <span class="m">1</span> <span class="o">]</span>−−−+−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">name            <span class="p">|</span> plane
+</span></span><span class="line"><span class="cl">statement       <span class="p">|</span> PREPARE plane<span class="o">(</span>text<span class="o">)</span> AS +
+</span></span><span class="line"><span class="cl">                <span class="p">|</span> SELECT * FROM aircrafts WHERE <span class="nv">aircraft_code</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">parameter_types <span class="p">|</span> <span class="o">{</span>text<span class="o">}</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>你不会在此处找到任何未命名的语句 (使用扩展查询协议或 PL/pgSQL 的语句)。其他后端进程的预备语句也不会显示：无法访问其他会话的内存。</p>
+<h3>16.3.2 参数绑定<span class="hx-absolute -hx-mt-20" id="1632-参数绑定"></span>
+    <a href="#1632-%e5%8f%82%e6%95%b0%e7%bb%91%e5%ae%9a" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在执行预备语句之前，必须绑定实际参数值。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXECUTE plane<span class="o">(</span><span class="s1">&#39;733&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> aircraft_code <span class="p">|</span>     model      <span class="p">|</span> range
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="m">733</span>           <span class="p">|</span> Boeing 737−300 <span class="p">|</span> <span class="m">4200</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在预备语句中绑定参数相较于将字面量与查询字符串拼接起来的优势在于，它使得 SQL 注入变得绝无可能：绑定的参数值无法以任何方式修改已经创建的语法树。</p>
+<p>要在没有预备语句的情况下达到相同的安全级别，你需要仔细转义来自不可信来源的每个值。</p>
+<h3>16.3.3 规划和执行<span class="hx-absolute -hx-mt-20" id="1633-规划和执行"></span>
+    <a href="#1633-%e8%a7%84%e5%88%92%e5%92%8c%e6%89%a7%e8%a1%8c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在执行预备语句时，查询规划是基于实际参数值进行的；然后将计划传递给执行器。</p>
+<p>不同的参数值可能意味着不同的最优计划，因此考虑确切的值很重要。例如，在查找昂贵的预定时，规划器假设匹配的行数不会太多，并使用索引扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON bookings<span class="o">(</span>total_amount<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &gt; 1000000<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>86.49..9245.82 <span class="nv">rows</span><span class="o">=</span><span class="m">4395</span> wid...
+</span></span><span class="line"><span class="cl">   Recheck Cond: <span class="o">(</span>total_amount &gt; <span class="s1">&#39;1000000&#39;</span>::numeric<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Bitmap Index Scan on bookings_total_amount_idx <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00....
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span>total_amount &gt; <span class="s1">&#39;1000000&#39;</span>::numeric<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>但如果提供的条件适用于所有预订，那么使用索引就没有意义了，因为整个表都需要被扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT * FROM bookings WHERE total_amount &gt; 100<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Seq Scan on bookings <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..39835.88 <span class="nv">rows</span><span class="o">=</span><span class="m">2111110</span> <span class="nv">width</span><span class="o">=</span>21<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Filter: <span class="o">(</span>total_amount &gt; <span class="s1">&#39;100&#39;</span>::numeric<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在某些情况下，规划器可能会同时保留语法树和查询计划以避免重复规划。这样的计划不考虑参数值，因此被称之为 <em>generic plan</em> (与基于实际值的 <em>custom plan</em> 相比)。<sup id="fnref:30"><a href="#fn:30" class="footnote-ref" role="doc-noteref">30</a></sup></p>
+<p>当服务器在不影响性能的情况下可以使用 generic plan 的一个明显情况是查询中没有参数。</p>
+<p>参数化预备语句的前五次优化始终依赖于实际参数值；规划器会基于这些值计算 custom plan 的平均成本。从第六次执行开始，如果 generic plan 平均比 custom plan 更有效 (考虑到 custom plan 每次都必须重新创建) <sup id="fnref:31"><a href="#fn:31" class="footnote-ref" role="doc-noteref">31</a></sup>，规划器便会保留 generic plan，并继续使用它，跳过优化阶段。</p>
+<p>plane 预备语句已经执行过一次。在接下来的 3 次执行之后，服务器仍然使用 custom plan — 你可以通过查询计划中的参数值来判断：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXECUTE plane<span class="o">(</span><span class="s1">&#39;763&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXECUTE plane<span class="o">(</span><span class="s1">&#39;773&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN EXECUTE plane<span class="o">(</span><span class="s1">&#39;319&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.39 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>52<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Filter: <span class="o">((</span>aircraft_code<span class="o">)</span>::text <span class="o">=</span> <span class="s1">&#39;319&#39;</span>::text<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在第 5 次执行之后，规划器切换到 generic plan：它与 custom plan 没有区别，成本是一致的，但是后端进程可以一次性创建并跳过优化阶段，从而减少规划开销。现在 EXPLAIN 命令显示参数是按位置引用的，而不是按值引用的：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXECUTE plane<span class="o">(</span><span class="s1">&#39;320&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN EXECUTE plane<span class="o">(</span><span class="s1">&#39;321&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.39 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>52<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Filter: <span class="o">((</span>aircraft_code<span class="o">)</span>::text <span class="o">=</span> <span class="nv">$1</span><span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>当之前的几个 custom plan 比 generic plan 更昂贵时，我们可以很容易想象出一些不愉快的事情；后续计划本来可以更有效，但规划器根本不会考虑。此外，它比较的是估算值而不是实际成本，这也可能导致计算错误。</p>
+<p>然而，如果规划器做出了错误的选择，你可以通过相应地设置 plan_cache_mode 参数来覆盖自动决策，并选择是 generic plan 还是 custom plan：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SET <span class="nv">plan_cache_mode</span> <span class="o">=</span> <span class="s1">&#39;force_custom_plan&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN EXECUTE plane<span class="o">(</span><span class="s1">&#39;CN1&#39;</span><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.39 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>52<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Filter: <span class="o">((</span>aircraft_code<span class="o">)</span>::text <span class="o">=</span> <span class="s1">&#39;CN1&#39;</span>::text<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>除了其他信息之外，pg_prepared_statements 视图还显示了所选计划的统计信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT name, generic_plans, custom_plans
+</span></span><span class="line"><span class="cl">FROM pg_prepared_statements<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> name  <span class="p">|</span> generic_plans <span class="p">|</span> custom_plans
+</span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> plane <span class="p">|</span>             <span class="m">1</span> <span class="p">|</span>            <span class="m">6</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>16.3.4 获取结果<span class="hx-absolute -hx-mt-20" id="1634-获取结果"></span>
+    <a href="#1634-%e8%8e%b7%e5%8f%96%e7%bb%93%e6%9e%9c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>扩展查询协议允许批次检索数据，而不是一次性全部检索。SQL 游标几乎具有相同的效果 (除了服务器有一些额外的工作，并且规划器进行了优化，仅获取前面 cursor_tuple_fraction 比例的行，而不是整个结果集)：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; DECLARE cur CURSOR FOR
+</span></span><span class="line"><span class="cl">  SELECT *
+</span></span><span class="line"><span class="cl">  FROM aircrafts
+</span></span><span class="line"><span class="cl">  ORDER BY aircraft_code<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; FETCH <span class="m">3</span> FROM cur<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> aircraft_code <span class="p">|</span>      model      <span class="p">|</span> range
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="m">319</span>           <span class="p">|</span> Airbus A319−100 <span class="p">|</span>  <span class="m">6700</span>
+</span></span><span class="line"><span class="cl"> <span class="m">320</span>           <span class="p">|</span> Airbus A320−200 <span class="p">|</span> 	<span class="m">5700</span>
+</span></span><span class="line"><span class="cl"> <span class="m">321</span>           <span class="p">|</span> Airbus A321−200 <span class="p">|</span> 	<span class="m">5600</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">3</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; FETCH <span class="m">2</span> FROM cur<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> aircraft_code <span class="p">|</span>      model     <span class="p">|</span> range
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−+−−−−−−−−−−−−−−−−+−−−−−−−
+</span></span><span class="line"><span class="cl"> <span class="m">733</span>           <span class="p">|</span> Boeing 737−300 <span class="p">|</span>  <span class="m">4200</span>
+</span></span><span class="line"><span class="cl"> <span class="m">763</span>           <span class="p">|</span> Boeing 767−300 <span class="p">|</span>  <span class="m">7900</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">2</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; COMMIT<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>如果查询返回了多行，并且客户端需要所有数据，那么系统吞吐量高度依赖于批次的大小。单个批次中的行数越多，那么访问服务器以及获取响应所产生的通信开销就越少。但是随着批次大小的增加，这些好处变得不那么明显了：虽然一次一行与每批十行获取行的差异可能巨大，但如果比较每批 100 行和每批 1000 行，这种差异就不是那么明显了。</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>postgrespro.com/community/demodb&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>edu.postgrespro.com/demo-big-en-20170815.zip&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>postgresql.org/docs/14/protocol.html&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p>backend/tcop/postgres.c, exec_simple_query function&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p><span>postgresql.org/docs/14/parser-stage.html</span><br><span>backend/parser/README</span>&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p>backend/parser/scan.l&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p>backend/parser/gram.y&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p>include/nodes/parsenodes.h&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p>backend/parser/analyze.c&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:10">
+<p>postgresql.org/docs/14/rule-system.html&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:11">
+<p>backend/rewrite/rowsecurity.c&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:12">
+<p>backend/rewrite/rewriteSearchCycle.c&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:13">
+<p>postgresql.org/docs/14/rules.html&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:14">
+<p><em>M. Stonebraker, L. A. Rowe</em>. The Design of Postgres&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:15">
+<p>postgresql.org/docs/14/planner-optimizer.html&#160;<a href="#fnref:15" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:16">
+<p>postgresql.org/docs/14/using-explain.html&#160;<a href="#fnref:16" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:17">
+<p>backend/optimizer/README&#160;<a href="#fnref:17" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:18">
+<p>postgresql.org/docs/14/queries-with.html&#160;<a href="#fnref:18" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:19">
+<p>wiki.postgresql.org/wiki/Inlining_of_SQL_functions&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:20">
+<p>postgresql.org/docs/14/explicit-joins.html&#160;<a href="#fnref:20" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:21">
+<p>backend/optimizer/plan/initsplan.c, deconstruct_jointree function&#160;<a href="#fnref:21" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:22">
+<p><span>postgresql.org/docs/14/geqo.html</span><br><span>backend/optimizer/geqo/geqo_main.c</span>&#160;<a href="#fnref:22" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:23">
+<p>postgresql.org/docs/14/runtime-config-query#RUNTIME-CONFIG-QUERY-GEQO.html&#160;<a href="#fnref:23" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:24">
+<p>backend/optimizer/plan/planner.c, standard_planner function&#160;<a href="#fnref:24" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:25">
+<p>backend/optimizer/util/pathnode.c, compare_fractional_path_costs function&#160;<a href="#fnref:25" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:26">
+<p>backend/optimizer/path/clausesel.c, clauselist_selectivity_ext &amp; clauselist_selectivity_or functions&#160;<a href="#fnref:26" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:27">
+<p><span>postgresql.org/docs/14/executor.html</span><br><span>backend/executor/README</span>&#160;<a href="#fnref:27" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:28">
+<p>backend/utils/mmgr/portalmem.c&#160;<a href="#fnref:28" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:29">
+<p>backend/utils/sort/tuplestore.c&#160;<a href="#fnref:29" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:30">
+<p>backend/utils/cache/plancache.c, choose_custom_plan function&#160;<a href="#fnref:30" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:31">
+<p>backend/utils/cache/plancache.c, cached_plan_cost function&#160;<a href="#fnref:31" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.js" integrity=""></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.js" integrity=""></script>
+<link type="text/css" rel="stylesheet" href="/lib/katex/katex.min.7e5db7914b97e596a36c1abb67ccc7f174f8bb71d38c9a88c55b262ed1737f97.css" integrity="sha256-fl23kUuX5ZajbBq7Z8zH8XT4u3HTjJqIxVsmLtFzf5c=" />
+  <script defer src="/lib/katex/katex.min.9f45307c5794ed247a0d095f3a62e52ef2215a67b2327203a7fd919959ae79d1.js" integrity="sha256-n0UwfFeU7SR6DQlfOmLlLvIhWmeyMnIDp/2RmVmuedE="></script>
+  <script defer src="/lib/katex/auto-render.min.7b57d427ac6270677daf8d8380ded2cc73336f9149a167b8e1fe0d6ef66604ae.js" integrity="sha256-e1fUJ6xicGd9r42DgN7SzHMzb5FJoWe44f4NbvZmBK4="></script>
+  <script defer src="/lib/katex/mhchem.min.f0ca03df194b8c3d6017ff455db6a0ef98857905663fa311a6cded788b15340b.js" integrity="sha256-8MoD3xlLjD1gF/9FXbag75iFeQVmP6MRps3teIsVNAs="></script>
+  <script>
+    
+    
+    document.addEventListener("DOMContentLoaded", function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\begin{equation}", right: "\\end{equation}", display: true },
+          {left: "\\begin{align}", right: "\\end{align}", display: true},
+          {left: "\\begin{alignat}", right: "\\end{alignat}", display: true},
+          {left: "\\begin{gather}", right: "\\end{gather}", display: true},
+          {left: "\\begin{CD}", right: "\\end{CD}", display: true},
+          { left: "\\[", right: "\\]", display: true },
+        ],
+        throwOnError: false,
+      });
+    });
+  </script>
+
+
+  </body>
+</html>

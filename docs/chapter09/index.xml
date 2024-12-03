@@ -1,0 +1,18 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>PostgreSQL 14 Internals – 第 9 章：缓冲区缓存</title>
+    <link>//localhost:1313/docs/chapter09/</link>
+    <description>Recent content in 第 9 章：缓冲区缓存 on PostgreSQL 14 Internals</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    
+	  <atom:link href="//localhost:1313/docs/chapter09/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+  </channel>
+</rss>

@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 21 章：嵌套循环 – PostgreSQL 14 Internals</title>
+  <meta name="description" content="21.1 连接类型和方式 连接是 SQL 语言的关键特性；它们是其强大和灵活的基础。行集 (直接从表中检索或作为其他操作的结果接收) 始终成对连接。
+连接有几种类型：
+内连接。内连接 (指定为 INNER JOIN，或简称为 JOIN) 包括两个集合中满足特定连接条件的行。连接条件将一个行集的某些列与另一个行集的某些列结合；所有涉及的列构成连接键。如果连接条件要求两个集合的连接键相等，这样的连接称为等值连接；这是最常见的连接类型。两个集合的笛卡尔积 (CROSS JOIN) 包含这些集合所有可能的行对 — 这是具有 true 条件的内连接的一种特殊情况。
+外连接。左外连接 (指定为 LEFT OUTER JOIN，或简称为 LEFT JOIN) 通过左集合中那些在右集合中没有相匹配的行来扩展内连接的结果 (右集合中相应的列被填充为空值)。右外连接 (RIGHT JOIN) 也是如此，只是交换了集合的位置。全外连接 (指定为 FULL JOIN) 包括左外连接和右外连接，它将两边未找到匹配项的行都添加进来。
+反连接和半连接。半连接与内连接非常相似，但它只包括左侧集合中在右侧集合中有匹配项的那些行 (即使有多个匹配项，一行也仅包含一次)。反连接包括一个集合中在另一个集合中没有匹配项的行。SQL 语言没有明确的半连接和反连接，但可以使用像 EXISTS 和 NOT EXISTS 这样的谓词达到相同的结果。
+所有这些连接都是逻辑操作。例如，内连接通常被描述为一个已清理不满足连接条件的行的笛卡尔积。但在物理层面，内连接通常是通过成本更低的方式实现的。
+PostgreSQL 提供了多种连接方式：
+嵌套循环连接 哈希连接 归并连接 连接方法是实现 SQL 连接逻辑操作的算法。这些基本算法经常有针对特定连接类型的特殊变体，尽管它们可能只支持其中一些。例如，嵌套循环支持内连接 (在计划中由 Nested Loop 节点表示) 和左外连接(由 Nested Loop Left Join 节点表示) ，但它不能用于全外连接。
+同一算法的一些变体也可以被其他操作使用，如聚合。" />
+
+  
+    <link rel="canonical" href="//localhost:1313/docs/chapter21/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 21 章：嵌套循环" />
+<meta property="og:description" content="" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="//localhost:1313/docs/chapter21/" />
+
+  
+  <meta itemprop="name" content="第 21 章：嵌套循环">
+  <meta itemprop="description" content="21.1 连接类型和方式 连接是 SQL 语言的关键特性；它们是其强大和灵活的基础。行集 (直接从表中检索或作为其他操作的结果接收) 始终成对连接。
+连接有几种类型：
+内连接。内连接 (指定为 INNER JOIN，或简称为 JOIN) 包括两个集合中满足特定连接条件的行。连接条件将一个行集的某些列与另一个行集的某些列结合；所有涉及的列构成连接键。如果连接条件要求两个集合的连接键相等，这样的连接称为等值连接；这是最常见的连接类型。两个集合的笛卡尔积 (CROSS JOIN) 包含这些集合所有可能的行对 — 这是具有 true 条件的内连接的一种特殊情况。
+外连接。左外连接 (指定为 LEFT OUTER JOIN，或简称为 LEFT JOIN) 通过左集合中那些在右集合中没有相匹配的行来扩展内连接的结果 (右集合中相应的列被填充为空值)。右外连接 (RIGHT JOIN) 也是如此，只是交换了集合的位置。全外连接 (指定为 FULL JOIN) 包括左外连接和右外连接，它将两边未找到匹配项的行都添加进来。
+反连接和半连接。半连接与内连接非常相似，但它只包括左侧集合中在右侧集合中有匹配项的那些行 (即使有多个匹配项，一行也仅包含一次)。反连接包括一个集合中在另一个集合中没有匹配项的行。SQL 语言没有明确的半连接和反连接，但可以使用像 EXISTS 和 NOT EXISTS 这样的谓词达到相同的结果。
+所有这些连接都是逻辑操作。例如，内连接通常被描述为一个已清理不满足连接条件的行的笛卡尔积。但在物理层面，内连接通常是通过成本更低的方式实现的。
+PostgreSQL 提供了多种连接方式：
+嵌套循环连接 哈希连接 归并连接 连接方法是实现 SQL 连接逻辑操作的算法。这些基本算法经常有针对特定连接类型的特殊变体，尽管它们可能只支持其中一些。例如，嵌套循环支持内连接 (在计划中由 Nested Loop 节点表示) 和左外连接(由 Nested Loop Left Join 节点表示) ，但它不能用于全外连接。
+同一算法的一些变体也可以被其他操作使用，如聚合。">
+  <meta itemprop="wordCount" content="1670">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 21 章：嵌套循环">
+  <meta name="twitter:description" content="21.1 连接类型和方式 连接是 SQL 语言的关键特性；它们是其强大和灵活的基础。行集 (直接从表中检索或作为其他操作的结果接收) 始终成对连接。
+连接有几种类型：
+内连接。内连接 (指定为 INNER JOIN，或简称为 JOIN) 包括两个集合中满足特定连接条件的行。连接条件将一个行集的某些列与另一个行集的某些列结合；所有涉及的列构成连接键。如果连接条件要求两个集合的连接键相等，这样的连接称为等值连接；这是最常见的连接类型。两个集合的笛卡尔积 (CROSS JOIN) 包含这些集合所有可能的行对 — 这是具有 true 条件的内连接的一种特殊情况。
+外连接。左外连接 (指定为 LEFT OUTER JOIN，或简称为 LEFT JOIN) 通过左集合中那些在右集合中没有相匹配的行来扩展内连接的结果 (右集合中相应的列被填充为空值)。右外连接 (RIGHT JOIN) 也是如此，只是交换了集合的位置。全外连接 (指定为 FULL JOIN) 包括左外连接和右外连接，它将两边未找到匹配项的行都添加进来。
+反连接和半连接。半连接与内连接非常相似，但它只包括左侧集合中在右侧集合中有匹配项的那些行 (即使有多个匹配项，一行也仅包含一次)。反连接包括一个集合中在另一个集合中没有匹配项的行。SQL 语言没有明确的半连接和反连接，但可以使用像 EXISTS 和 NOT EXISTS 这样的谓词达到相同的结果。
+所有这些连接都是逻辑操作。例如，内连接通常被描述为一个已清理不满足连接条件的行的笛卡尔积。但在物理层面，内连接通常是通过成本更低的方式实现的。
+PostgreSQL 提供了多种连接方式：
+嵌套循环连接 哈希连接 归并连接 连接方法是实现 SQL 连接逻辑操作的算法。这些基本算法经常有针对特定连接类型的特殊变体，尽管它们可能只支持其中一些。例如，嵌套循环支持内连接 (在计划中由 Nested Loop 节点表示) 和左外连接(由 Nested Loop Left Join 节点表示) ，但它不能用于全外连接。
+同一算法的一些变体也可以被其他操作使用，如聚合。">
+
+    <link href="/css/compiled/main.css" rel="stylesheet" />
+
+
+
+  <link href="/css/custom.css" rel="stylesheet" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'system';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  
+</head>
+<body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 14 Internals">PostgreSQL 14 Internals</span>
+    </a><a
+            title="Docs"
+            href="/docs"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
+          >
+            <span class="hx-text-center">Docs</span>
+          </a><a
+            title="About"
+            href="/about"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">About</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/about/"
+    
+  >About
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/"
+    
+  >Docs
+        <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
+    </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
+        <ul class='hx-relative hx-flex hx-flex-col hx-gap-1 before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] ltr:hx-ml-3 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-mr-3 rtl:hx-pr-3 rtl:before:hx-right-0 dark:before:hx-bg-neutral-800'><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#211-%e8%bf%9e%e6%8e%a5%e7%b1%bb%e5%9e%8b%e5%92%8c%e6%96%b9%e5%bc%8f"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >21.1 连接类型和方式</a>
+            </li>
+          <li>
+              <a
+                href="#212-%e5%b5%8c%e5%a5%97%e5%be%aa%e7%8e%af%e8%bf%9e%e6%8e%a5"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >21.2 嵌套循环连接</a>
+            </li>
+          </ul>
+  
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a>
+              
+            </li><li class="hx-flex hx-flex-col open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a>
+              
+            </li></ul>
+      </div></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/recommend/"
+    
+  >Recommend
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter01/"
+    
+  >第 1 章：介绍
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter02/"
+    
+  >第 2 章：隔离性
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter03/"
+    
+  >第 3 章：页与元组
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter04/"
+    
+  >第 4 章：快照
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter05/"
+    
+  >第 5 章：页剪枝与 HOT 更新
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter06/"
+    
+  >第 6 章：Vacuum 与 Autovacuum
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter07/"
+    
+  >第 7 章：冻结
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter08/"
+    
+  >第 8 章：重建表与索引
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter09/"
+    
+  >第 9 章：缓冲区缓存
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter10/"
+    
+  >第 10 章：预写式日志
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter11/"
+    
+  >第 11 章：WAL 模式
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter12/"
+    
+  >第 12 章：关系级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter13/"
+    
+  >第 13 章：行级锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter14/"
+    
+  >第 14 章：多样的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter15/"
+    
+  >第 15 章：内存结构上的锁
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter16/"
+    
+  >第 16 章：查询执行阶段
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter17/"
+    
+  >第 17 章：统计信息
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter18/"
+    
+  >第 18 章：表访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter19/"
+    
+  >第 19 章：索引访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter20/"
+    
+  >第 20 章：索引扫描
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/docs/chapter21/"
+    
+  >第 21 章：嵌套循环
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter22/"
+    
+  >第 22 章：哈希
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter23/"
+    
+  >第 23 章：排序与归并
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter24/"
+    
+  >第 24 章：Hash
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter25/"
+    
+  >第 25 章：B-tree
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter26/"
+    
+  >第 26 章：GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter27/"
+    
+  >第 27 章：SP-GiST
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter28/"
+    
+  >第 28 章：GIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter29/"
+    
+  >第 29 章：BRIN
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/docs/chapter30/"
+    
+  >结论
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#211-%e8%bf%9e%e6%8e%a5%e7%b1%bb%e5%9e%8b%e5%92%8c%e6%96%b9%e5%bc%8f">21.1 连接类型和方式
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#212-%e5%b5%8c%e5%a5%97%e5%be%aa%e7%8e%af%e8%bf%9e%e6%8e%a5">21.2 嵌套循环连接
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2121-%e7%ac%9b%e5%8d%a1%e5%b0%94%e7%a7%af">21.2.1 笛卡尔积
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2122-%e5%8f%82%e6%95%b0%e5%8c%96%e8%bf%9e%e6%8e%a5">21.2.2 参数化连接
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2123-%e7%bc%93%e5%ad%98%e8%a1%8c-memoization">21.2.3 缓存行 (Memoization)
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2124-%e5%a4%96%e8%bf%9e%e6%8e%a5">21.2.4 外连接
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2125-%e5%8f%8d%e8%bf%9e%e6%8e%a5%e5%92%8c%e5%8d%8a%e8%bf%9e%e6%8e%a5">21.2.5 反连接和半连接
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2126-%e9%9d%9e%e7%ad%89%e5%80%bc%e8%bf%9e%e6%8e%a5">21.2.6 非等值连接
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2127-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f">21.2.7 并行模式
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        
+  <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
+        <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
+          <a href="/docs/">Docs</a>
+        </div><svg class="hx-w-3.5 hx-shrink-0 rtl:-hx-rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg><div class="hx-whitespace-nowrap hx-transition-colors hx-font-medium hx-text-gray-700 contrast-more:hx-font-bold contrast-more:hx-text-current dark:hx-text-gray-100 contrast-more:dark:hx-text-current">第 21 章：嵌套循环</div>
+  </div>
+
+        <div class="content">
+          <h1>第 21 章：嵌套循环</h1>
+          <h2>21.1 连接类型和方式<span class="hx-absolute -hx-mt-20" id="211-连接类型和方式"></span>
+    <a href="#211-%e8%bf%9e%e6%8e%a5%e7%b1%bb%e5%9e%8b%e5%92%8c%e6%96%b9%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>连接是 SQL 语言的关键特性；它们是其强大和灵活的基础。行集 (直接从表中检索或作为其他操作的结果接收) 始终成对连接。</p>
+<p>连接有几种类型：</p>
+<p><strong>内连接</strong>。内连接 (指定为 INNER JOIN，或简称为 JOIN) 包括两个集合中满足特定连接条件的行。连接条件将一个行集的某些列与另一个行集的某些列结合；所有涉及的列构成连接键。如果连接条件要求两个集合的连接键相等，这样的连接称为等值连接；这是最常见的连接类型。两个集合的笛卡尔积 (CROSS JOIN) 包含这些集合所有可能的行对 — 这是具有 true 条件的内连接的一种特殊情况。</p>
+<p><strong>外连接</strong>。左外连接 (指定为 LEFT OUTER JOIN，或简称为 LEFT JOIN) 通过左集合中那些在右集合中没有相匹配的行来扩展内连接的结果 (右集合中相应的列被填充为空值)。右外连接 (RIGHT JOIN) 也是如此，只是交换了集合的位置。全外连接 (指定为 FULL JOIN) 包括左外连接和右外连接，它将两边未找到匹配项的行都添加进来。</p>
+<p><strong>反连接和半连接</strong>。半连接与内连接非常相似，但它只包括左侧集合中在右侧集合中有匹配项的那些行 (即使有多个匹配项，一行也仅包含一次)。反连接包括一个集合中在另一个集合中没有匹配项的行。SQL 语言没有明确的半连接和反连接，但可以使用像 EXISTS 和 NOT EXISTS 这样的谓词达到相同的结果。</p>
+<p>所有这些连接都是逻辑操作。例如，内连接通常被描述为一个已清理不满足连接条件的行的笛卡尔积。但在物理层面，内连接通常是通过成本更低的方式实现的。</p>
+<p>PostgreSQL 提供了多种连接方式：</p>
+<ul>
+<li>嵌套循环连接</li>
+<li>哈希连接</li>
+<li>归并连接</li>
+</ul>
+<p>连接方法是实现 SQL 连接逻辑操作的算法。这些基本算法经常有针对特定连接类型的特殊变体，尽管它们可能只支持其中一些。例如，嵌套循环支持内连接 (在计划中由 Nested Loop 节点表示) 和左外连接(由 Nested Loop Left Join 节点表示) ，但它不能用于全外连接。</p>
+<p>同一算法的一些变体也可以被其他操作使用，如聚合。</p>
+<p>不同的连接方法在不同条件下效果最佳；规划器的工作就是选择成本效益最高的连接方法。</p>
+<h2>21.2 嵌套循环连接<span class="hx-absolute -hx-mt-20" id="212-嵌套循环连接"></span>
+    <a href="#212-%e5%b5%8c%e5%a5%97%e5%be%aa%e7%8e%af%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>嵌套循环连接的基本算法如下。外循环遍历第一个集合中 (称为外集合) 所有的行。对于每一行，嵌套循环遍历第二个集合中 (称为内集合) 的行，以找到满足连接条件的行。每个找到的连接对作为查询结果的一部分立即返回。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+<p>此算法访问内集合的次数与外集合中的行数一样多。因此，嵌套循环连接的效率取决于几个因素：</p>
+<ul>
+<li>外集合中行的基数</li>
+<li>可用的访问方法，可以有效获取内集合中所需的行</li>
+<li>循环访问内集合中的同一行</li>
+</ul>
+<h3>21.2.1 笛卡尔积<span class="hx-absolute -hx-mt-20" id="2121-笛卡尔积"></span>
+    <a href="#2121-%e7%ac%9b%e5%8d%a1%e5%b0%94%e7%a7%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>无论集合中的行数如何，嵌套循环连接都是查找笛卡尔积最有效的方式：</p>
+<p><img src="21-1.png" alt="" loading="lazy" /></p>
+<p>嵌套循环节点使用上述算法进行连接。它总是有两个子节点：计划中显示较高的节点对应于外集合，而较低的节点代表内集合。</p>
+<p>在此例中，内集合由 Materialize 节点 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 表示。此节点返回从其子节点接收到的行，并保存它们以备将来使用 (这些行在内存中累积，直到它们的总大小达到 work_mem；然后 PostgreSQL 会将它们溢出到磁盘上的临时文件中)。如果再次访问，节点读取所累积的行而无需调用子节点。这样执行器就可以避免再次扫描全表，只读取满足条件的行即可。</p>
+<p>对于使用常规等值连接的查询，也可以构建类似的计划：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets t
+</span></span><span class="line"><span class="cl">  JOIN ticket_flights tf ON tf.ticket_no <span class="o">=</span> t.ticket_no
+</span></span><span class="line"><span class="cl">WHERE t.ticket_no <span class="o">=</span> <span class="s1">&#39;0005432000284&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                           QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.99..25.05 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>136<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using tickets_pkey on tickets t
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.43..8.45 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>104<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005432000284&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005432000284&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在识别两个值相等之后，规划器将连接条件 tf.ticket_no = t.ticket_no 替换为 tf.ticket_no = <em>constant</em> 的条件，这实际上将等值连接简化为了笛卡尔积。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup></p>
+<p><strong>基数估算</strong>。笛卡尔积的基数预估为所连接数据集的基数乘积：3 = 1 × 3。</p>
+<p><strong>代价估算</strong>。连接操作的启动成本包括了所有子节点的启动成本。</p>
+<p>连接的全部成本包括以下部分：</p>
+<ul>
+<li>获取外集合中所有行的成本</li>
+<li>单次检索内集合中所有行的成本 (因为外集合的基数预估等于 1)</li>
+<li>处理要返回的每一行的成本</li>
+</ul>
+<p>此处是成本估算的依赖图：</p>
+<p><img src="21-2.png" alt="" loading="lazy" /></p>
+<p>连接的成本计算如下：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT 0.43 + 0.56 AS startup_cost,
+</span></span><span class="line"><span class="cl">  round<span class="o">((</span>
+</span></span><span class="line"><span class="cl">    8.45 + 16.57 +
+</span></span><span class="line"><span class="cl">    <span class="m">3</span> * current_setting<span class="o">(</span><span class="s1">&#39;cpu_tuple_cost&#39;</span><span class="o">)</span>::real
+</span></span><span class="line"><span class="cl">  <span class="o">)</span>::numeric, 2<span class="o">)</span> AS total_cost<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> startup_cost <span class="p">|</span> total_cost
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−+−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">         0.99 <span class="p">|</span>      25.05
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在让我们回到之前的例子：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM aircrafts_data a1
+</span></span><span class="line"><span class="cl">  CROSS JOIN aircrafts_data a2
+</span></span><span class="line"><span class="cl">WHERE a2.range &gt; 5000<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                    QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..2.78 <span class="nv">rows</span><span class="o">=</span><span class="m">45</span> <span class="nv">width</span><span class="o">=</span>144<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on aircrafts_data a1
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.09 <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Materialize <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.14 <span class="nv">rows</span><span class="o">=</span><span class="m">5</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       −&gt; Seq Scan on aircrafts_data a2
+</span></span><span class="line"><span class="cl">          <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.11 <span class="nv">rows</span><span class="o">=</span><span class="m">5</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          Filter: <span class="o">(</span>range &gt; 5000<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在计划中包含了 Materialize 节点；在累积了从子节点接收到的行之后，Materialize 就能在所有后续调用中更快地返回它们。</p>
+<p>总的来说，连接的总成本包括以下：<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup></p>
+<ul>
+<li>获取外集合中所有行的成本</li>
+<li>内集合中所有行的初始获取成本 (在此期间执行物化)</li>
+<li>内集合中行重复获取成本的 (N-1) 倍 (此处 N 是外集合的行数)</li>
+<li>处理要返回的每一行的成本</li>
+</ul>
+<p>此处的依赖图如下：</p>
+<p><img src="21-3.png" alt="" loading="lazy" /></p>
+<p>在这个例子中，物化降低了重复获取数据的成本。计划中显示了第一次 Materialize 调用的成本，但没有列出所有后续的调用情况。我不会在此处提供任何计算说明，<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 但在此特例下，估算值是 0.0125。</p>
+<p>因此，这个例子中执行的连接成本计算如下：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT 0.00 + 0.00 AS startup_cost,
+</span></span><span class="line"><span class="cl">  round<span class="o">((</span>
+</span></span><span class="line"><span class="cl">    1.09 + <span class="o">(</span>1.14 + <span class="m">8</span> * 0.0125<span class="o">)</span> +
+</span></span><span class="line"><span class="cl">    <span class="m">45</span> * current_setting<span class="o">(</span><span class="s1">&#39;cpu_tuple_cost&#39;</span><span class="o">)</span>::real
+</span></span><span class="line"><span class="cl">  <span class="o">)</span>::numeric, 2<span class="o">)</span> AS total_cost<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> startup_cost <span class="p">|</span> total_cost
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−+−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">         0.00 <span class="p">|</span>       2.78
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>21.2.2 参数化连接<span class="hx-absolute -hx-mt-20" id="2122-参数化连接"></span>
+    <a href="#2122-%e5%8f%82%e6%95%b0%e5%8c%96%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>现在让我们考虑一个更常见的例子，它不能归结为笛卡尔积：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON tickets<span class="o">(</span>book_ref<span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets t
+</span></span><span class="line"><span class="cl">  JOIN ticket_flights tf ON tf.ticket_no <span class="o">=</span> t.ticket_no
+</span></span><span class="line"><span class="cl">WHERE t.book_ref <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                           QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.99..45.68 <span class="nv">rows</span><span class="o">=</span><span class="m">6</span> <span class="nv">width</span><span class="o">=</span>136<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using tickets_book_ref_idx on tickets t
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.43..12.46 <span class="nv">rows</span><span class="o">=</span><span class="m">2</span> <span class="nv">width</span><span class="o">=</span>104<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> t.ticket_no<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此处，Nested Loop 节点遍历外集合中 (tickets) 的行，对于其中的每一行，都会搜索内集合中 (flights) 相应的行，同时将票号作为参数 (t.ticket_no) 传递给条件。当调用内部节点 (Index Scan) 时，必须要处理条件 ticket_no = <em>constant</em>。</p>
+<p><strong>基数估算</strong>。规划器预估外集合中有两行 (rows=2) 满足按预订号过滤的条件，并且每行平均匹配内集合中的三行 (rows=3)。</p>
+<p>连接选择率是连接后剩余的两个集合的笛卡尔积的一部分。显然，我们必须排除两个集合中连接键中包含空值的行，因为它们永远不会满足等值条件。</p>
+<p>预估基数等于笛卡尔积的基数 (即两个集合基数的乘积) 乘以选择率。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
+<p>此处第一个 (外) 集合的预估基数是两行。由于除了连接条件自身外，没有条件应用于第二个 (内) 集合，因此第二个集合的基数为 ticket_flights 表的基数。</p>
+<p>由于连接的表通过外键连接，因此选择率的估算依赖于子表中的每一行恰好在父表中有一个匹配行的事实。因此，选择率被视为外键引用的表大小的倒数。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
+<p>这样的话，对于 ticket_no 列不包含空值的情况，估算如下：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT round<span class="o">(</span><span class="m">2</span> * tf.reltuples * <span class="o">(</span>1.0 / t.reltuples<span class="o">))</span> AS rows
+</span></span><span class="line"><span class="cl">FROM pg_class t, pg_class tf
+</span></span><span class="line"><span class="cl">WHERE t.relname <span class="o">=</span> <span class="s1">&#39;tickets&#39;</span>
+</span></span><span class="line"><span class="cl">  AND tf.relname <span class="o">=</span> <span class="s1">&#39;ticket_flights&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> rows
+</span></span><span class="line"><span class="cl">−−−−−−
+</span></span><span class="line"><span class="cl">    <span class="m">6</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>显然，不使用外键也可以连接表。那么选择率将取自特定连接条件的预估选择率。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
+<p>对于这个例子中的等值连接，假设值均匀分布，选择率估算的通用公式如下：
+$$
+\min \left( \frac{1}{nd_{1}}, \frac{1}{nd_{2}} \right)
+$$
+其中 nd1 和 nd2 分别表示第一个集合和第二个集合中连接键不同值的数量。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup></p>
+<p>非重复值的统计信息显示 tickets 表中的票号是唯一的 (这是意料之中的，因为 ticket_no 列是主键)，并且 ticket_flights 中每张票大约有三个匹配行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT t.n_distinct, tf.n_distinct
+</span></span><span class="line"><span class="cl">FROM pg_stats t, pg_stats tf
+</span></span><span class="line"><span class="cl">WHERE t.tablename <span class="o">=</span> <span class="s1">&#39;tickets&#39;</span> AND t.attname <span class="o">=</span> <span class="s1">&#39;ticket_no&#39;</span>
+</span></span><span class="line"><span class="cl">  AND tf.tablename <span class="o">=</span> <span class="s1">&#39;ticket_flights&#39;</span> AND tf.attname <span class="o">=</span> <span class="s1">&#39;ticket_no&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> n_distinct <span class="p">|</span> n_distinct
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">         −1 <span class="p">|</span> −0.30362356
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>结果将与外键连接的估算值相匹配：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT round<span class="o">(</span><span class="m">2</span> * tf.reltuples *
+</span></span><span class="line"><span class="cl">  least<span class="o">(</span>1.0/t.reltuples, 1.0/tf.reltuples/0.30362356<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">)</span> AS rows
+</span></span><span class="line"><span class="cl">FROM pg_class t, pg_class tf
+</span></span><span class="line"><span class="cl">WHERE t.relname <span class="o">=</span> <span class="s1">&#39;tickets&#39;</span> AND tf.relname <span class="o">=</span> <span class="s1">&#39;ticket_flights&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> rows
+</span></span><span class="line"><span class="cl">−−−−−−
+</span></span><span class="line"><span class="cl">    <span class="m">6</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>规划器会尽可能尝试改进此基线预估。目前它还不能使用直方图，但如果两个表的连接键上收集了 MCV 列表这类统计信息，那么规划器会考虑这些信息。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 列表中出现的行的选择率可以更准确地估算，而剩余的行将不得不依赖于基于均匀分布的假设进行计算。</p>
+<p>通常情况下，如果定义了外键，连接选择率的估算可能会更准确。对于复合连接键更是如此，因为在这种情况下，选择率通常都被大大低估了。</p>
+<p>使用 EXPLAIN ANALYZE 命令，不仅可以查看到实际的行数，还可以看到内循环被执行的次数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>analyze, timing off, summary off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets t
+</span></span><span class="line"><span class="cl">  JOIN ticket_flights tf ON tf.ticket_no <span class="o">=</span> t.ticket_no
+</span></span><span class="line"><span class="cl">WHERE t.book_ref <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                           QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.99..45.68 <span class="nv">rows</span><span class="o">=</span><span class="m">6</span> <span class="nv">width</span><span class="o">=</span>136<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">8</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using tickets_book_ref_idx on tickets t
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.43..12.46 <span class="nv">rows</span><span class="o">=</span><span class="m">2</span> <span class="nv">width</span><span class="o">=</span>104<span class="o">)</span> <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">2</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span> <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">4</span> <span class="nv">loops</span><span class="o">=</span>2<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> t.ticket_no<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">8</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>外集合包含两行 (actual rows=2)；估算是正确的。所以 Index Scan节点执行了两次 (loops=2)，每次平均选取了四行 (actual rows=4) 。因此找到的总行数是：actual rows=8。</p>
+<blockquote>
+<p>为了让输出适应页面的有限宽度，我没有显示计划的每个阶段的执行时间 (TIMING OFF)；此外，在某些平台上，启用计时的输出可能会显著减慢查询的执行速度。但如果我们确实包括了它，PostgreSQL 会显示一个平均值，就像行数一样。要获取总执行时间，你需要将此值乘以迭代次数 (loops)。</p>
+</blockquote>
+<p><strong>成本估算</strong>。此处的成本估算公式与之前的示例相同。</p>
+<p>让我们回顾一下查询计划：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM tickets t
+</span></span><span class="line"><span class="cl">  JOIN ticket_flights tf ON tf.ticket_no <span class="o">=</span> t.ticket_no
+</span></span><span class="line"><span class="cl">WHERE t.book_ref <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                           QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.99..45.68 <span class="nv">rows</span><span class="o">=</span><span class="m">6</span> <span class="nv">width</span><span class="o">=</span>136<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using tickets_book_ref_idx on tickets t
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.43..12.46 <span class="nv">rows</span><span class="o">=</span><span class="m">2</span> <span class="nv">width</span><span class="o">=</span>104<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">book_ref</span> <span class="o">=</span> <span class="s1">&#39;03A76D&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> t.ticket_no<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">7</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在这种情况下，内集合每次后续扫描的成本与第一次扫描的成本相同。因此，我们最终得到以下数据：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT 0.43 + 0.56 AS startup_cost,
+</span></span><span class="line"><span class="cl">  round<span class="o">((</span>
+</span></span><span class="line"><span class="cl">    12.46 + <span class="m">2</span> * 16.57 +
+</span></span><span class="line"><span class="cl">    <span class="m">6</span> * current_setting<span class="o">(</span><span class="s1">&#39;cpu_tuple_cost&#39;</span><span class="o">)</span>::real
+</span></span><span class="line"><span class="cl">  <span class="o">)</span>::numeric, 2<span class="o">)</span> AS total_cost<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> startup_cost <span class="p">|</span> total_cost
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−+−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">         0.99 <span class="p">|</span>      45.66
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>21.2.3 缓存行 (Memoization)<span class="hx-absolute -hx-mt-20" id="2123-缓存行-memoization"></span>
+    <a href="#2123-%e7%bc%93%e5%ad%98%e8%a1%8c-memoization" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果使用相同的参数值重复扫描内集合 (从而给出相同的结果)，那么缓存该集合的行可能会有益。</p>
+<p>此类缓存由 Memoize <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>  节点执行。与 Materialize 节点类似，旨在处理参数化连接，并且具有更复杂的实现：</p>
+<ul>
+<li>Materialize 节点只是简单地保存所有子节点返回的行，而 Memoize 则确保不同参数值返回的行分开保存。</li>
+<li>在发生溢出的情况下，Materialize 存储开始将行溢出到磁盘，而 Memoize 会将所有行保留在内存中 (否则缓存就没有意义了)。</li>
+</ul>
+<p>此处是一个使用 Memoize 的查询示例：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM flights f
+</span></span><span class="line"><span class="cl">  JOIN aircrafts_data a ON f.aircraft_code <span class="o">=</span> a.aircraft_code
+</span></span><span class="line"><span class="cl">WHERE f.flight_no <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>5.44..387.10 <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">width</span><span class="o">=</span>135<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Bitmap Heap Scan on flights f
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>5.30..382.22 <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">width</span><span class="o">=</span>63<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Recheck Cond: <span class="o">(</span><span class="nv">flight_no</span> <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       −&gt; Bitmap Index Scan on flights_flight_no_scheduled_depart...
+</span></span><span class="line"><span class="cl">           <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..5.27 <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">width</span><span class="o">=</span>0<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Index Cond: <span class="o">(</span><span class="nv">flight_no</span> <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">    −&gt; Memoize <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.15..0.27 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Cache Key: f.aircraft_code
+</span></span><span class="line"><span class="cl">       Cache Mode: logical
+</span></span><span class="line"><span class="cl">       −&gt; Index Scan using aircrafts_pkey on aircrafts_data a
+</span></span><span class="line"><span class="cl">           <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.14..0.26 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>72<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> f.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">13</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>用于存储缓存行的内存块大小等于 work_mem × hash_mem_multiplier。正如第二个参数名所暗示的那样，缓存行存储在哈希表中 (使用开放寻址) <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>。哈希键 (在计划中显示为 Cache Key) 是参数值 (如果不止一个参数，则为多个值)。</p>
+<p>所有哈希键绑定到一个列表中；其一端被认为是冷的 (因为它包含长时间未使用的键)，而另一端是热的 (它存储最近使用的键)。</p>
+<p>如果对 Memoize 节点的调用显示传递的参数值对应于已缓存的行，那么这些行将被传递到父节点 (嵌套循环) 而无需检查子节点。然后使用过的哈希键被移动到列表的热端。</p>
+<p>如果缓存中不包含所需的行，Memoize 节点将从其子节点中提取并缓存它们，然后传递给上层节点。相应的哈希键也会变热。</p>
+<p>随着新数据被缓存，它可以填满所有可用的内存。为了释放一些空间，对应于冷键的行会被逐出。该逐出算法不同于缓冲区缓存中使用的算法，但目的相同。</p>
+<p>某些参数值可能有太多匹配的行，即使所有其他行都已被逐出也不适合所分配的内存块。这样的参数会被跳过 — 只缓存一些行是没有意义的，因为下一次调用仍然必须从子节点获取所有的行。</p>
+<p><strong>成本和基数估算</strong>。这些计算与我们上面已看到的十分相似。我们只需要记住，计划中显示的 Memoize 节点的成本与其实际成本无关：它只是其子节点的成本增加了 cpu_tuple_cost 的值。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
+<p>对于 Materialize 节点，我们已经遇到过类似的情况：它的成本仅为后续扫描进行计算 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup>，且不会反映在计划中。</p>
+<p>显然，只有当 Memoize 比其子节点成本更低时，才有意义使用。每次后续 Memoize 扫描的成本取决于预期的缓存访问概况以及可用于缓存的内存块大小。计算值在很大程度上取决于对扫描内层数据集时使用的不同参数值数量的准确估算。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 基于这个数字，你可以权衡行被缓存和从缓存中逐出的概率。预期的命中降低了估算成本，而潜在的逐出增加了成本。在此处我们将跳过这些计算细节。</p>
+<p>为了弄清楚查询执行期间实际发生了什么，我们将像往常一样使用 EXPLAIN ANALYZE 命令：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>analyze, costs off, timing off, summary off<span class="o">)</span>
+</span></span><span class="line"><span class="cl">SELECT * FROM flights f
+</span></span><span class="line"><span class="cl">  JOIN aircrafts_data a ON f.aircraft_code <span class="o">=</span> a.aircraft_code
+</span></span><span class="line"><span class="cl">WHERE f.flight_no <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Bitmap Heap Scan on flights f
+</span></span><span class="line"><span class="cl">       <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Recheck Cond: <span class="o">(</span><span class="nv">flight_no</span> <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Heap Blocks: <span class="nv">exact</span><span class="o">=</span><span class="m">2</span>
+</span></span><span class="line"><span class="cl">   −&gt; Bitmap Index Scan on flights_flight_no_scheduled_depart...
+</span></span><span class="line"><span class="cl">       <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">113</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">flight_no</span> <span class="o">=</span> <span class="s1">&#39;PG0003&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Memoize <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">loops</span><span class="o">=</span>113<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Cache Key: f.aircraft_code
+</span></span><span class="line"><span class="cl">       Cache Mode: logical
+</span></span><span class="line"><span class="cl">       Hits: <span class="m">112</span> Misses: <span class="m">1</span> Evictions: <span class="m">0</span> Overflows: <span class="m">0</span> Memory
+</span></span><span class="line"><span class="cl">       Usage: 1kB
+</span></span><span class="line"><span class="cl">       −&gt; Index Scan using aircrafts_pkey on aircrafts_data a
+</span></span><span class="line"><span class="cl">           <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> f.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">16</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>该查询选择沿相同航线并由特定类型的飞机执飞的航班，因此所有 Memoize 节点上的调用都使用相同的哈希键。第一行必须从表中获取第 (Misses: 1)，但后续所有的行都在缓存中找到 (Hits: 112)。整个操作只需要 1 kB 的内存。</p>
+<p>其他两个显示的值为零：它们代表逐出的次数和由于无法缓存与特定参数集相关的所有行时发生的缓存溢出次数。较大的数字表示分配的缓存太小，这可能是由于对不同参数值的数量预估不准确造成的。那么使用 Memoize 节点可能会非常昂贵。在极端情况下，你可以通过关闭 enable_memoize 参数来禁止规划器使用缓存。</p>
+<h3>21.2.4 外连接<span class="hx-absolute -hx-mt-20" id="2124-外连接"></span>
+    <a href="#2124-%e5%a4%96%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可用于执行左外连接：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM ticket_flights tf
+</span></span><span class="line"><span class="cl">  LEFT JOIN boarding_passes bp ON bp.ticket_no <span class="o">=</span> tf.ticket_no
+</span></span><span class="line"><span class="cl">AND bp.flight_id <span class="o">=</span> tf.flight_id
+</span></span><span class="line"><span class="cl">WHERE tf.ticket_no <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop Left Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>1.12..33.35 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>57<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Join Filter: <span class="o">((</span>bp.ticket_no <span class="o">=</span> tf.ticket_no<span class="o">)</span> AND <span class="o">(</span>bp.flight_id <span class="o">=</span>
+</span></span><span class="line"><span class="cl">   tf.flight_id<span class="o">))</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Materialize <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.62 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>25<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       −&gt; Index Scan using boarding_passes_pkey on boarding_passe...
+</span></span><span class="line"><span class="cl">           <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.61 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>25<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">10</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>此处连接操作由 Nested Loop Left Join 节点表示。规划器选择了一个带有过滤条件的非参数化连接：它对内层数据集执行相同的扫描 (因此该集合隐藏在 Materialize 节点后面) 并返回满足过滤条件 (Join Filter) 的行。</p>
+<p>外连接的基数预估与内连接的基数一样，只是计算出来的预估值是和外层数据集的基数比较，并取较大值作为最终结果。<sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 换句话说，外连接永远不会减少行数 (但可以增加)。</p>
+<p>成本估算与内连接类似。</p>
+<p>我们还需记住，规划器可以为内连接和外连接选择不同的计划。如果规划器被迫使用嵌套循环连接，那么即使是这个简单的示例也会有不同的连接过滤条件：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SET <span class="nv">enable_mergejoin</span> <span class="o">=</span> off<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM ticket_flights tf
+</span></span><span class="line"><span class="cl">  JOIN boarding_passes bp ON bp.ticket_no <span class="o">=</span> tf.ticket_no
+</span></span><span class="line"><span class="cl">                         AND bp.flight_id <span class="o">=</span> tf.flight_id
+</span></span><span class="line"><span class="cl">WHERE tf.ticket_no <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>1.12..33.33 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>57<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   Join Filter: <span class="o">(</span>tf.flight_id <span class="o">=</span> bp.flight_id<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.58 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>32<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Materialize <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.62 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>25<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       −&gt; Index Scan using boarding_passes_pkey on boarding_passe...
+</span></span><span class="line"><span class="cl">           <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.56..16.61 <span class="nv">rows</span><span class="o">=</span><span class="m">3</span> <span class="nv">width</span><span class="o">=</span>25<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> <span class="s1">&#39;0005434026720&#39;</span>::bpchar<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">9</span> rows<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; RESET enable_mergejoin<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>总成本略有不同的原因是，如果外层数据集中没有匹配项，外连接还必须检查票号以获得正确的结果。</p>
+<p>不支持右外连接，<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 因为嵌套循环算法以不同方式处理内集合和外集合。外集合被完整扫描；至于内集合，索引访问只允许读取那些满足连接条件的行，因此可能完全跳过其中的一些行。</p>
+<p>出于同样的原因，也不支持全外连接。</p>
+<h3>21.2.5 反连接和半连接<span class="hx-absolute -hx-mt-20" id="2125-反连接和半连接"></span>
+    <a href="#2125-%e5%8f%8d%e8%bf%9e%e6%8e%a5%e5%92%8c%e5%8d%8a%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>反连接和半连接在某种意义上是相似的，对于第一个 (外) 集合的每一行，只需在第二个 (内) 集合中找到一个匹配项就足够了。</p>
+<p>反连接只有在第二个数据集中没有匹配项的情况下才返回第一个数据集中的行：一旦执行器在第二个数据集中找到了第一个匹配的行，它就可以退出当前循环：第一个数据集中相应的行必须从结果中排除。</p>
+<p>反连接可用于计算 NOT EXISTS 谓词。</p>
+<p>例如，让我们查找未定义机舱配置的机型。对应的计划包含 Nested Loop Anti Join 节点：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM aircrafts a
+</span></span><span class="line"><span class="cl">WHERE NOT EXISTS <span class="o">(</span>
+</span></span><span class="line"><span class="cl">  SELECT * FROM seats s WHERE s.aircraft_code <span class="o">=</span> a.aircraft_code
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                            QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop Anti Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..4.65 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>40<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.09 <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> widt...
+</span></span><span class="line"><span class="cl">   −&gt; Index Only Scan using seats_pkey on seats s
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..5.55 <span class="nv">rows</span><span class="o">=</span><span class="m">149</span> <span class="nv">width</span><span class="o">=</span>4<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> ml.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>一个没有 NOT EXISTS 谓词的替代查询含有相同的计划：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT a.*
+</span></span><span class="line"><span class="cl">FROM aircrafts a
+</span></span><span class="line"><span class="cl">  LEFT JOIN seats s ON a.aircraft_code <span class="o">=</span> s.aircraft_code
+</span></span><span class="line"><span class="cl">WHERE s.aircraft_code IS NULL<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop Anti Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..4.65 <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">width</span><span class="o">=</span>40<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.09 <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> widt...
+</span></span><span class="line"><span class="cl">   −&gt; Index Only Scan using seats_pkey on seats s
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..5.55 <span class="nv">rows</span><span class="o">=</span><span class="m">149</span> <span class="nv">width</span><span class="o">=</span>4<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> ml.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>半连接会返回第一个数据集中至少在第二个数据集中有一条匹配项的行 (同样，也无需检查数据集中是否有其他匹配项 — 结果已经知道了)。</p>
+<p>半连接可用于计算 EXISTS 谓词。让我们找出机舱内装有座椅的机型：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM aircrafts a
+</span></span><span class="line"><span class="cl">WHERE EXISTS <span class="o">(</span>
+</span></span><span class="line"><span class="cl">  SELECT * FROM seats s
+</span></span><span class="line"><span class="cl">  WHERE s.aircraft_code <span class="o">=</span> a.aircraft_code
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop Semi Join <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..6.67 <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> <span class="nv">width</span><span class="o">=</span>40<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on aircrafts_data ml <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.00..1.09 <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> widt...
+</span></span><span class="line"><span class="cl">   −&gt; Index Only Scan using seats_pkey on seats s
+</span></span><span class="line"><span class="cl">       <span class="o">(</span><span class="nv">cost</span><span class="o">=</span>0.28..5.55 <span class="nv">rows</span><span class="o">=</span><span class="m">149</span> <span class="nv">width</span><span class="o">=</span>4<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> ml.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">5</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Nested Loop Semi Join 节点表示同名连接方法。该计划 (就像上面的反连接一样) 提供了 seats 表中行数的基本预估值 (rows=149)，尽管只检索其中一个就足够了。当然，实际的查询执行在获取第一行后停止：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>analyze, costs off, timing off, summary off<span class="o">)</span>
+</span></span><span class="line"><span class="cl">SELECT * FROM aircrafts a
+</span></span><span class="line"><span class="cl">WHERE EXISTS <span class="o">(</span>
+</span></span><span class="line"><span class="cl">  SELECT * FROM seats s
+</span></span><span class="line"><span class="cl">  WHERE s.aircraft_code <span class="o">=</span> a.aircraft_code
+</span></span><span class="line"><span class="cl"><span class="o">)</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop Semi Join <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on aircrafts_data ml <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">9</span> <span class="nv">loops</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Index Only Scan using seats_pkey on seats s
+</span></span><span class="line"><span class="cl">       <span class="o">(</span>actual <span class="nv">rows</span><span class="o">=</span><span class="m">1</span> <span class="nv">loops</span><span class="o">=</span>9<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">aircraft_code</span> <span class="o">=</span> ml.aircraft_code<span class="o">)</span>
+</span></span><span class="line"><span class="cl">       Heap Fetches: <span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">6</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p><strong>基数估算</strong>。半连接的选择率以往常的方式进行估算，除了内集合的基数取 1。对于反连接，预估选择率从 1 中减去，就像取否操作一样。<sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup></p>
+<p><strong>成本估算</strong>。对于反连接和半连接，成本估算反映了这样一个事实：一旦找到第一个匹配的行，对于第二个数据集的扫描就会停止。<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup></p>
+<h3>21.2.6 非等值连接<span class="hx-absolute -hx-mt-20" id="2126-非等值连接"></span>
+    <a href="#2126-%e9%9d%9e%e7%ad%89%e5%80%bc%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环算法允许根据任何连接条件进行连接。</p>
+<p>显然，如果内集合是一个创建了索引的基础表，并且连接条件使用了属于该索引操作符类的操作符，那么对内集合的访问会非常高效。但是始终可以通过计算按某些条件过滤后的行的笛卡尔积来执行连接 — 在这种情况下，该条件可以是任意的。就像下面的查询一样，它选择了彼此靠近的机场：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE EXTENSION earthdistance CASCADE<span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT *
+</span></span><span class="line"><span class="cl">FROM airports a1
+</span></span><span class="line"><span class="cl">  JOIN airports a2 ON a1.airport_code !<span class="o">=</span> a2.airport_code
+</span></span><span class="line"><span class="cl">                  AND a1.coordinates &lt;@&gt; a2.coordinates &lt; 100<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop
+</span></span><span class="line"><span class="cl">   Join Filter: <span class="o">((</span>ml.airport_code &lt;&gt; ml_1.airport_code<span class="o">)</span> AND
+</span></span><span class="line"><span class="cl">   <span class="o">((</span>ml.coordinates &lt;@&gt; ml_1.coordinates<span class="o">)</span> &lt; <span class="s1">&#39;100&#39;</span>::double precisi...
+</span></span><span class="line"><span class="cl">   −&gt; Seq Scan on airports_data ml
+</span></span><span class="line"><span class="cl">   −&gt; Materialize
+</span></span><span class="line"><span class="cl">       −&gt; Seq Scan on airports_data ml_1
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">6</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>21.2.7 并行模式<span class="hx-absolute -hx-mt-20" id="2127-并行模式"></span>
+    <a href="#2127-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可以参与并行计划的执行。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
+<p>只有外集合可以并行处理，因为它可以由多个工作进程同时扫描。获取了外部行之后，每个工作进程必须顺序地搜索内集合中的匹配行。</p>
+<p>下面显示的查询包括多个连接；它搜索持有特定航班机票的乘客：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>costs off<span class="o">)</span> SELECT t.passenger_name
+</span></span><span class="line"><span class="cl">FROM tickets t
+</span></span><span class="line"><span class="cl">  JOIN ticket_flights tf ON tf.ticket_no <span class="o">=</span> t.ticket_no
+</span></span><span class="line"><span class="cl">  JOIN flights f ON f.flight_id <span class="o">=</span> tf.flight_id
+</span></span><span class="line"><span class="cl">WHERE f.flight_id <span class="o">=</span> 12345<span class="p">;</span>
+</span></span><span class="line"><span class="cl">                             QUERY PLAN
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> Nested Loop
+</span></span><span class="line"><span class="cl">   −&gt; Index Only Scan using flights_flight_id_status_idx on fligh...
+</span></span><span class="line"><span class="cl">       Index Cond: <span class="o">(</span><span class="nv">flight_id</span> <span class="o">=</span> 12345<span class="o">)</span>
+</span></span><span class="line"><span class="cl">   −&gt; Gather
+</span></span><span class="line"><span class="cl">       Workers Planned: <span class="m">2</span>
+</span></span><span class="line"><span class="cl">       −&gt; Nested Loop
+</span></span><span class="line"><span class="cl">           −&gt; Parallel Seq Scan on ticket_flights tf
+</span></span><span class="line"><span class="cl">               Filter: <span class="o">(</span><span class="nv">flight_id</span> <span class="o">=</span> 12345<span class="o">)</span>
+</span></span><span class="line"><span class="cl">           −&gt; Index Scan using tickets_pkey on tickets t
+</span></span><span class="line"><span class="cl">               Index Cond: <span class="o">(</span><span class="nv">ticket_no</span> <span class="o">=</span> tf.ticket_no<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">10</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在上层，嵌套循环连接顺序执行。外集合由 flights 表中通过唯一键获取的单行组成，因此即使内集合行数较多，使用嵌套循环也是合理的。</p>
+<p>内集合的检索使用了并行计划。每个工作进程扫描 ticket_flights 表中属于自己份额的行，并使用嵌套循环算法将它们与 tickets 连接起来。</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>backend/executor/nodeNestloop.c&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>backend/executor/nodeMaterial.c&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>backend/optimizer/path/equivclass.c&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p>backend/optimizer/path/costsize.c, initial_cost_nestloop andfinal_cost_nestloop function&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p>backend/optimizer/path/costsize.c, cost_rescan function&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p>backend/optimizer/path/costsize.c, calc_joinrel_size_estimate function&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:7">
+<p>backend/optimizer/path/costsize.c, get_foreign_key_join_selectivity function&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:8">
+<p>backend/optimizer/path/clausesel.c, clauselist_selectivity function&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:9">
+<p>backend/utils/adt/selfuncs.c, eqjoinsel function&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:10">
+<p>backend/utils/adt/selfuncs.c, eqjoinsel function&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:11">
+<p>backend/executor/nodeMemoize.c&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:12">
+<p>include/lib/simplehash.h&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:13">
+<p>backend/optimizer/util/pathnode.c, create_memoize_path function&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:14">
+<p>backend/optimizer/path/costsize.c, cost_memoize_rescan function&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:15">
+<p>backend/utils/adt/selfuncs.c, estimate_num_groups function&#160;<a href="#fnref:15" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:16">
+<p>backend/optimizer/path/costsize.c, calc_joinrel_size_estimate function&#160;<a href="#fnref:16" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:17">
+<p>backend/optimizer/path/joinpath.c, match_unsorted_outer function&#160;<a href="#fnref:17" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:18">
+<p>backend/optimizer/path/costsize.c, calc_joinrel_size_estimate function&#160;<a href="#fnref:18" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:19">
+<p>backend/optimizer/path/costsize.c, final_cost_nestloop function&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:20">
+<p>backend/optimizer/path/joinpath.c, consider_parallel_nestloop function&#160;<a href="#fnref:20" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.js" integrity=""></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.js" integrity=""></script>
+<link type="text/css" rel="stylesheet" href="/lib/katex/katex.min.7e5db7914b97e596a36c1abb67ccc7f174f8bb71d38c9a88c55b262ed1737f97.css" integrity="sha256-fl23kUuX5ZajbBq7Z8zH8XT4u3HTjJqIxVsmLtFzf5c=" />
+  <script defer src="/lib/katex/katex.min.9f45307c5794ed247a0d095f3a62e52ef2215a67b2327203a7fd919959ae79d1.js" integrity="sha256-n0UwfFeU7SR6DQlfOmLlLvIhWmeyMnIDp/2RmVmuedE="></script>
+  <script defer src="/lib/katex/auto-render.min.7b57d427ac6270677daf8d8380ded2cc73336f9149a167b8e1fe0d6ef66604ae.js" integrity="sha256-e1fUJ6xicGd9r42DgN7SzHMzb5FJoWe44f4NbvZmBK4="></script>
+  <script defer src="/lib/katex/mhchem.min.f0ca03df194b8c3d6017ff455db6a0ef98857905663fa311a6cded788b15340b.js" integrity="sha256-8MoD3xlLjD1gF/9FXbag75iFeQVmP6MRps3teIsVNAs="></script>
+  <script>
+    
+    
+    document.addEventListener("DOMContentLoaded", function () {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\begin{equation}", right: "\\end{equation}", display: true },
+          {left: "\\begin{align}", right: "\\end{align}", display: true},
+          {left: "\\begin{alignat}", right: "\\end{alignat}", display: true},
+          {left: "\\begin{gather}", right: "\\end{gather}", display: true},
+          {left: "\\begin{CD}", right: "\\end{CD}", display: true},
+          { left: "\\[", right: "\\]", display: true },
+        ],
+        throwOnError: false,
+      });
+    });
+  </script>
+
+
+  </body>
+</html>

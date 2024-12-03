@@ -1,0 +1,18 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>PostgreSQL 14 Internals – 第 2 章：隔离性</title>
+    <link>//localhost:1313/docs/chapter02/</link>
+    <description>Recent content in 第 2 章：隔离性 on PostgreSQL 14 Internals</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    
+	  <atom:link href="//localhost:1313/docs/chapter02/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+      
+        
+      
+    
+    
+  </channel>
+</rss>
