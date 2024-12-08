@@ -50,7 +50,7 @@
 15.3.1 缓冲区缓存 为了访问用于定位缓存中特定缓冲区的哈希表，进程必须以共享模式获取一个 BufferMapping 轻量锁以进行读取，或者如果预期有任何修改，则以独占模式获取。
 哈希表的访问十分频繁，因此这个锁经常成为瓶颈。为了最大限度地提高粒度，它被构造为一个由 128 个独立的轻量锁组成的锁集，每个锁用于保护哈希表的一个分区。3
 早在 2006 年，Postgres 8.2 版本就将哈希表锁转换为包含 16 个锁的锁集；十年后，当 9.5 版本发布时，锁集的大小增加到了 128 个，但对于现代多核系统来说，这可能仍然不够。">
-  <meta itemprop="wordCount" content="450">
+  <meta itemprop="wordCount" content="451">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 15 章：内存结构上的锁">
   <meta name="twitter:description" content="15.1 自旋锁 为了保护共享内存中的数据结构，PostgreSQL 使用了几种更加轻量和开销更小的锁，而不是常规的重锁。
@@ -744,7 +744,7 @@
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1532-wal%e7%bc%93%e5%86%b2%e5%8c%ba">15.3.2 WAL缓冲区
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1532-wal-%e7%bc%93%e5%86%b2%e5%8c%ba">15.3.2 WAL 缓冲区
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -800,8 +800,8 @@
 <p>为了访问缓冲区头，进程获取缓冲区头自旋锁 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>  (名字是任意的，因为自旋锁没有对用户可见的名字)。某些操作，比如增加使用计数，不需要显式锁定，可以使用原子 CPU 指令执行。</p>
 <p>为了读取缓冲区中的页面，进程需要获取此缓冲区头中的 BufferContent 锁 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。这个锁通常仅在读取元组指针时持有，稍后，缓冲区锁定提供的保护就足够了。如果需要修改缓冲区的内容，那么必须以独占模式获取 BufferContent 锁。当从磁盘读取某个缓冲区 (或写入磁盘) 时，PostgreSQL 还会在缓冲区头中获取 BufferIO 锁；它实际上是一个用作锁的属性，而不是一个真正的锁 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>。它向请求访问这个页面的其他进程发出信号，告诉它们必须等到 I/O 操作完成。</p>
 <p>指向空闲缓冲区的指针和淘汰机制的时钟指针由一个共同的缓冲区策略自旋锁保护 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。</p>
-<h3>15.3.2 WAL缓冲区<span class="hx-absolute -hx-mt-20" id="1532-wal缓冲区"></span>
-    <a href="#1532-wal%e7%bc%93%e5%86%b2%e5%8c%ba" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><img src="15-2.png" alt="" loading="lazy" /></p>
+<h3>15.3.2 WAL 缓冲区<span class="hx-absolute -hx-mt-20" id="1532-wal-缓冲区"></span>
+    <a href="#1532-wal-%e7%bc%93%e5%86%b2%e5%8c%ba" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><img src="15-2.png" alt="" loading="lazy" /></p>
 <p>WAL 缓存也使用哈希表将页面映射到缓冲区。不同于缓冲区缓存的哈希表，它由单个 WALBufMapping 轻量锁保护，因为 WAL 缓存较小 (通常是缓冲区缓存大小的 1/32 )，并且缓冲区的访问更加有序 <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>。</p>
 <p>将 WAL 页面写入磁盘受到 WALWrite 轻量锁的保护，以确保此操作一次只由一个进程执行。</p>
 <p>为了创建一个 WAL 条目，进程首先在 WAL 页面内预留一些空间，然后用数据填充。空间预留严格有序；进程必须获取一个插入位置的自旋锁，以保护插入指针 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>。但一旦空间被预留后，它就可以由若干并发进程共同填充。为此，每个进程都必须获取构成 WALInsert 锁集的 8 个轻量锁中的任何一个 <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup>。</p>
@@ -1032,7 +1032,7 @@
       <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
     class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
   >
-    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归 xiongcc 所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
     </div>
   </div>
 </footer>
