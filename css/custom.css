@@ -161,3 +161,15 @@ blockquote pre {
 }
 
 
+/* 默认（浅色模式）下的 iframe 样式 */
+.widgetstore-iframe {
+  background-color: white; /* 或其他浅色背景，根据需求调整 */
+}
+
+/* 深色模式下移除 iframe 背景色 */
+@media (prefers-color-scheme: dark) {
+  .widgetstore-iframe {
+    background-color: transparent !important; /* 移除背景色 */
+  }
+}
+
