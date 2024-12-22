@@ -1121,11 +1121,11 @@
 <p>后台进程也可以将标记的缓冲区写入磁盘 — 如果后端进程先处理的话。无论如何，此阶段将移除缓冲区标记，因此对于检查点来说，每个缓冲区只会被写入一次。</p>
 <p>当然，当检查点正在进行时，缓冲区缓存中的页面仍然可以修改。但由于新的缓冲区脏页没有被标记，因此 checkpointer 进程会忽略它们。</p>
 <p><strong>检查点完成</strong>。当检查点开始时，所有脏的缓冲区都写入磁盘后，检查点便认为完成了。从现在开始 (但不是更早！)，检查点的起始位置将用作恢复的新起点。在这个点之前写入的所有 WAL 条目都不再需要。</p>
-<img src="10-2.png" style="width:80%; float:left;" />
+<img src="10-2.png" style="width:70%; float:left;" />
 <div style="clear:both;"></div>
 <p>最后， checkpoiner 会创建一个与检查点完成相对应的 WAL 条目，并指定检查点开始的 LSN。由于检查点在开始时不记录任何内容，因此这个 LSN 可以属于任何类型的 WAL 条目。</p>
 <p>PGDATA/global/pg_control 文件也会更新，以引用最新完成的检查点 (直到这个过程结束，pg_control 都保持为之前的检查点)。</p>
-<img src="10-3.png" style="width:80%; float:left;" />
+<img src="10-3.png" style="width:70%; float:left;" />
 <div style="clear:both;"></div>
 <p>为了彻底弄清楚这些位点，让我们看一个简单的例子。首先使几个缓存页面变脏：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1463,7 +1463,7 @@
 <p>检查点完成后，不再需要恢复的 WAL 文件便会被删除 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>；但是，部分文件 (总共最多 <span class="marginalia" data-note="80MB"><em>min_wal_size</em></span>) 会被保留以供重复使用，并且简单地被重命名。</p>
 <p>这种重命名操作<span class="marginalia" data-note="v. 12">减少了频繁创建文件和删除文件所带来的开销</span>，但如果你不需要这个功能的话，可以使用 <span class="marginalia" data-note="on"><em>wal_recycle</em></span> 参数将其关闭。</p>
 <p>下图显示了正常情况下，存储在磁盘上的 WAL 文件大小是如何变化的。</p>
-<img src="10-4.png" style="width:80%; float:left;" />
+<img src="10-4.png" style="width:70%; float:left;" />
 <div style="clear:both;"></div>
 <p>请务必记住，磁盘上 WAL 文件的实际大小可能会超过 <em>max_wal_size</em> 值：</p>
 <ul>
