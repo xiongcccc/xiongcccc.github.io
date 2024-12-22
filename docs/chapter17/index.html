@@ -1586,7 +1586,7 @@
 </div>
 <p>规划器对函数的语义一无所知，即使是标准函数也是如此。我们的常识表明，在一月份执飞的航班数量大约占总航班数量的 1/12 左右，这一数字比预测值高出一个数量级。</p>
 <p>为了提高估算的准确性，我们需要收集表达式统计信息，而不是依赖于列级别的统计信息。有两种方法可以做到这一点。</p>
-<h3>17.9.1 <span class="marginalia" data-note="v. 14">扩展表达式统计信息</span><span class="hx-absolute -hx-mt-20" id="1791-span-classmarginalia-data-notev-14扩展表达式统计信息span"></span>
+<h3>17.9.1 <span class="marginalia" data-note="v. 14"><strong>扩展表达式统计信息</strong></span><span class="hx-absolute -hx-mt-20" id="1791-span-classmarginalia-data-notev-14扩展表达式统计信息span"></span>
     <a href="#1791-span-classmarginalia-data-notev-14%e6%89%a9%e5%b1%95%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%afspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>第一个方法是使用扩展表达式统计信息 <sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup>。默认情况下不会收集此类统计信息；你必须通过运行 CREATE STATISTICS 命令手动创建相应的数据库对象：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1761,7 +1761,7 @@
 <h2>17.10 多元统计信息<span class="hx-absolute -hx-mt-20" id="1710-多元统计信息"></span>
     <a href="#1710-%e5%a4%9a%e5%85%83%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>你还可以收集涵盖多个列的多元统计信息。作为前置条件，你必须使用 CREATE STATISTICS 命令手动创建相应的扩展统计信息。</p>
 <p>PostgreSQL 实现了三种类型的多元统计信息。</p>
-<h3>17.10.1 <span class="marginalia" data-note="v. 10">列之间的函数依赖</span><span class="hx-absolute -hx-mt-20" id="17101-span-classmarginalia-data-notev-10列之间的函数依赖span"></span>
+<h3>17.10.1 <span class="marginalia" data-note="v. 10"><strong>列之间的函数依赖</strong></span><span class="hx-absolute -hx-mt-20" id="17101-span-classmarginalia-data-notev-10列之间的函数依赖span"></span>
     <a href="#17101-span-classmarginalia-data-notev-10%e5%88%97%e4%b9%8b%e9%97%b4%e7%9a%84%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一列中的值 (完全或部分) 依赖于另一列中的值，并且过滤条件包括这两列，那么基数预估会偏低。</p>
 <p>让我们考虑一个包含两个过滤条件的查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1879,7 +1879,7 @@
   
 </div>
 <p>此处的 2 和 5 是存储在 pg_attribute 表中的列编号，而相应的值定义了函数依赖的程度：从 0 (无依赖) 到 1 (第二列中的值完全依赖于第一列中的值)。</p>
-<h3>17.10.2 <span class="marginalia" data-note="v. 10">多元非重复值的数量</span><span class="hx-absolute -hx-mt-20" id="17102-span-classmarginalia-data-notev-10多元非重复值的数量span"></span>
+<h3>17.10.2 <span class="marginalia" data-note="v. 10"><strong>多元非重复值的数量</strong></span><span class="hx-absolute -hx-mt-20" id="17102-span-classmarginalia-data-notev-10多元非重复值的数量span"></span>
     <a href="#17102-span-classmarginalia-data-notev-10%e5%a4%9a%e5%85%83%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>不同列中值的唯一组合的统计信息可以改善在多个列上执行的 GROUP BY 操作的基数估算。</p>
 <p>例如，此处估算的可能的出发机场和到达机场的配对数量是机场总数的平方；然而，实际值要小得多，因为并非所有的机场对都通过直达航班连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1974,7 +1974,7 @@
 
   
 </div>
-<h3>17.10.3 <span class="marginalia" data-note="v. 12">多元 MCV 列表</span><span class="hx-absolute -hx-mt-20" id="17103-span-classmarginalia-data-notev-12多元-mcv-列表span"></span>
+<h3>17.10.3 <span class="marginalia" data-note="v. 12"><strong>多元 MCV 列表</strong></span><span class="hx-absolute -hx-mt-20" id="17103-span-classmarginalia-data-notev-12多元-mcv-列表span"></span>
     <a href="#17103-span-classmarginalia-data-notev-12%e5%a4%9a%e5%85%83-mcv-%e5%88%97%e8%a1%a8span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果值的分布不均，仅依赖函数依赖可能是不够的，因为估算的准确性高度依赖于特定的一组值。例如，规划器低估了波音 737 从谢列梅捷沃机场出发的航班数量：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   

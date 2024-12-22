@@ -476,7 +476,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
               <a
                 href="#297-span-classmarginalia-data-notev-14minmax-multi-%e7%b1%bbspan"
                 class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
-              >29.7 &lt;span class=&#34;marginalia&#34; data-note=&#34;v. 14&#34;&gt;Minmax-Multi 类&lt;/span&gt;</a>
+              >29.7 &lt;span class=&#34;marginalia&#34; data-note=&#34;v. 14&#34;&gt;&lt;strong&gt;Minmax-Multi 类&lt;/strong&gt;&lt;/span&gt;</a>
             </li>
           <li>
               <a
@@ -488,7 +488,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
               <a
                 href="#299-span-classmarginalia-data-notev-14bloom-%e7%b1%bbspan"
                 class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
-              >29.9 &lt;span class=&#34;marginalia&#34; data-note=&#34;v. 14&#34;&gt;Bloom 类&lt;/span&gt;</a>
+              >29.9 &lt;span class=&#34;marginalia&#34; data-note=&#34;v. 14&#34;&gt;&lt;strong&gt;Bloom 类&lt;/strong&gt;&lt;/span&gt;</a>
             </li>
           </ul>
   
@@ -1459,7 +1459,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 
   
 </div>
-<h2>29.7 <span class="marginalia" data-note="v. 14">Minmax-Multi 类</span><span class="hx-absolute -hx-mt-20" id="297-span-classmarginalia-data-notev-14minmax-multi-类span"></span>
+<h2>29.7 <span class="marginalia" data-note="v. 14"><strong>Minmax-Multi 类</strong></span><span class="hx-absolute -hx-mt-20" id="297-span-classmarginalia-data-notev-14minmax-multi-类span"></span>
     <a href="#297-span-classmarginalia-data-notev-14minmax-multi-%e7%b1%bbspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>数据更新很容易打乱已建立的相关性。问题不在于特定值的实际修改，而在于 MVCC 设计本身：旧版本的行可能在一个页面中被删除，而其新版本可以插入到当前空闲的任何位置，因此无法保持原始行顺序。为了在一定程度上最小化这种影响，我们可以降低 fillfactor 存储参数值，为后续的更新留出更多页面空间。但是，真的值得增加已经很大的表的大小吗？此外，删除操作无论如何都会在现有页面中释放出一些空间，从而为新元组设下陷阱，这些元组本应被添加到文件的末尾。</p>
 <p>这种情况可以很容易地被模拟。让我们删除随机选择的 0.1% 比例的行，并对表进行清理操作，以清理一些空间供新元组使用：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1782,7 +1782,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 
   
 </div>
-<h2>29.9 <span class="marginalia" data-note="v. 14">Bloom 类</span><span class="hx-absolute -hx-mt-20" id="299-span-classmarginalia-data-notev-14bloom-类span"></span>
+<h2>29.9 <span class="marginalia" data-note="v. 14"><strong>Bloom 类</strong></span><span class="hx-absolute -hx-mt-20" id="299-span-classmarginalia-data-notev-14bloom-类span"></span>
     <a href="#299-span-classmarginalia-data-notev-14bloom-%e7%b1%bbspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>基于布隆过滤器的操作符类允许对任何支持等于操作且定义了哈希函数的数据类型使用 BRIN 索引。如果值分布在不同范围内且它们的物理位置与逻辑顺序没有相关性，那么也可以将这些操作符类应用于常规的 ordinal 数据类型。</p>
 <p>这些操作符类的名称中包含 &ldquo;bloom&rdquo; 一词：<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">

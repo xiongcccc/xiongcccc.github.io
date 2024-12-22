@@ -1094,7 +1094,7 @@ B 树具有以下重要属性：
 
   
 </div>
-<h3>25.3.1 <span class="marginalia" data-note="v. 13">去重</span><span class="hx-absolute -hx-mt-20" id="2531-span-classmarginalia-data-notev-13去重span"></span>
+<h3>25.3.1 <span class="marginalia" data-note="v. 13"><strong>去重</strong></span><span class="hx-absolute -hx-mt-20" id="2531-span-classmarginalia-data-notev-13去重span"></span>
     <a href="#2531-span-classmarginalia-data-notev-13%e5%8e%bb%e9%87%8dspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>非唯一索引可以包含许多指向不同堆元组的重复键。由于非唯一键出现不止一次，并因此占用大量空间，所以重复键被折叠收敛成一个单独的索引条目，其中包含键和相应元组 ID 的列表。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 在某些情况下，这个过程 (称为去重) 可以显著减小索引的大小。</p>
 <p>但是，由于 MVCC 的原因，即使是唯一索引也可能包含重复项：因为索引保留对表行所有版本的引用。HOT 更新机制可以减少因为引用过时且通常是短暂的行版本而导致的索引膨胀，但有时这可能不适用。在这种情况下，去重可以花费一些时间来清理冗余堆元组并避免额外的页面分裂。</p>
 <p>为了避免在去重不会带来立竿见影的效果时浪费资源，仅当叶子页面没有足够空间容纳更多元组时才会执行这种折叠。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 然后，页面剪枝和去重 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 可以释放一些空间并防止不必要的页面分裂。但是，如果重复项很少，你可以通过关闭 <em>deduplicate_items</em> 存储参数来禁用去重功能。</p>
@@ -1151,7 +1151,7 @@ B 树具有以下重要属性：
 
   
 </div>
-<h3>25.3.2 <span class="marginalia" data-note="v. 12">内部索引条目的紧凑存储</span><span class="hx-absolute -hx-mt-20" id="2532-span-classmarginalia-data-notev-12内部索引条目的紧凑存储span"></span>
+<h3>25.3.2 <span class="marginalia" data-note="v. 12"><strong>内部索引条目的紧凑存储</strong></span><span class="hx-absolute -hx-mt-20" id="2532-span-classmarginalia-data-notev-12内部索引条目的紧凑存储span"></span>
     <a href="#2532-span-classmarginalia-data-notev-12%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>去重使得索引的叶子页面能够容纳更多的条目。但是，尽管叶子页面构成了索引的大部分，但在内部页面上执行的数据压缩以防止额外的分裂同样重要，因为搜索效率直接依赖于树的深度。</p>
 <p>内部索引条目包含索引键，但它们的值仅用于在搜索过程中确定要下降到的子树。在多列索引中，通常只需取第一个键属性 (或几个首属性)。为了在页面中节省空间，可以截断其他属性。</p>
 <p>当叶子页面被分裂且内部页面需要容纳一个新指针时，便会发生这种 <em>suffix truncation</em> (后缀截断)。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>

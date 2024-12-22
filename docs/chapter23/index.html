@@ -890,7 +890,7 @@
 
   
 </div>
-<h3>23.1.2 <span class="marginalia" data-note="v. 9.6">并行模式</span><span class="hx-absolute -hx-mt-20" id="2312-span-classmarginalia-data-notev-96并行模式span"></span>
+<h3>23.1.2 <span class="marginalia" data-note="v. 9.6"><strong>并行模式</strong></span><span class="hx-absolute -hx-mt-20" id="2312-span-classmarginalia-data-notev-96并行模式span"></span>
     <a href="#2312-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>虽然归并连接没有并行模式，但它仍然可以在并行计划中使用。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 <p>外层数据集可以由多个工作进程并行扫描，但内层数据集总是被每个工作进程完整扫描。</p>
 <p>由于并行哈希连接几乎总是成本更低，我将暂时关闭它：</p>
@@ -1136,7 +1136,7 @@
   
 </div>
 <p>已知对 n 个值进行排序的计算复杂度为 $O(n \log_2 n)$。单次比较操作估算为 <span class="marginalia" data-note="0.0025"><em>cpu_operator_cost</em></span> 值的两倍。由于在检索结果之前必须对整个数据集进行扫描和排序，因此排序的启动成本包括子节点的总成本和比较操作所产生的所有成本。</p>
-<p>排序的总成本还包括返回每行的处理成本，按 cpu_operator_cost 进行估算 (而不是常规的 cpu_tuple_cost 值，因为 Sort 节点产生的开销微不足道)。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
+<p>排序的总成本还包括返回每行的处理成本，按 <em>cpu_operator_cost</em> 进行估算 (而不是常规的 <em>cpu_tuple_cost</em> 值，因为 Sort 节点产生的开销微不足道)。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
 <p>对于这个例子，成本如下计算：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1342,7 +1342,7 @@
 
   
 </div>
-<h3>23.2.4 <span class="marginalia" data-note="v. 13">增量排序</span><span class="hx-absolute -hx-mt-20" id="2324-span-classmarginalia-data-notev-13增量排序span"></span>
+<h3>23.2.4 <span class="marginalia" data-note="v. 13"><strong>增量排序</strong></span><span class="hx-absolute -hx-mt-20" id="2324-span-classmarginalia-data-notev-13增量排序span"></span>
     <a href="#2324-span-classmarginalia-data-notev-13%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一个数据集需要按照键 K1 … Km … Kn 排序，并且已知该数据集已经按照前 m 个键排序，那么就不需要从头重新排序。相反，可以根据相同的前几个键 K1 … Km 将数据集分成多个组（这些组内的值已经按定义的顺序排列)，然后再分别对这些组按照剩余的 Km+1 … Kn 键进行排序。这种方法称为增量排序。</p>
 <p>增量排序相较其他排序算法占用的内存更少，因为它将数据集分成了几个较小的组；此外，它允许执行器在处理完第一个分组后便开始返回结果，而无需等待整个数据集排序完成。</p>
 <p>在 PostgreSQL 中，实现更加微妙：<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup> 相对较大的组分别处理，较小的组则被合并在一起并完全排序。这减少了调用排序过程所产生的开销。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup></p>
@@ -1405,7 +1405,7 @@
 <p><strong>成本估算</strong>。增量排序的成本计算 <sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup> 基于预期的组数量 <sup id="fnref:24"><a href="#fn:24" class="footnote-ref" role="doc-noteref">24</a></sup> 和对平均大小的组进行排序的预估成本 (我们已经回顾过了)。</p>
 <p>启动成本反映了对第一个分组进行排序的成本估算，这使得节点可以开始返回排序后的行；总成本包括所有组的排序成本。</p>
 <p>我们不打算在此处进一步探讨这些计算方式。</p>
-<h3>23.2.5 <span class="marginalia" data-note="v. 10">并行模式</span><span class="hx-absolute -hx-mt-20" id="2325-span-classmarginalia-data-notev-10并行模式span"></span>
+<h3>23.2.5 <span class="marginalia" data-note="v. 10"><strong>并行模式</strong></span><span class="hx-absolute -hx-mt-20" id="2325-span-classmarginalia-data-notev-10并行模式span"></span>
     <a href="#2325-span-classmarginalia-data-notev-10%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>排序也可以并行进行。但是，尽管并行工作进程预先对它们的数据份额进行排序，但 Gather 节点对它们的排序顺序一无所知，只能按照先到先得的原则累积。为了保留排序顺序，执行器必须使用 Gather Merge 节点：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   

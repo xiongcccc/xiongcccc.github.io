@@ -1118,7 +1118,7 @@ PostgreSQL 提供了多种连接方式：
 
   
 </div>
-<h3>21.2.3 <span class="marginalia" data-note="v. 14">缓存行 (Memoization)</span><span class="hx-absolute -hx-mt-20" id="2123-span-classmarginalia-data-notev-14缓存行-memoizationspan"></span>
+<h3>21.2.3 <span class="marginalia" data-note="v. 14"><strong>缓存行 (Memoization)</strong></span><span class="hx-absolute -hx-mt-20" id="2123-span-classmarginalia-data-notev-14缓存行-memoizationspan"></span>
     <a href="#2123-span-classmarginalia-data-notev-14%e7%bc%93%e5%ad%98%e8%a1%8c-memoizationspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果使用相同的参数值重复扫描内集合 (从而给出相同的结果)，那么缓存该集合的行可能会有益。</p>
 <p>此类缓存由 Memoize <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>  节点执行。与 Materialize 节点类似，旨在处理参数化连接，并且具有更复杂的实现：</p>
 <ul>
@@ -1435,7 +1435,7 @@ PostgreSQL 提供了多种连接方式：
 
   
 </div>
-<h3>21.2.7 <span class="marginalia" data-note="v. 9.6">并行模式</span><span class="hx-absolute -hx-mt-20" id="2127-span-classmarginalia-data-notev-96并行模式span"></span>
+<h3>21.2.7 <span class="marginalia" data-note="v. 9.6"><strong>并行模式</strong></span><span class="hx-absolute -hx-mt-20" id="2127-span-classmarginalia-data-notev-96并行模式span"></span>
     <a href="#2127-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可以参与并行计划的执行。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
 <p>只有外集合可以并行处理，因为它可以由多个工作进程同时扫描。获取了外部行之后，每个工作进程必须顺序地搜索内集合中的匹配行。</p>
 <p>下面显示的查询包括多个连接；它搜索持有特定航班机票的乘客：</p>

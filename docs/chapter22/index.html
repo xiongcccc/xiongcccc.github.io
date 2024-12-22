@@ -926,7 +926,7 @@
   
 </div>
 <p>此处是依赖图：</p>
-<img src="22-3.png" style="width:80%; float:left" />
+<img src="22-3.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <h3>22.1.2 两阶段哈希连接<span class="hx-absolute -hx-mt-20" id="2212-两阶段哈希连接"></span>
     <a href="#2212-%e4%b8%a4%e9%98%b6%e6%ae%b5%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果规划器的评估结果表明哈希表不适合所分配的内存，那么内层数据集将被分成若干批次，分别处理。批次数量 (就像桶的数量一样) 总是 2 的幂次；使用哪个批次由哈希键的相应位数决定。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
@@ -1120,7 +1120,7 @@
 <li>查询必须以排除哈希表中多余字段的方式组成。</li>
 <li>在构建哈希表时，规划器必须选择两组行中较小的一组。</li>
 </ul>
-<h3>22.1.4 <span class="marginalia" data-note="v. 9.6">在并行计划中使用哈希连接</span><span class="hx-absolute -hx-mt-20" id="2214-span-classmarginalia-data-notev-96在并行计划中使用哈希连接span"></span>
+<h3>22.1.4 <span class="marginalia" data-note="v. 9.6"><strong>在并行计划中使用哈希连接</strong></span><span class="hx-absolute -hx-mt-20" id="2214-span-classmarginalia-data-notev-96在并行计划中使用哈希连接span"></span>
     <a href="#2214-span-classmarginalia-data-notev-96%e5%9c%a8%e5%b9%b6%e8%a1%8c%e8%ae%a1%e5%88%92%e4%b8%ad%e4%bd%bf%e7%94%a8%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>上面描述的哈希连接算法也可以用于并行计划。首先，若干个并行进程各自独立地为内层数据集构建它们自己的 (完全相同的) 哈希表；然后他们开始并行处理外层数据集。此处的性能提升是由于每个进程只扫描其自己份额的外层数据集的行。</p>
 <p>以下计划使用常规的一阶段哈希连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1164,7 +1164,7 @@
 </div>
 <p>此处每个进程对 bookings 表进行哈希处理，然后通过 Parallel Index Only Scan 节点检索其自己份额的外层数据集，并将这些行与哈希表进行匹配。</p>
 <p>哈希表内存限制分别应用于每个并行进程，所以为此分配的内存总大小将比计划 (Memoey Usage) 中显示的大三倍。</p>
-<h3>22.1.5 <span class="marginalia" data-note="v. 11">并行一阶段哈希连接</span><span class="hx-absolute -hx-mt-20" id="2215-span-classmarginalia-data-notev-11并行一阶段哈希连接span"></span>
+<h3>22.1.5 <span class="marginalia" data-note="v. 11"><strong>并行一阶段哈希连接</strong></span><span class="hx-absolute -hx-mt-20" id="2215-span-classmarginalia-data-notev-11并行一阶段哈希连接span"></span>
     <a href="#2215-span-classmarginalia-data-notev-11%e5%b9%b6%e8%a1%8c%e4%b8%80%e9%98%b6%e6%ae%b5%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>尽管常规的哈希连接在并行计划中效率很高 (尤其是对于较小的内层数据集，并行处理对其意义不大)，但更大的数据集更适合由特殊的并行哈希连接算法处理。</p>
 <p>并行算法的一个重要区别是，哈希表是在共享内存中创建的，这个内存是动态分配的，所有参与连接操作的并行进程都可以访问。并行处理并不是创建多个独立的哈希表，而是建立了一个共同的哈希表，它使用所有参与进程的专用总内存量。这增加了一阶段完成连接的可能性。</p>
 <p>在第一个阶段 (在计划中由 Parallel Hash 节点表示)，所有并行进程并行访问内层数据集，建立了一个共同的哈希表。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
@@ -1213,7 +1213,7 @@
 </div>
 <p>这与我在上一章节中展示的查询相同，但当时并行哈希连接通过 <em>enable_parallel_hash</em> 参数关闭了。</p>
 <p>虽然与之前演示的常规哈希连接相比，可用内存减少了一半，但操作仍然一阶段完成，因为它使用了分配给所有并行进程的内存 (Memory Usage)。哈希表变得稍微大一些，但由于现在我们只有这一个哈希表，总内存使用量减少了。</p>
-<h3>22.1.6 <span class="marginalia" data-note="v. 11">并行两阶段哈希连接</span><span class="hx-absolute -hx-mt-20" id="2216-span-classmarginalia-data-notev-11并行两阶段哈希连接span"></span>
+<h3>22.1.6 <span class="marginalia" data-note="v. 11"><strong>并行两阶段哈希连接</strong></span><span class="hx-absolute -hx-mt-20" id="2216-span-classmarginalia-data-notev-11并行两阶段哈希连接span"></span>
     <a href="#2216-span-classmarginalia-data-notev-11%e5%b9%b6%e8%a1%8c%e4%b8%a4%e9%98%b6%e6%ae%b5%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>所有并行进程的内存合并起来可能仍然不足以容纳整个哈希表。这可能在计划阶段或稍后在查询执行期间变得明显。在这种情况下，应用的两阶段连接算法与我们迄今为止所看到的有很大不同。</p>
 <p>这个算法的主要区别在于它创建了几个较小的哈希表，而不是一个大的哈希表。每个进程都有其自己的表并独立处理自己的批次。(但由于独立的哈希表仍然位于共享内存中，任何进程都可以访问这些表中的任何一个) 如果规划显示将需要不止一个批次，<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 那么会立即为每个进程构建一个独立的哈希表。如果决定是在执行阶段做出的，则重建哈希表。<sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup></p>
 <p>因此，在第一阶段，进程并行扫描内层数据集，将其分成批次并将它们写入临时文件中。<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup> 由于每个进程只读取自己份额的内层数据集，因此它们中的任何一个都不会为任何批次 (即使是第一个批次) 创建完整的哈希表。任何批次的完整数据集仅累积在所有并行进程以同步方式写入的文件中。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup> 因此，与非并行和一阶段并行版本的算法不同，并行两阶段哈希连接将所有批次写入磁盘，包括第一个批次。</p>
