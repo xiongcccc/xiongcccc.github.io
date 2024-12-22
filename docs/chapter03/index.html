@@ -1088,7 +1088,7 @@
 <li>在所有信息位中，到目前为止我们只挑选出了两对。xmin_committed 和 xmin_aborted 表示 xmin 对应的事务已提交或者已中止。xmax_committed 和 xmax_aborted 提供了关于 xmax 事务的类似信息。</li>
 </ul>
 <blockquote>
-<p>pageinspect 扩展提供了 <span class="marginalia" data-note="v.13">heap_tuple_infomask_flags</span> 函数，用于解释所有的信息位 ，但我目前只检索需要的那些信息位，并以更简洁的形式展示。</p>
+<p>pageinspect 扩展提供了 <span class="marginalia" data-note="v. 13">heap_tuple_infomask_flags</span> 函数，用于解释所有的信息位 ，但我目前只检索需要的那些信息位，并以更简洁的形式展示。</p>
 </blockquote>
 <p>让我们回到我们的实验。INSERT 命令已将指针 1 添加到堆页面中，它引用第一个元组，这也是目前唯一的一个元组。</p>
 <p>元组的 xmin 字段被设置为当前事务 ID。此事务目前仍然活跃，因此 xmin_committed 和 xmin_aborted 位均还没有设置。</p>
