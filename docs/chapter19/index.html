@@ -32,7 +32,7 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
   <meta itemprop="description" content="19.1 索引和可扩展性 索引是一种数据库对象，主要用于加速数据访问。它们是辅助数据结构：任何索引都可以基于堆数据删除并重建。除了加速数据访问之外，索引还用于强制执行某些完整性约束。
 PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 =&gt; SELECT amname FROM pg_am WHERE amtype = &#39;i&#39;; amname −−−−−−−− btree hash gist gin spgist brin (6 rows) PostgresSQL 的可扩展性意味着可以在不修改内核的情况下添加新的访问方法。其中一个此类扩展 (bloom 方法) 被包含在标准模块集中。">
-  <meta itemprop="wordCount" content="1508">
+  <meta itemprop="wordCount" content="1509">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 19 章：索引访问方法">
   <meta name="twitter:description" content="19.1 索引和可扩展性 索引是一种数据库对象，主要用于加速数据访问。它们是辅助数据结构：任何索引都可以基于堆数据删除并重建。除了加速数据访问之外，索引还用于强制执行某些完整性约束。
@@ -770,7 +770,7 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 
   
 </div>
-<p>PostgresSQL 的可扩展性意味着可以在不修改内核的情况下添加新的访问方法。其中一个此类扩展 (bloom 方法) 被包含在标准模块集中。</p>
+<p>PostgresSQL 的可扩展性意味着可以<span class="marginalia" data-note="v. 9.6">在不修改内核的情况下添加新的访问方法</span>。其中一个此类扩展 (bloom 方法) 被包含在标准模块集中。</p>
 <p>尽管各种索引类型之间存在诸多差异，但最终都是将键 (例如索引列的值) 与包含该键的堆元组进行匹配。元组由 6 字节的元组 ID (TID) 引用。知道键或者关于键的一些信息，就可以快速读取可能包含所需数据的元组，而无需扫描整个表。</p>
 <p>为了确保新的访问方法可以作为扩展被添加，PostgreSQL 实现了一个通用的索引引擎。其主要目标是检索和处理特定访问方法返回的 TID：</p>
 <ul>
@@ -795,7 +795,8 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 <p>为了特定的访问方法能够使用新的数据类型，需要实现相应的接口，即提供可与索引一起使用的操作符，可能还包括一些辅助支持函数。这样的一组操作符和函数被称为操作符类。</p>
 <p>索引逻辑由访问方法自身实现了部分，但有些则交由操作符类。这种分配相当随意：虽然 B 树将所有逻辑内置于访问方法中，但其他一些方法可能只提供主框架，将所有实现细节留给特定的操作符类来决定。同一数据类型通常由若干个操作符类支持，用户可以选择行为最合适的一个。</p>
 <p>以下是整体概况的一小部分：</p>
-<p><img src="19-1.png" alt="" loading="lazy" /></p>
+<img src="19-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h2>19.2 操作符类和操作符族<span class="hx-absolute -hx-mt-20" id="192-操作符类和操作符族"></span>
     <a href="#192-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb%e5%92%8c%e6%93%8d%e4%bd%9c%e7%ac%a6%e6%97%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>19.2.1 操作符类<span class="hx-absolute -hx-mt-20" id="1921-操作符类"></span>
     <a href="#1921-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>访问方法接口 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 由操作符类实现，<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 操作符类是访问方法应用于特定数据类型的一组操作符和支持函数。</p>
@@ -1197,7 +1198,7 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 </div>
 <p>由于将各种操作符分组至一个单独的操作符族中，规划器在使用索引处理涉及不同类型的值的条件时，可以不需要进行类型转换。</p>
 <h2>19.3 索引引擎接口<span class="hx-absolute -hx-mt-20" id="193-索引引擎接口"></span>
-    <a href="#193-%e7%b4%a2%e5%bc%95%e5%bc%95%e6%93%8e%e6%8e%a5%e5%8f%a3" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>就像表访问方法一样，pg_am 表的 amhandler 列包含实现了接口的函数名称：<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
+    <a href="#193-%e7%b4%a2%e5%bc%95%e5%bc%95%e6%93%8e%e6%8e%a5%e5%8f%a3" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p><span class="marginalia" data-note="v. 9.6">如同表访问方法一样</span> ，pg_am 表的 amhandler 列包含实现了接口的函数名称：<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1231,7 +1232,7 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 </ul>
 <p>访问方法和索引级属性之间的区别是为了将来考虑：目前，基于特定访问方法的所有索引在这两个层次上始终具有相同的属性。</p>
 <h3>19.3.1 访问方法属性<span class="hx-absolute -hx-mt-20" id="1931-访问方法属性"></span>
-    <a href="#1931-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>以下五个属性在访问方法层面定义 (此处以 B 树方法为例)：</p>
+    <a href="#1931-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="marginalia" data-note="v. 11">以下五个属性在访问方法层面定义</span> (此处以 B 树方法为例)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1406,7 +1407,7 @@ PostgreSQL 内核提供了六种内置的索引访问方法 (索引类型)：
 <p>排它约束保证表中任何两行都不会满足由操作符定义的条件。为了施加这个约束，PostgreSQL 会自动创建一个索引；必须有一个操作符类，其中包含约束条件中使用的操作符。</p>
 <p>通常用于此目的的是交集操作符 &amp;&amp;。例如，你可以使用它来明确声明会议室不能在同一时间被预订两次，或者地图上的建筑物不能重叠。</p>
 <p>有了相等运算符，排它约束就具有了唯一性的含义：禁止表中有两行具有相同的键值。尽管如此，它与唯一约束不同：特别是，排它约束的键无法被外键引用，也不能在 ON CONFLICT 子句中使用。</p>
-<p><strong>CAN INCLUDE</strong>：向索引中添加非键列的能力，使得这个索引成为覆盖索引。</p>
+<p><strong>CAN INCLUDE</strong>：<span class="marginalia" data-note="v. 11">向索引中添加非键列的能力</span>，使得这个索引成为覆盖索引。</p>
 <p>使用这个属性，你可以用额外的列扩展唯一索引。这样的索引仍然可以保证所有键列的值都是唯一的，同时从包含的列中检索数据可以不需要访问堆：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   

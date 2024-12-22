@@ -12,8 +12,8 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 
   <title>第 18 章：表访问方法 – PostgreSQL 14 Internals</title>
-  <meta name="description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增各种表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
-=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 heap_default_table_access_method 参数中列出的默认引擎。" />
+  <meta name="description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
+=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 default_table_access_method 参数中列出的默认引擎。" />
 
   
     <link rel="canonical" href="//localhost:1313/docs/chapter18/" itemprop="url" />
@@ -28,13 +28,13 @@
 
   
   <meta itemprop="name" content="第 18 章：表访问方法">
-  <meta itemprop="description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增各种表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
-=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 heap_default_table_access_method 参数中列出的默认引擎。">
-  <meta itemprop="wordCount" content="1322">
+  <meta itemprop="description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
+=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 default_table_access_method 参数中列出的默认引擎。">
+  <meta itemprop="wordCount" content="1323">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 18 章：表访问方法">
-  <meta name="twitter:description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增各种表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
-=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 heap_default_table_access_method 参数中列出的默认引擎。">
+  <meta name="twitter:description" content="18.1 可插拔存储引擎 PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：
+=&gt; SELECT amname, amhandler FROM pg_am WHERE amtype = &#39;t&#39;; amname | amhandler −−−−−−−−&#43;−−−−−−−−−−−−−−−−−−−−−− heap | heap_tableam_handler (1 row) 在建表时，你可以指定要使用的引擎 (CREATE TABLE … USING)；否则，将使用 default_table_access_method 参数中列出的默认引擎。">
 
     <link href="/css/compiled/main.css" rel="stylesheet" />
 
@@ -761,7 +761,7 @@
         <div class="content">
           <h1>第 18 章：表访问方法</h1>
           <h2>18.1 可插拔存储引擎<span class="hx-absolute -hx-mt-20" id="181-可插拔存储引擎"></span>
-    <a href="#181-%e5%8f%af%e6%8f%92%e6%8b%94%e5%ad%98%e5%82%a8%e5%bc%95%e6%93%8e" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许创建和新增各种表访问方法 (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：</p>
+    <a href="#181-%e5%8f%af%e6%8f%92%e6%8b%94%e5%ad%98%e5%82%a8%e5%bc%95%e6%93%8e" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 使用的数据布局既不是唯一可能的，也不是所有负载类型的最佳选择。遵循可扩展性的理念，PostgreSQL 允许<span class="marginalia" data-note="v. 12">创建和新增表访问方法</span> (可插拔存储引擎)，但目前仅有一种开箱即用的引擎：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -781,7 +781,7 @@
 
   
 </div>
-<p>在建表时，你可以指定要使用的引擎 (CREATE TABLE &hellip; USING)；否则，将使用 heap_default_table_access_method 参数中列出的默认引擎。</p>
+<p>在建表时，你可以指定要使用的引擎 (CREATE TABLE &hellip; USING)；否则，将使用 <span class="marginalia" data-note="heap"><em>default_table_access_method</em></span> 参数中列出的默认引擎。</p>
 <p>为了让 PostgreSQL 内核部分以相同的方式与不同的引擎协作，表访问方法必须实现一个特殊的接口。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 在 amhandler 列中指定的函数，其返回的接口结构 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 包含内核所需的所有信息。</p>
 <p>以下核心组件可被所有表访问方法使用：</p>
 <ul>
@@ -813,7 +813,8 @@
 <p>存储的数据其结构是一棵元组 ID 的 B 树；每一列都存储在与主树相关的自己的 B 树中。未来，可能会在一个 B 树中存储多个列，从而获得混合存储。</p>
 <h2>18.2 顺序扫描<span class="hx-absolute -hx-mt-20" id="182-顺序扫描"></span>
     <a href="#182-%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>存储引擎定义了表数据的物理布局，并提供访问方法。唯一支持的方法是顺序扫描，它完整地读取表主分支的文件 (或多个文件)。每次页面读取，都会检查每条元组的可见性；那些不满足查询的元组会被过滤掉。</p>
-<p><img src="18-1.png" alt="" loading="lazy" /></p>
+<img src="18-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>扫描进程会遍历缓冲区缓存；为了确保大表不会淘汰有用的数据，PostgreSQL 使用了一个小型的环形缓冲区。扫描同一张表的其他进程会加入到这个环形缓冲区，从而避免额外的磁盘读取；这种扫描被称为同步扫描。这样一来，扫描就不必总是从文件开头开始。</p>
 <p>顺序扫描是读取整个表或其中大部分数据的最有效的方式。换句话说，当选择率较低时，顺序扫描带来的价值最大。(如果选择率高，意味着查询只需要选择几行，那么最好使用索引)。</p>
 <h3>18.2.1 成本估算<span class="hx-absolute -hx-mt-20" id="1821-成本估算"></span>
@@ -859,8 +860,8 @@
   
 </div>
 <p>在估算成本时，优化器会考虑以下两个组成部分：磁盘 IO 和 CPU 资源。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
-<p><strong>I/O 成本</strong>的计算方法是将表中的页面数量乘以读取单个页面的成本 (假设页面是按顺序读取的)。当缓冲区管理器请求一个页面时，操作系统实际上从磁盘读取了更多的数据，所以后续的几个页面很可能在操作系统缓存中找到。因此，使用顺序扫描读取单个页面的成本 (规划器按 seq_page_cost 预估) 低于随机访问的成本 (由 random_page_cost 值定义)。</p>
-<p>默认设置适用于 HDD；如果你使用的是 SSD，那么显著降低 random_page_cost 值是有意义的 (seq_page_cost 参数通常保持原样，作为参考值)。由于这些参数之间的最佳比例取决于硬件，因此通常在表空间级别设置 (ALTER TABLESPACE &hellip;SET)。</p>
+<p><strong>I/O 成本</strong>的计算方法是将表中的页面数量乘以读取单个页面的成本 (假设页面是按顺序读取的)。当缓冲区管理器请求一个页面时，操作系统实际上从磁盘读取了更多的数据，所以后续的几个页面很可能在操作系统缓存中找到。因此，使用顺序扫描读取单个页面的成本 (规划器按 <span class="marginalia" data-note="1"><em>seq_page_cost</em></span> 预估) 低于随机访问的成本 (由 <span class="marginalia" data-note="4"><em>random_page_cost</em></span> 值定义)。</p>
+<p>默认设置适用于 HDD；如果你使用的是 SSD，那么显著降低 <em>random_page_cost</em> 值是有意义的 (<em>seq_page_cost</em> 参数通常保持原样，作为参考值)。由于这些参数之间的最佳比例取决于硬件，因此通常在表空间级别设置 (ALTER TABLESPACE &hellip;SET)。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -884,7 +885,7 @@
   
 </div>
 <p>这些计算清楚地显示了不及时清理所导致的表膨胀的后果：表的主分支越大，需要扫描的页面就越多，无论包含多少活跃元组。</p>
-<p><strong>CPU 资源预估</strong>包括处理每个元组的成本 (规划器按 cpu_tuple_cost 预估)：</p>
+<p><strong>CPU 资源预估</strong>包括处理每个元组的成本 (规划器按 <span class="marginalia" data-note="0.01"><em>cpu_tuple_cost</em></span> 预估)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -957,7 +958,7 @@
   
 </div>
 <p>该计划由两个节点组成：上层节点 (Aggregate)  用于计算函数 count，从下层节点 (Seq Scan) 拉取数据，后者负责扫描表。</p>
-<p>Aggregate 节点的启动成本包括聚合本身：在从下层节点获取所有行之前，不可能返回第一行 (在这个例子中只有一行)。聚合成本是根据每个输入行的条件操作的执行成本 (按 cpu_operator_cost 估算) 来估算的：<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
+<p>Aggregate 节点的启动成本包括聚合本身：在从下层节点获取所有行之前，不可能返回第一行 (在这个例子中只有一行)。聚合成本是根据每个输入行的条件操作的执行成本 (按 <span class="marginalia" data-note="0.0025"><em>cpu_operator_cost</em></span> 估算) 来估算的：<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -983,7 +984,7 @@
   
 </div>
 <p>计算出的估算值被添加到 Seq Scan 节点的总成本中。</p>
-<p>Aggregate 节点的总成本还包括处理待返回行的成本，按 cpu_tuple_cost 估算：</p>
+<p>Aggregate 节点的总成本还包括处理待返回行的成本，按 <span class="marginalia" data-note="0.01"><em>cpu_tuple_cost</em></span> 估算：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1015,11 +1016,13 @@
   
 </div>
 <p>因此，成本估算的依赖关系如下图所示：</p>
-<p><img src="18-2.png" alt="" loading="lazy" /></p>
+<img src="18-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h2>18.3 并行计划<span class="hx-absolute -hx-mt-20" id="183-并行计划"></span>
-    <a href="#183-%e5%b9%b6%e8%a1%8c%e8%ae%a1%e5%88%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 支持并行查询。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup> 执行查询的领导者进程生成 (通过 postmaster) 多个工作进程，这些进程同时执行计划中相同的并行部分。结果会传递给领导者进程，领导者进程将它们汇总在 Gather  <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 节点中。当不接收数据时，领导者进程也可以参与执行计划的并行部分。</p>
-<p>如果需要，你可以通过关闭 parallel_leader_participation 参数来禁止领导者进程参与并行计划的执行。</p>
-<p><img src="18-3.png" alt="" loading="lazy" /></p>
+    <a href="#183-%e5%b9%b6%e8%a1%8c%e8%ae%a1%e5%88%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL <span class="marginalia" data-note="v. 9.6">支持并行查询</span>。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup> 执行查询的领导者进程生成 (通过 postmaster) 多个工作进程，这些进程同时执行计划中相同的并行部分。结果会传递给领导者进程，领导者进程将它们汇总在 Gather  <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 节点中。当不接收数据时，领导者进程也可以参与执行计划的并行部分。</p>
+<p>如果需要，你可以通过关闭 <span class="marginalia" data-note="on"><em>parallel_leader_participation</em></span> 参数来<span class="marginalia" data-note="v .11">禁止领导者进程参与并行计划的执行</span>。</p>
+<img src="18-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>当然，启动这些进程并在它们之间传递数据并不是没有成本的，因此到目前为止并不是所有的查询都应该并行化。</p>
 <p>此外，即使允许并行执行，也并非计划的所有部分都可以同时处理。一些操作由领导者进程单独以顺序模式执行。</p>
 <blockquote>
@@ -1028,12 +1031,13 @@
 <h2>18.4 并行顺序扫描<span class="hx-absolute -hx-mt-20" id="184-并行顺序扫描"></span>
     <a href="#184-%e5%b9%b6%e8%a1%8c%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>为并行处理设计的节点之一是 Parallel Seq Scan 节点，负责执行并行顺序扫描。</p>
 <p>这个名字听起来有点矛盾 (扫描究竟是顺序的还是并行的？)，但无论如何，它反映了操作的本质。如果我们观察文件访问，会发现表页面是顺序读取的，遵循它们在简单顺序扫描中读取的顺序。然而，这个操作是由多个并发进程执行的。为了避免重复扫描同一个页面，执行器通过共享内存来同步这些进程。</p>
-<p>此处有一个微妙的问题，操作系统无法获得典型的顺序扫描的全貌；相反，它看到的是多个执行随机读取的进程。因此，通常用于加速顺序扫描的数据预取几乎变得毫无用处。为了尽量减少这种不愉快的影响，PostgreSQL 为每个进程分配的不是一个页面，而是多个连续的页面进行读取。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
+<p>此处有一个微妙的问题，操作系统无法获得典型的顺序扫描的全貌；相反，它看到的是多个执行随机读取的进程。因此，通常用于加速顺序扫描的数据预取几乎变得毫无用处。<span class="marginalia" data-note="v. 14">为了尽量减少这种不愉快的影响</span> ，PostgreSQL 为每个进程分配的不是一个页面，而是多个连续的页面进行读取。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
 <p>因此，并行扫描看起来并没有多大意义，因为通常的读取成本因进程间的数据传输开销而增加。然而，如果工作进程对获取的行进行了后续处理 (如聚合)，那么总执行时间可能会大大缩短。</p>
 <h3>18.4.1 成本估算<span class="hx-absolute -hx-mt-20" id="1841-成本估算"></span>
     <a href="#1841-%e6%88%90%e6%9c%ac%e4%bc%b0%e7%ae%97" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看一个对大表执行聚合的查询。执行计划使用了并行：</p>
-<p><img src="18-4.png" alt="" loading="lazy" /></p>
-<p>所有位于 Gather 节点下方的节点都属于计划的并行部分。这些节点由各个工作进程执行 (这里规划了两个工作进程) ，可能也由领导者进程执行 (除非通过 parallel_leader_participation 参数将此功能关闭)。Gather 节点自身以及所有它上方的节点构成了计划的顺序部分，并仅由领导者进程执行。</p>
+<img src="18-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
+<p>所有位于 Gather 节点下方的节点都属于计划的并行部分。这些节点由各个工作进程执行 (这里规划了两个工作进程) ，可能也由领导者进程执行 (除非通过 <em>parallel_leader_participation</em> 参数将此功能关闭)。Gather 节点自身以及所有它上方的节点构成了计划的顺序部分，并仅由领导者进程执行。</p>
 <p>Parallel Seq Scan 节点表示并行堆扫描。rows 字段显示了单个进程要处理的预估平均行数。总而言之，执行必须由三个进程 (一个领导者进程和两个工作进程) 来完成，但是领导者进程将处理较少的行：随着工作进程数量的增加，它工作比重会变小。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 在这个特定的例子中，因子是 2.4。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1113,7 +1117,7 @@
   
 </div>
 <p>下一个节点 (Gather) 由领导者进程执行。该节点负责启动工作进程并收集他们返回的数据。</p>
-<p>在规划过程中，启动进程 (无论数量如何) 的成本估算由 parallel_setup_cost 参数定义，而进程之间每行数据传输的成本按 parallel_tuple_cost 进行估算。</p>
+<p>在规划过程中，启动进程 (无论数量如何) 的成本估算由 <span class="marginalia" data-note="1000"><em>parallel_setup_cost</em></span> 参数定义，而进程之间每行数据传输的成本按 <span class="marginalia" data-note="0.1"><em>parallel_tutple_cos</em></span> 进行估算。</p>
 <p>在这个例子中，启动成本 (用于启动进程) 占大头；这个值被添加到 Partial Aggregate 节点的启动成本中。总成本还包括传输两行的成本；这个值被添加到 Partial Aggregate 节点 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 的总成本中：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1174,12 +1178,13 @@
 </div>
 <p>成本估算之间的依赖关系取决于节点是否需要在将结果传递给其父节点之前积累数据。聚合操作在获取所有输入行之前无法返回结果，因此其启动成本基于下层节点的总成本。相反，Gather 节点一旦获取到行就开始向上层节点发送，因此，该操作的启动成本取决于下层节点的启动成本，而它的总成本则基于下层节点的总成本。</p>
 <p>以下是依赖关系图：</p>
-<p><img src="18-5.png" alt="" loading="lazy" /></p>
+<img src="18-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h2>18.5 并行执行限制<span class="hx-absolute -hx-mt-20" id="185-并行执行限制"></span>
     <a href="#185-%e5%b9%b6%e8%a1%8c%e6%89%a7%e8%a1%8c%e9%99%90%e5%88%b6" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>18.5.1 后台工作进程数量<span class="hx-absolute -hx-mt-20" id="1851-后台工作进程数量"></span>
-    <a href="#1851-%e5%90%8e%e5%8f%b0%e5%b7%a5%e4%bd%9c%e8%bf%9b%e7%a8%8b%e6%95%b0%e9%87%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>进程数量由三个参数层级控制。同时运行的后台工作进程的最大数量由 max_worker_processes 定义。</p>
-<p>然而，并行查询执行并不是唯一需要后台工作进程的操作。例如，后台工作进程也参与逻辑复制以及被扩展使用。专门为并行计划执行所分配的进程数量受到 max_parallel_workers 的限制。</p>
-<p>在此数字中，最多 max_parallel_workers_per_gather 个进程可以服务于一个领导者进程。</p>
+    <a href="#1851-%e5%90%8e%e5%8f%b0%e5%b7%a5%e4%bd%9c%e8%bf%9b%e7%a8%8b%e6%95%b0%e9%87%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>进程数量由三个参数层级控制。同时运行的后台工作进程的最大数量由 <span class="marginalia" data-note="8"><em>max_worker_processes</em></span> 定义。</p>
+<p>然而，并行查询执行并不是唯一需要后台工作进程的操作。例如，后台工作进程也参与逻辑复制以及被扩展使用。专门为并行计划执行所分配的进程数量受到 <span class="marginalia" data-note="8"><em>max_parallel_workers</em></span> 的限制。</p>
+<p>在此数字中，最多 <span class="marginalia" data-note="2"><em>max_parallel_workers_per_gather</em></span> 个进程可以服务于一个领导者进程。</p>
 <p>这些参数的选择取决于以下因素：</p>
 <ul>
 <li>硬件能力：系统中必须有专门用于并行执行的空闲核心。</li>
@@ -1187,12 +1192,14 @@
 <li>典型负载：必须有可能从并行执行中受益的查询。</li>
 </ul>
 <p>这些标准通常适用于 OLAP 系统，而不是 OLTP 系统。</p>
-<p>如果预估要读取的堆数据大小不超过 min_parallel_table_scan_size 值，那么规划器将根本不会考虑并行执行。</p>
-<p>除非特定表在 parallel_workers 存储参数中明确指定了进程数量，否则将按照以下公式计算：</p>
-<p><img src="18-6.png" alt="" loading="lazy" /></p>
+<p>如果预估要读取的堆数据大小不超过 <span class="marginalia" data-note="8MB"><em>min_parallel_table_scan_size</em></span> 值，那么规划器将根本不会考虑并行执行。</p>
+<p>除非特定表在 <em>parallel_workers</em> 存储参数中明确指定了进程数量，否则将按照以下公式计算：</p>
+<img src="18-6.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>这意味着每当一个表增大三倍时，PostgreSQL 就会为它的处理分配一个额外的并行工作进程。默认设置可以得出以下数据：</p>
-<p><img src="18-7.png" alt="" loading="lazy" /></p>
-<p>无论如何，并行工作进程的数量都不能超过 max_parallel_workers_per_gather 参数定义的限制。</p>
+<img src="18-7.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
+<p>无论如何，并行工作进程的数量都不能超过 <em>max_parallel_workers_per_gather</em> 参数定义的限制。</p>
 <p>如果我们查询一个 19MB 的小表 ，那么只会计划并启动一个工作进程：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1219,7 +1226,7 @@
 
   
 </div>
-<p>对 105 MB 大小的表进行查询，只会获得两个工作进程，因为达到了 max_parallel_workers_per_gather 工作进程数量的限制：</p>
+<p>对 105 MB 大小的表进行查询，只会获得两个工作进程，因为达到了 <span class="marginalia" data-note="2"><em>max_parallel_workers_per_gather</em></span> 工作进程数量的限制：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1367,8 +1374,8 @@
 <li>
 <p>修改或锁定数据的查询 (UPDATE、DELETE、SELECT FOR UPDATE 等)。</p>
 <p>此限制不适用于以下命令中的子查询：</p>
-<p>— CREATE TABLE AS，SELECT INTO，CREATE MATERIALIZED VIEW</p>
-<p>— REFRESH MATERIALIZED VIEW</p>
+<p><span class="marginalia" data-note="v. 11">— CREATE TABLE AS，SELECT INTO，CREATE MATERIALIZED VIEW</span></p>
+<p><span class="marginalia" data-note="v. 14">— REFRESH MATERIALIZED VIEW</span></p>
 <p>但是，在所有这些情况下，行插入仍然是顺序执行的。</p>
 </li>
 <li>
@@ -1381,7 +1388,7 @@
 <p>函数内的查询，如果这些函数是从一个并行查询中调用的 (为了避免工作进程数量的递归增长)。</p>
 </li>
 </ul>
-<p>在 PostgreSQL 的未来版本中可能会移除其中一些限制。例如，已经存在在可串行化隔离级别下并行化查询的能力。</p>
+<p>在 PostgreSQL 的未来版本中可能会移除其中一些限制。例如，已经存在在<span class="marginalia" data-note="v. 12">可串行化隔离级别下并行化查询</span>的能力。</p>
 <blockquote>
 <p>使用诸如 INSERT 和 COPY 等命令并行插入行的方式目前正在开发中。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
 </blockquote>
@@ -1391,7 +1398,7 @@
 <li>服务器配置禁止使用并行计划 (例如，由于施加的表大小限制)。</li>
 <li>并行计划比顺序计划的成本更高。</li>
 </ul>
-<p>要检查查询是否可以并行化，你可以暂时打开 force_parallel_mode 参数。然后规划器将尽可能创建并行计划：</p>
+<p>要检查查询是否可以并行化，你可以暂时打开 <span class="marginalia" data-note="off"><em>force_parallel_mode</em></span> 参数。然后规划器将尽可能创建并行计划：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1450,7 +1457,7 @@
 
   
 </div>
-<p>如果 CTE 没有被物化，那么计划中就不会包含 CTE Scan 节点，因此这个限制就不适用。</p>
+<p>如果 CTE 没有被物化，那么计划中就不会包含 CTE Scan 节点，<span class="marginalia" data-note="v. 12">因此这个限制就不适用</span>。</p>
 <p>但是请注意，如果以并行模式计算 CTE 的成本更低，CTE 本身可以在并行模式下进行计算。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1482,11 +1489,13 @@
   
 </div>
 <p>另一个不可扩展子查询的示例如下图中的 SubPlan 节点所示：</p>
-<p><img src="18-8.png" alt="" loading="lazy" /></p>
+<img src="18-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>前两行表示主查询的计划：顺序扫描 flights 表，并根据提供的过滤条件检查每一行。过滤条件包含一个子查询；这个子查询的计划从第三行开始。因此，SubPlan 节点在这种情况下会被多次执行，每次顺序扫描获取一行数据时执行一次。</p>
 <p>此计划上层的 Seq Scan 节点不能参与并行执行，因为它依赖于 SubPlan 节点返回的数据。</p>
 <p>最后要提及的是，这里还有一个由 InitPlan 节点表示的不可扩展子查询：</p>
-<p><img src="18-9.png" alt="" loading="lazy" /></p>
+<img src="18-9.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>不同于 SubPlan 节点，InitPlan 仅评估一次 (在此例中，每次执行 SubPlan 2 节点时评估一次)。</p>
 <p>InitPlan 的父节点不能参与并行执行 (但是那些接收 InitPlan 评估结果的节点可以，就像在这个例子中一样)。</p>
 <p><strong>临时表</strong>。临时表不支持并行扫描，因为临时表只能由创建它们的进程独占式访问。临时表的页面在本地缓冲区缓存中处理。要使本地缓存能够被多个进程访问，将需要像在共享缓存中那样的锁定机制，这会使它的其他好处变得不那么明显。</p>

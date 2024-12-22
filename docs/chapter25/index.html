@@ -753,11 +753,11 @@ B 树具有以下重要属性：
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2531-%e5%8e%bb%e9%87%8d">25.3.1 去重
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2531-span-classmarginalia-data-notev-13%e5%8e%bb%e9%87%8dspan">25.3.1 去重
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2532-%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8">25.3.2 内部索引条目的紧凑存储
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2532-span-classmarginalia-data-notev-12%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8span">25.3.2 内部索引条目的紧凑存储
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -814,7 +814,8 @@ B 树具有以下重要属性：
           <h2>25.1 总览<span class="hx-absolute -hx-mt-20" id="251-总览"></span>
     <a href="#251-%e6%80%bb%e8%a7%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。</p>
 <p>下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶子节点垂直对齐。</p>
-<p><img src="25-1.png" alt="" loading="lazy" /></p>
+<img src="25-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。</p>
 <p>B 树具有以下重要属性：</p>
 <ul>
@@ -836,35 +837,40 @@ B 树具有以下重要属性：
     <a href="#2521-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看看如何通过 &ldquo;<em>indexed-column</em> = <em>expression</em>&rdquo; 的条件在树中搜索值。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 我们尝试找到 KJA 机场 (Krasnoyarsk)。</p>
 <p>搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ <em>expression</em> &lt; Ki+1 的 Ki 键。</p>
 <p>根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。</p>
-<p><img src="25-2.png" alt="" loading="lazy" /></p>
+<img src="25-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>递归重复此过程，直到我们到达包含所需元组 ID 的叶节点。在此特例下，子节点满足条件 DME ⩽ KJA &lt; KZN，所以我们必须下降到含有 DME 键的元素所引用的叶节点。</p>
 <p>你可能已注意到，树的内部节点中最左边的键是冗余的：要选择根的子节点，满足条件 KJA &lt; OVB 就足够了。B 树不存储这样的键，因此在接下来的图中，我会将相应的元素留空。</p>
 <p>叶节点中所需元素可以通过二分搜索快速找到。</p>
 <p>然而，搜索过程并不像看起来那么简单。必须要考虑到索引中数据的排序顺序可以是升序 (如上所示)，也可以是降序。即使是唯一索引，也可能有多个匹配的值，所有这些值都必须返回。此外，可能有太多的重复项以至于它们不适合单个节点，因此还必须处理相邻的叶节点。</p>
 <blockquote>
-<p>由于索引可以包含非唯一值，因此将其顺序称为非降序而不是升序 (以及非升序而不是降序) 会更准确。但我将坚持使用更简单的术语。此外，元组 ID 是索引键的一部分，这让我们可以认为索引条目是唯一的，即使值实际上是相同的。</p>
+<p>由于索引可以包含非唯一值，因此将其顺序称为非降序而不是升序 (以及非升序而不是降序) 会更准确。但我将坚持使用更简单的术语。此外，元组 ID 是索引键的一部分，这让我们可以<span class="marginalia" data-note="v. 12">认为索引条目是唯一的</span>，即使值实际上是相同的。</p>
 </blockquote>
 <p>最重要的是，在搜索过程中，其他进程可能会修改数据，页面可能会分裂为两个，树的结构可能会发生变化。所有算法都旨在尽可能减少这些并发操作之间的冲突，并避免过多的锁定，但我们不打算在这里讨论这些技术细节。</p>
 <h3>25.2.2 非等值检索<span class="hx-absolute -hx-mt-20" id="2522-非等值检索"></span>
     <a href="#2522-%e9%9d%9e%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果按照 &ldquo;<em>indexed-column</em> ⩽ <em>expression</em>&rdquo; (或 &ldquo;<em>indexed-column</em> ⩾ <em>expression</em>&rdquo;) 进行搜索，首先要在索引中查找满足相等条件的值，然后沿着需要的方向遍历其叶节点，直到到达树的末端。</p>
 <p>下图说明了搜索机场代码小于或等于 DME (Domodedovo) 的过程。</p>
-<p><img src="25-3.png" alt="" loading="lazy" /></p>
+<img src="25-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>对于小于和大于操作符，过程是相同的，除了需要排除第一个找到的值。</p>
 <h3>25.2.3 范围检索<span class="hx-absolute -hx-mt-20" id="2523-范围检索"></span>
     <a href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当通过范围 &ldquo;<em>expression</em>1 ⩽ <em>indexed-column</em> ⩽ <em>expression</em>2&rdquo; 进行检索时，我们必须
 先找到 <em>expression1</em>，然后向右遍历叶节点，直至找到 <em>expression2</em>。下图说明了在 LED (Saint Petersburg) 和 ROV (Rostov-on-Don) 之间搜索机场代码的过程，包括两端。</p>
-<p><img src="25-4.png" alt="" loading="lazy" /></p>
+ <img src="25-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>25.2.4 插入<span class="hx-absolute -hx-mt-20" id="2524-插入"></span>
     <a href="#2524-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>新元素的插入位置由键的顺序明确定义。例如，如果将 RTW 机场代码 (Saratov) 插入到表中，新元素将出现在倒数第二个叶节点中，位于 ROV 和 SGC 之间。</p>
 <p>但如果叶节点没有足够的空间容纳新元素怎么办？例如 (假设一个节点最多可以容纳三个元素)，如果我们插入 TJM 机场代码 (Tyumen)，最后一个叶节点将溢出。在这种情况下，节点被分裂成两个，旧节点的一些元素被移动到新节点中，并在父节点中添加一个指向新子节点的指针。显然，父节点也可能溢出。然后它也分裂成两个节点，依次类推。如果涉及到根节点的分裂，则在目标节点之上再创建一个节点，成为树的新的根节点。在这种情况下，树的深度增加了一层。</p>
 <p>在此例中，插入 TJM 机场会导致两个节点分裂；由此产生的新节点在下图中高亮显示。为了确保任何节点都可以分裂，一个双向列表绑定了所有层级的节点，而不仅仅是最低层级的节点。</p>
-<p><img src="25-5.png" alt="" loading="lazy" /></p>
+<img src="25-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>所描述的插入和分裂过程确保了树保持平衡，并且由于一个节点可以容纳的元素数量通常非常大，因此树的深度很少增加。</p>
 <p>问题是，一旦分裂，节点就永远不能合并在一起，即使在清理之后只包含很少的元素。这个限制不是 B 树数据结构本身的问题，而是其在 PostgreSQL 实现中的问题。因此，如果在尝试插入时节点满了，访问方法首先会尝试剪枝多余的数据以清理一些空间，避免额外的分裂。</p>
 <h2>25.3 页面布局<span class="hx-absolute -hx-mt-20" id="253-页面布局"></span>
     <a href="#253-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树的每个节点占用一个页面。页面的大小定义了节点的容量。</p>
 <p>由于页面分裂，树根在不同时间可以由不同的页面表示。但是搜索算法必须始终从根节点开始扫描。它在零索引页面 (称为元页面) 中找到当前根页面的 ID。元页面还包含一些其他元数据。</p>
-<p><img src="25-6.png" alt="" loading="lazy" /></p>
+<img src="25-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>索引页中的数据布局与我们迄今为止看到的有些不同。每一层除了最右边的页面外，所有页面都包含一个额外的&quot;高键&quot;，这个高键保证不小于此页面中的任何键。在上图中，高键被高亮显示。</p>
 <p>让我们使用 pageinspect 扩展来查看基于六位数预订参考号的实际索引页面。元页面列出了根页面 ID 和树的深度 (层级编号从叶节点开始，从零开始)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1088,10 +1094,10 @@ B 树具有以下重要属性：
 
   
 </div>
-<h3>25.3.1 去重<span class="hx-absolute -hx-mt-20" id="2531-去重"></span>
-    <a href="#2531-%e5%8e%bb%e9%87%8d" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>非唯一索引可以包含许多指向不同堆元组的重复键。由于非唯一键出现不止一次，并因此占用大量空间，所以重复键被折叠收敛成一个单独的索引条目，其中包含键和相应元组 ID 的列表。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 在某些情况下，这个过程 (称为去重) 可以显著减小索引的大小。</p>
+<h3>25.3.1 <span class="marginalia" data-note="v. 13">去重</span><span class="hx-absolute -hx-mt-20" id="2531-span-classmarginalia-data-notev-13去重span"></span>
+    <a href="#2531-span-classmarginalia-data-notev-13%e5%8e%bb%e9%87%8dspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>非唯一索引可以包含许多指向不同堆元组的重复键。由于非唯一键出现不止一次，并因此占用大量空间，所以重复键被折叠收敛成一个单独的索引条目，其中包含键和相应元组 ID 的列表。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 在某些情况下，这个过程 (称为去重) 可以显著减小索引的大小。</p>
 <p>但是，由于 MVCC 的原因，即使是唯一索引也可能包含重复项：因为索引保留对表行所有版本的引用。HOT 更新机制可以减少因为引用过时且通常是短暂的行版本而导致的索引膨胀，但有时这可能不适用。在这种情况下，去重可以花费一些时间来清理冗余堆元组并避免额外的页面分裂。</p>
-<p>为了避免在去重不会带来立竿见影的效果时浪费资源，仅当叶子页面没有足够空间容纳更多元组时才会执行这种折叠。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 然后，页面剪枝和去重 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 可以释放一些空间并防止不必要的页面分裂。但是，如果重复项很少，你可以通过关闭 deduplicate_items 存储参数来禁用去重功能。</p>
+<p>为了避免在去重不会带来立竿见影的效果时浪费资源，仅当叶子页面没有足够空间容纳更多元组时才会执行这种折叠。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 然后，页面剪枝和去重 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 可以释放一些空间并防止不必要的页面分裂。但是，如果重复项很少，你可以通过关闭 <em>deduplicate_items</em> 存储参数来禁用去重功能。</p>
 <p>一些索引不支持去重。主要限制是键的等价性必须通过它们内部表示的简单二进制比较来检查。到目前为止，并非所有数据类型都可以通过这种方式进行比较。例如，浮点数 (float 和 double precision) 有两种不同的零值表示形式。任意精度的数字 (numeric) 可以以不同标度表示同一个数字，而 jsonb 类型可以使用这样的数字。如果使用非确定性的排序规则，<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> text 类型也无法进行去重，因为这允许由不同的字节序表示同一个符号 (标准排序规则是确定性的)。</p>
 <p>另外，复合类型、range 类型和数组以及使用 INCUDE 子句声明的索引目前均不支持去重。</p>
 <p>要检查特定索引是否可以使用去重，你可以查看其元页面中的 allequalimage 字段：</p>
@@ -1145,8 +1151,8 @@ B 树具有以下重要属性：
 
   
 </div>
-<h3>25.3.2 内部索引条目的紧凑存储<span class="hx-absolute -hx-mt-20" id="2532-内部索引条目的紧凑存储"></span>
-    <a href="#2532-%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>去重使得索引的叶子页面能够容纳更多的条目。但是，尽管叶子页面构成了索引的大部分，但在内部页面上执行的数据压缩以防止额外的分裂同样重要，因为搜索效率直接依赖于树的深度。</p>
+<h3>25.3.2 <span class="marginalia" data-note="v. 12">内部索引条目的紧凑存储</span><span class="hx-absolute -hx-mt-20" id="2532-span-classmarginalia-data-notev-12内部索引条目的紧凑存储span"></span>
+    <a href="#2532-span-classmarginalia-data-notev-12%e5%86%85%e9%83%a8%e7%b4%a2%e5%bc%95%e6%9d%a1%e7%9b%ae%e7%9a%84%e7%b4%a7%e5%87%91%e5%ad%98%e5%82%a8span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>去重使得索引的叶子页面能够容纳更多的条目。但是，尽管叶子页面构成了索引的大部分，但在内部页面上执行的数据压缩以防止额外的分裂同样重要，因为搜索效率直接依赖于树的深度。</p>
 <p>内部索引条目包含索引键，但它们的值仅用于在搜索过程中确定要下降到的子树。在多列索引中，通常只需取第一个键属性 (或几个首属性)。为了在页面中节省空间，可以截断其他属性。</p>
 <p>当叶子页面被分裂且内部页面需要容纳一个新指针时，便会发生这种 <em>suffix truncation</em> (后缀截断)。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
 <blockquote>
@@ -1639,11 +1645,11 @@ B 树具有以下重要属性：
 </div>
 <p>即使规划器选择执行索引扫描，也仍然需要遍历所有索引条目。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 不幸的是，计划并不会显示条件实际上仅用于过滤结果。</p>
 <blockquote>
-<p>如果第一列没有太多不同的值 v1,v2, …, vn，通过以下条件进行一系列搜索而不是使用单一条件 &ldquo;col2 = value&rdquo; 的搜索，可能会有益处，这样可以在对应的子树上进行多次遍历：</p>
-<p>col1 = v1 and col2 = value</p>
-<p>col1 = v2 and col2 = value</p>
+<p>如果第一列没有太多不同的值 <em>v1,v2, …, vn</em>，通过以下条件进行一系列搜索而不是使用单一条件 &ldquo;col2 = <em>value</em>&rdquo; 的搜索，可能会有益处，这样可以在对应的子树上进行多次遍历：</p>
+<p>col1 = <em>v1</em> and col2 = <em>value</em></p>
+<p>col1 = <em>v2</em> and col2 = <em>value</em></p>
 <p>⋯</p>
-<p>col1 = vn and col2 = value</p>
+<p>col1 = <em>vn</em> and col2 = <em>value</em></p>
 <p>这种类型的索引访问被称之为 Skip Scan，但目前尚未实现。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
 </blockquote>
 <p>反之亦然，如果根据乘客姓名和预订号创建索引，那么它将更适合仅按乘客姓名，或者按乘客姓名和预订参考号两者进行查询：</p>

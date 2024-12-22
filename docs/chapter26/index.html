@@ -44,7 +44,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 搜索从根节点开始，2 这是树搜索的典型方式。consistency 函数决定了哪些子节点必须遍历，哪些可以跳过。然后，对每个找到的子节点重复此过程；与 B 树不同，GiST 索引可能有多个这样的节点。由 consistency 函数选中的叶节点条目作为结果返回。
 搜索始终是深度优先的：算法会尽可能快地到达叶子页面。因此，它可以立即开始返回结果，如果用户只需要获取最前面的几行，这是非常有意义的。
 要将新值插入到 GiST 树中，无法使用 consistency 函数，因为我们需要选择一个确切的节点来下降。3 这个节点必须具有最小的插入成本；它由操作符类的 penalty 函数确定。">
-  <meta itemprop="wordCount" content="2132">
+  <meta itemprop="wordCount" content="2130">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 26 章：GiST">
   <meta name="twitter:description" content="26.1 总览 GiST (通用搜索树) 1 是一种访问方法，实际上是平衡搜索树的通用形式，用于支持相对位置值的数据类型。B 树的适用性仅限于允许比较操作的数据类型 (但对这些类型的支持非常高效)。至于 GiST，其操作符类允许为树中的数据分布定义任意标准。GiST 索引可以适用于空间数据的 R 树、集合的 RD 树，以及任何数据类型 (包括文本和图像) 的签名树。
@@ -809,7 +809,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>R 树在平面上绘制矩形；这些矩形加起来必须覆盖所有索引点。索引条目存储边界框，谓词可以定义如下：点位于这个边界框内。</p>
 <p>R 树的根包含几个大矩形 (它们也可能重叠)。子节点持有更小的矩形，这些矩形适合其父节点；它们一起覆盖所有底层的点。</p>
 <p>叶节点应该包含索引点本身，但 GiST 要求所有条目具有相同的数据类型；因此，叶节点条目也用矩形表示，只是简化为点。</p>
-<p>为了更好地可视化此结构，让我们看一下在机场坐标上建立的 R 树的三个层级。对于这个例子，我已经将示例数据库中的 airports 表扩展到了五千行。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 我还降低了 fillfactor 值以使树更深；默认值得到的是一个单层树。</p>
+<p>为了更好地可视化此结构，让我们看一下在机场坐标上建立的 R 树的三个层级。对于这个例子，我已经将示例数据库中的 airports 表扩展到了五千行。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 我还降低了 <span class="marginalia" data-note="90"><em>fillfactor</em></span> 值以使树更深；默认值得到的是一个单层树。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -831,15 +831,18 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   
 </div>
 <p>在上层，所有点都被包含在几个 (部分重叠的) 边界框中：</p>
-<p><img src="26-1.png" alt="" loading="lazy" /></p>
+<img src="26-1.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>在下一层，大矩形被分割成更小的矩形：</p>
-<p><img src="26-2.png" alt="" loading="lazy" /></p>
+<img src="26-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>最终，在树的内层，每个边界框包含的点数与单个页面可以容纳的点数相同。</p>
-<p><img src="26-3.png" alt="" loading="lazy" /></p>
+<img src="26-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>此索引使用了 point_ops 操作符类，这是点唯一可用的操作符类。</p>
 <p>矩形和任何其他几何图形也可以以相同的方式进行索引，但索引必须存储对象的边界框，而不是对象本身。</p>
 <h3>26.2.1 页面布局<span class="hx-absolute -hx-mt-20" id="2621-页面布局"></span>
-    <a href="#2621-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>你可以使用 pageinspect 扩展来研究 GiST 页面。</p>
+    <a href="#2621-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>你可以使用 <span class="marginalia" data-note="v. 14"><em>pageinspect</em></span> 扩展来研究 GiST 页面。</p>
 <p>与 B 树索引不同，GiST 没有元页面，零页始终是树的根。如果根页面被分裂，旧的根会被移动到一个单独的页面，新的根则会取代它的位置。</p>
 <p>这是根页面的内容：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -994,12 +997,15 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   
 </div>
 <p>我们可以通过下图中的一个简单示例来更详细地了解这个操作符：</p>
-<p><img src="26-4.png" alt="" loading="lazy" /></p>
+<img src="26-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>如果以这种方式选择边界框，索引结构将如下所示：</p>
-<p><img src="26-5.png" alt="" loading="lazy" /></p>
+<img src="26-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>包含操作符 &lt;@ 用于判断特定的点是否位于指定矩形内。如果索引条目的矩形与该矩形有任何公共点，那么这个操作符的 consistency 函数 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 返回 &ldquo;yes&rdquo;。这意味着对于存储着缩小为点的矩形的叶节点条目，此函数用于判断该点是否包含在指定的矩形内。</p>
 <p>例如，让我们找到下图中阴影矩形 (1,2)–(4,7) 的内部点：</p>
-<p><img src="26-6.png" alt="" loading="lazy" /></p>
+<img src="26-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>搜索从根节点开始。边界框与 (0,0)-(3,4) 重叠，但不与 (5,3)-(9,9) 重叠。这意味着我们不需要下降到第二个子树。</p>
 <p>在下一个层，边界框与 (0,3)-(3,4) 重叠，并且触及 (0,0)-(3,2)，所以我们必须检查两个子树。</p>
 <p>一旦我们到达叶节点，我们只需要检查它们包含的所有点，并返回那些满足 consistency 函数的点。</p>
@@ -1090,35 +1096,37 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   
 </div>
 <p>为了支持这样的查询，操作符类必须定义一个额外的支持函数：距离函数，该函数在索引条目上调用，用于计算此条目中存储的值与其他某个值之间的距离。</p>
-<p>对于表示索引值的叶元素，此函数必须返回到该值的距离。在点的情况下，<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 它是常规的欧几里得距离，等于
-$$
-\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}
-$$
-对于内部元素，该函数必须返回从其子叶元素到目标点的所有可能距离中的最小值。由于扫描所有子条目的成本很高，因此该函数可以乐观地低估距离 (牺牲一些效率)，但绝不能返回更大的值 — 这会破坏搜索的准确性。</p>
+<p>对于表示索引值的叶元素，此函数必须返回到该值的距离。在点的情况下，<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 它是常规的欧几里得距离，等于 $\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}$。</p>
+<p>对于内部元素，该函数必须返回从其子叶元素到目标点的所有可能距离中的最小值。由于扫描所有子条目的成本很高，因此该函数可以乐观地低估距离 (牺牲一些效率)，但绝不能返回更大的值 — 这会破坏搜索的准确性。</p>
 <p>因此，对于由边界框表示的内部元素，与点的距离按照常规数学意义理解：如果点在矩形内，则距离为零；否则是点与矩形之间的最小距离。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 这个值可以在不遍历矩形的所有子点的情况下轻松计算出来，并且保证不大于到这些点中任何一个的距离。</p>
 <p>让我们考虑搜索点 (6,8) 的三个最近邻的算法：</p>
-<p><img src="26-7.png" alt="" loading="lazy" /></p>
+<img src="26-7.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>搜索从根节点开始，它包含两个边界框。指定点到矩形 (0,0)–(3,4) 的距离被视为到矩形角 (3,4) 的距离，等于 5.0。到 (5,3)–(9,9) 的距离是 0.0。(我打算将这里的所有值四舍五入到小数点后一位；对于这个例子，这样的精度就足够了)。</p>
 <p>子节点按照距离增加的顺序进行遍历。因此，我们首先下降到右边的子节点，其中包含两个矩形：(5,3)–(8,5) 和 (6,6)–(9,9)。到第一个矩形的距离是 3.0；到第二个矩形的距离是 0.0。</p>
 <p>再一次，我们选择右侧的子树，并进入包含三个点的叶节点：(6,6) 的距离为 2.0, (8,9) 的距离为 2.2, (9,7) 的距离为 3.2。</p>
-<p><img src="26-8.png" alt="" loading="lazy" /></p>
+<img src="26-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>因此，我们已经找到了前两个点：(6,6) 和 (8,9)。但该节点的第三个点与矩形 (5,3)-(8,5) 的距离比到 (9,7) 的距离要大。</p>
 <p>所以现在我们必须下降到左边的子节点，其中包含两个点。到点 (8,5) 的距离是 3.6，而到 (5,3) 的距离是 5.1。结果表明，前一个子节点中的点 (9,7) 比左子树的任何节点都更接近点 (6,8)，所以我们可以将其作为第三个结果返回。</p>
-<p><img src="26-9.png" alt="" loading="lazy" /></p>
+<img src="26-9.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>这个例子说明了内部条目的距离函数必须满足的要求。由于到矩形 (5,3)-(8,5) 的距离减小了 (3.0 而不是 3.6)，所以必须扫描一个额外的节点，因此搜索效率有所下降；然而，算法本身仍然是正确的。</p>
 <h3>26.2.5 插入<span class="hx-absolute -hx-mt-20" id="2625-插入"></span>
     <a href="#2625-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当一个新键被插入到 R 树中时，用于该键的节点由 penalty 函数确定：边界框的大小必须尽可能少地增加。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
 <p>例如，点 (4,7) 将被添加到矩形 (5,3)-(9,9) 中，因为它的面积将仅增加 6 个单位，而矩形 (0,0)-(3,4) 需要增加 12 个单位。在下一层 (叶子)，点将被添加到矩形 (6,6)-(9,9) 中，遵循同样的逻辑。</p>
-<p><img src="26-10.png" alt="" loading="lazy" /></p>
+<img src="26-10.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>假设一个页面最多只能包含三个元素，那么就需要将其拆分为两个，并且元素必须在新页面之间分配。在这个例子中，结果看起来是显而易见的，但在一般情况下，数据分配任务并不那么简单。首先，picksplit 函数尝试最小化边界框之间的重叠，旨在获得更小的矩形和并在页面间实现点的均匀分布。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
-<p><img src="26-11.png" alt="" loading="lazy" /></p>
+<img src="26-11.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>26.2.6 排它约束<span class="hx-absolute -hx-mt-20" id="2626-排它约束"></span>
     <a href="#2626-%e6%8e%92%e5%ae%83%e7%ba%a6%e6%9d%9f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>GiST 索引也可以用于排它约束。</p>
 <p>排它约束保证了任何两个堆元组的指定字段不会在某个操作符意义上相匹配。以下条件必须满足：</p>
 <ul>
 <li>索引方法必须支持排它约束 (CAN EXCLUDE 属性) 。</li>
 <li>操作符必须属于这种索引方法的操作符类。</li>
-<li>操作符必须是可交换的，即条件 &ldquo;a operator b = b operator a&rdquo; 必须为真。</li>
+<li>操作符必须是可交换的，即条件 &ldquo;<em>a operator b</em> = <em>b operator a</em>&rdquo; 必须为真。</li>
 </ul>
 <p>对于上面考虑的哈希和 B 树访问方法，唯一合适的操作符是等于。它实际上将一个排它约束变成了一个唯一约束，这并不是很有用。</p>
 <p>GiST 方法还有两种更适用的策略：</p>
@@ -1284,7 +1292,7 @@ $$
   
 </div>
 <p>唯一约束和排序是不被支持的。</p>
-<p>创建 GiST 索引时可以包含额外的 INCLUDE 列。</p>
+<p>创建 GiST 索引时可以<span class="marginalia" data-note="v. 12">包含额外的 INCLUDE 列</span>。</p>
 <p>正如我们所知，我们可以在多个列上创建索引，也可以在完整性约束中使用。</p>
 <p><strong>索引级属性</strong>。这些属性在索引级别定义：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1496,7 +1504,7 @@ $$
 <p>这绝不是全文检索的详尽描述，但这些信息应该足以理解索引基础。</p>
 <h3>26.3.2 索引 tsvector 数据<span class="hx-absolute -hx-mt-20" id="2632-索引-tsvector-数据"></span>
     <a href="#2632-%e7%b4%a2%e5%bc%95-tsvector-%e6%95%b0%e6%8d%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了高效工作，全文检索必须由索引支持。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 由于索引的不是文档本身，而是 tsvector 值，因此你有两个选择：要么在表达式上创建一个索引并执行类型转换，要么添加一个 tsvector 类型的单独列并索引这个列。第一种方法的好处是它不会浪费存储 tsvector 值的空间，因为这些值实际上并不需要。但它比第二种选择要慢，因为索引引擎必须重新检查由访问方法返回的所有堆元组。这意味着对于每个重新检查的行，tsvector 值必须重新计算，正如我们很快会看到的，GiST 会重新检查所有行。</p>
-<p>让我们构造一个简单的例子。我们将创建一个两列的表：第一列存储文档，而第二列保存 tsvector 值。我们可以使用触发器来更新第二列，<sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 但声明该列为生成列会更为方便：<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup></p>
+<p>让我们构造一个简单的例子。我们将创建一个两列的表：第一列存储文档，而第二列保存 tsvector 值。我们可以使用触发器来更新第二列，<sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 但声明该列为<span class="marginalia" data-note="v. 12">生成列</span>会更为方便：<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1520,7 +1528,7 @@ $$
   
 </div>
 <blockquote>
-<p>在上面的例子中，我使用了带有单个参数的 to_tsvector 函数，并设置了 default_text_search_config 参数来定义全文检索配置。由于此函数的这一版本隐式依赖于参数值，其稳定性类别是 STABLE。但在这里，我使用了另一个明确定义配置的版本；此版本是 IMMUTABLE 的，可以用在生成表达式中。</p>
+<p>在上面的例子中，我使用了带有单个参数的 to_tsvector 函数，并设置了 <span class="marginalia" data-note="english"><em>default_text_search_config</em></span> 参数来定义全文检索配置。由于此函数的这一版本隐式依赖于参数值，其稳定性类别是 STABLE。但在这里，我使用了另一个明确定义配置的版本；此版本是 IMMUTABLE 的，可以用在生成表达式中。</p>
 </blockquote>
 <p>让我们插入几行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1571,25 +1579,31 @@ $$
 <p>因此，R 树不适合用于索引文档，因为对它们来说，边界框的概念没有意义。因此，使用了它的 RD 树  (俄罗斯套娃) 修改版本。这样的树不使用边界框，而是使用边界集，即包含其子集所有元素的集合。对于全文检索，这样的集合包含文档的词素，但在一般情况下，边界集可以是任意的。</p>
 <p>在索引条目中，有几种方法可以表示边界集。最简单的方法是枚举集合的所有元素。</p>
 <p>以下是它可能的样子：</p>
-<p><img src="26-12.png" alt="" loading="lazy" /></p>
+<img src="26-12.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>为了找到满足 DOC_TSV @@ TO_TSQUERY(&lsquo;row&rsquo;) 条件的文档，我们需要下降到子条目已知包含 &ldquo;cow&rdquo; 词素的节点。</p>
 <p>这种表示方法的问题是显而易见的。一个文档中的词素数量可能是巨大的，而页面大小是有限的。即使每个特定的文档单独来看时并没有太多不同的词素，它们在树的上层合并后的集合仍然可能过大。</p>
-<p><img src="26-13.png" alt="" loading="lazy" /></p>
+<img src="26-13.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>全文检索使用另一种解决方案，即更紧凑的签名树。对于那些处理布隆过滤器的人来说应该非常熟悉。</p>
 <p>每个词素都可以用其签名表示：一个特定长度的位串，其中只有一个位被设置为 1。应该设置哪一位由词素的哈希函数决定。</p>
 <p>一个文档的签名是这个文档中所有词素的签名进行按位或运算的结果。</p>
 <p>假设我们已经为我们的词素分配了以下签名：</p>
-<p><img src="26-14.png" alt="" loading="lazy" /></p>
+<img src="26-14.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>那么此文档的签名如下所示：</p>
-<p><img src="26-15.png" alt="" loading="lazy" /></p>
+<img src="26-15.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>索引树可以这样表示：</p>
-<p><img src="26-16.png" alt="" loading="lazy" /></p>
+<img src="26-16.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>这种方法的优点是显而易见的：索引条目具有相同的大小，而且非常小，因此索引显得非常紧凑。但是，这种方法也有一定的缺点。首先，由于索引不再存储索引键，因此无法执行仅索引扫描，每个返回的 TID 都必须通过表重新检查。准确性也受到影响：索引可能返回许多误报 (false positives)，必须在重新检查期间将其过滤掉。</p>
 <p>让我们再看一下 DOC_TSV @@ TO_TSQUERY(&lsquo;COWS&rsquo;) 条件。查询的签名和文档的签名计算方式相同；在这个特定案例中，它等于 0000010。consistency 函数 <sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup> 必须找到所有在其签名中设置了相同位的子节点：</p>
-<p><img src="26-17.png" alt="" loading="lazy" /></p>
+<img src="26-17.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>与前面的示例相比，这里因为误报的原因需要扫描更多的节点。由于签名的容量有限，大数据集中的一些词素必然具有相同的签名。在这个例子中，此类词素是 &ldquo;cow&rdquo; 和 &ldquo;oink&rdquo;。这意味着同一个签名可以匹配不同的文档；这里查询的签名对应其中三个。</p>
 <p>误报降低了索引的效率，但不以任何方式影响其正确性：由于保证排除了漏报 (false negative)，所以不可能错过所需的值。</p>
-<p>显然，签名的实际大小更大。默认情况下，它占用 124 字节 (992 比特)，因此冲突的可能性比这个例子中的要低得多。如果需要，你可以使用操作符类参数将签名大小进一步增加到大约 2000 字节：</p>
+<p>显然，签名的实际大小更大。默认情况下，它占用 124 字节 (992 比特)，因此冲突的可能性比这个例子中的要低得多。<span class="marginalia" data-note="v. 13">如果需要</span>，你可以使用操作符类参数将签名大小进一步增加到大约 2000 字节：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1736,7 +1750,7 @@ $$
 <p>cube 扩展添加了同名数据类型，代表多维立方体。它们使用具有相应维度的边界框的 R 树进行索引。</p>
 <p><strong>范围类型</strong>。 PostgreSQL 提供了几种内置的数字和时间范围类型，例如 int4range 和 tstzrange。<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup> 你可以使用 CREATE TYPE AS RANGE 命令定义自定义范围类型。</p>
 <p>所有范围类型，无论是标准的还是自定义的，都由 GiST 通过 range_ops 操作符类支持。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup> 对于索引，应用一维 R 树：在这种情况下，边界框被转换为边界段。</p>
-<p>多范围类型也支持；它们依赖于 multirange_ops 类。边界范围包括作为多范围值的一部分的所有范围。</p>
+<p><span class="marginalia" data-note="v. 14">多范围类型</span>也支持；它们依赖于 multirange_ops 类。边界范围包括作为多范围值的一部分的所有范围。</p>
 <p>seg 扩展提供了用于区间的同名数据类型，其边界具有特定的精度。它虽然不被视为范围类型，但实际上是，因此可以以完全相同的方式进行索引。</p>
 <p><strong>Ordinal 类型</strong>。让我们再次回顾一下 btree_gist 扩展：它为 GiST 方法提供了操作符类以支持各种允许比较和排序的数据类型，这些数据类型通常由 B 树索引。当其中一列的数据类型不被 B 树支持时，这样的操作符类可用于构建多列索引。</p>
 <p><strong>网络地址类型</strong>。inet 数据类型内置了 GiST 支持，通过 inet_ops 操作符类 <sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup> 实现。</p>

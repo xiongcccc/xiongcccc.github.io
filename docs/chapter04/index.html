@@ -795,14 +795,16 @@
 <p>为了确保隔离性，每个事务都使用其自己的快照。这意味着不同的事务可以看到在不同时间点获取的不同快照，但这些快照仍然是一致的。</p>
 <p>在读已提交隔离级别下，每个语句开始时获取一个快照，并且仅在该语句期间内保持活跃状态。</p>
 <p>在可重复读和可序列化隔离级别下，在事务内的第一条语句开始时获取一个快照，并且会保持活跃状态直到整个事务完成。</p>
-<p><img src="4-1.png" alt="" loading="lazy" /></p>
+<img src="4-1.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <h2>4.2 行版本可见性<span class="hx-absolute -hx-mt-20" id="42-行版本可见性"></span>
     <a href="#42-%e8%a1%8c%e7%89%88%e6%9c%ac%e5%8f%af%e8%a7%81%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>快照并不是所有所需元组的物理拷贝。相反，它由几个数字定义，而元组的可见性则由特定规则决定。</p>
 <p>元组可见性由元组头中的 xmin 和 xmax 字段 (即执行插入和删除的事务 ID) 和相应的提示位定义。由于 xmin–xmax 区间不相交，因此在任何快照中，每一行仅由其版本中的一个所表示。</p>
 <p>确切的可见性规则十分复杂 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>，因为考虑到了各种不同的场景和极端情况。非常粗略地，我们可以这样描述它们：一个元组在包括 xmin 事务更改但不包括 xmax 事务更改的快照中是可见的 (换句话说，该元组已经出现并且尚未被删除)。</p>
 <p>如果事务在快照创建之前提交，那么事务更改在快照中是可见的。作为一个例外，事务可以看到自己未提交的更改。如果事务被中止，其更改不会在任何快照中可见。</p>
 <p>让我们看一个简单的例子。在此图中，线段代表事务 (从它们的开始时间到提交时间)：</p>
-<p><img src="4-2.png" alt="" loading="lazy" /></p>
+<img src="4-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>此处，应用于事务的可见性规则如下：</p>
 <ul>
 <li>事务 2 在快照创建之前已提交，因此其更改是可见的。</li>
@@ -812,13 +814,14 @@
 <h2>4.3 快照结构<span class="hx-absolute -hx-mt-20" id="43-快照结构"></span>
     <a href="#43-%e5%bf%ab%e7%85%a7%e7%bb%93%e6%9e%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>不幸的是，前面的示例与 PostgreSQL 实际看到的情况并不相符 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>。问题在于，系统不知道事务何时提交。仅知道它们是何时开始的 (这一时刻由事务 ID 定义)，事务何时完成的未在任何地方记录。</p>
 <blockquote>
-<p>如果启用了 track_commit_timestamp 参数，可以跟踪事务的提交时间 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>，但它们不会以任何方式参与可见性检查 (尽管出于其他目的跟踪它们仍然是有用的，例如，应用于外部复制解决方案)。</p>
+<p>如果启用了 <span class="marginalia" data-note="off"><em>track_commit_timestamp</em></span> 参数，可以跟踪事务的提交时间 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>，但它们不会以任何方式参与可见性检查 (尽管出于其他目的跟踪它们仍然是有用的，例如，应用于外部复制解决方案)。</p>
 <p>此外，PostgreSQL 总是在相应的 WAL 条目中记录提交和回滚的时间，但这些信息仅用于时间点恢复。</p>
 </blockquote>
 <p>我们只能了解到事务的当前状态。此信息可以在服务器的共享内存中获取：ProcArray 结构包含所有活跃会话及其事务的列表。一旦事务完成，就无法确定它在快照创建时是否处于活跃状态。</p>
 <p>因此创建快照仅记录获取的时刻是不够的：还需要收集在那一时刻所有事务的状态。否则，之后将无法确定哪些元组在快照中必须可见，哪些必须被排除。</p>
 <p>让我们看一下系统在获取快照时以及一段时间后可用的信息，白色圆圈表示活跃事务，黑色圆圈表示已完成的事务：</p>
-<p><img src="4-3.png" alt="" loading="lazy" /></p>
+<img src="4-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>假设我们不知道在获取快照时第一个事务仍在执行中，而第三个事务尚未开始。那么看起来它们就像第二个事务 (在那个时刻已提交) 一样，无法将它们过滤掉。</p>
 <p>因此，即使所有需要的元组都存在于堆页面中，PostgreSQL 也无法创建一个快照来显示过去某个任意时间点的数据一致状态。所以，PostgreSQL 无法实现回溯查询 (有时也称为时间或闪回查询)。</p>
 <blockquote>
@@ -832,7 +835,8 @@
 <p><strong>xip_list</strong> 是除了虚拟事务之外的所有活跃事务 ID 的列表，虚拟事务不会以任何方式影响可见性。</p>
 <p>快照还包括其他几个参数，但此处我们将忽略它们。</p>
 <p>以图形表示，快照可以表示为一个矩形，包括从 xmin 到 xmax 的事务。</p>
-<p><img src="4-4.png" alt="" loading="lazy" /></p>
+<img src="4-4.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>为了理解快照是如何定义可见性规则的，我们将在 accounts 表上复现上述场景。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1174,7 +1178,8 @@
 </div>
 <p>虚拟事务没有真正的 ID，但它们仍然像常规事务一样使用快照，因此它们有自己的视界。唯一例外是没有活跃快照的虚拟事务：视界的概念对于它们来说毫无意义，当涉及到快照和可见性时，它们对系统是完全&quot;透明的&quot; (尽管 pg_stat_activity.backend_xmin 中仍可能包含旧快照的 xmin)。</p>
 <p>我们也可以用类似的方式去定义数据库视界。为此，我们应当获取这个数据库中所有事务的视界，并选择最远的一个，其 xmin 最老 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。在这个视界之外，过期的堆元组将永远不会对这个数据库中的任何事务可见。这样的元组便可以被 vacuum 安全地清理掉 — 这正是从实际角度来看，为什么视界的概念如此重要的原因。</p>
-<p><img src="4-5.png" alt="" loading="lazy" /></p>
+<img src="4-5.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>让我们总结一下：</p>
 <ul>
 <li>如果处于可重复读或可序列化隔离级别下的事务 (无论是真实的还是虚拟的) 运行了很长时间，它会保持数据库视界并推迟清理。</li>

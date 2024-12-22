@@ -1,4 +1,163 @@
 .highlight .err {
   background-color: transparent !important;
-  color: inherit !important;
+  #color: inherit !important;
 }
+
+/* 全局覆盖blockquote的默认斜体 */
+blockquote {
+  font-style: normal;
+}
+
+/* 如果主题使用更精细的选择器，例如 blockquote p，加上这一句也可以 */
+blockquote p {
+  font-style: normal;
+}
+
+
+blockquote {
+  background-color: transparent !important;
+}
+
+pre, code {
+  background-color: transparent !important;
+}
+
+
+code, pre,
+blockquote code,
+blockquote pre {
+  font-style: normal !important;
+}
+
+
+/* CSS变量定义 */
+:root {
+  /* 浅色模式变量 */
+  --marginalia-bg-light: #f5f5f5;        /* 更淡的咖啡色背景 */
+  --marginalia-hover-bg-light: #f5f5f5;  /* 悬停时稍深的淡咖啡色 */
+  --marginalia-text-light: #333;         /* 深灰色文本 */
+
+  /* 深色模式变量 */
+  --marginalia-bg-dark: #f5f5f5;         /* 深色模式下的淡咖啡色 */
+  --marginalia-hover-bg-dark: #f5f5f5;   /* 悬停时稍深的淡咖啡色 */
+  --marginalia-text-dark: #f0f0f0;       /* 浅灰色文本 */
+
+  /* Tooltip背景色 */
+  --tooltip-bg-light: rgba(0, 0, 0, 0.8);
+  --tooltip-text-light: #fff;
+  --tooltip-bg-dark: rgba(255, 255, 255, 0.9);
+  --tooltip-text-dark: #000;
+
+  /* 箭头颜色 */
+  --arrow-bg-light: rgba(0, 0, 0, 0.8);
+  --arrow-bg-dark: rgba(255, 255, 255, 0.9);
+}
+
+/* 基本旁注样式 */
+.marginalia {
+  position: relative;
+  display: inline;
+  color: var(--marginalia-text-light);
+  cursor: pointer;
+  background-color: var(--marginalia-bg-light);
+  padding: 2px 4px;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-weight: normal; /* 加粗文本 */
+}
+
+/* 悬停时背景色稍微加深 */
+.marginalia:hover {
+  background-color: var(--marginalia-hover-bg-light);
+  color: var(--marginalia-text-light); /* 保持文本颜色不变 */
+}
+
+/* Tooltip样式 */
+.marginalia::after {
+  content: attr(data-note);
+  position: absolute;
+  left: 50%;
+  top: 100%; /* 将提示框放在旁注文本下方 */
+  transform: translateX(-50%) translateY(10px); /* 向下移动 */
+  white-space: nowrap;
+  background-color: var(--tooltip-bg-light);
+  color: var(--tooltip-text-light);
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+  z-index: 1000;
+  max-width: 300px;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+/* 箭头样式 */
+.marginalia::before {
+  content: '';
+  position: absolute;
+  top: 100%; /* 箭头位于提示框上方 */
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--arrow-bg-light) transparent transparent transparent; /* 箭头朝下 */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+  z-index: 1001;
+}
+
+/* 悬停时显示旁注内容和箭头 */
+.marginalia:hover::after,
+.marginalia:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 浅色模式样式（默认） */
+@media (prefers-color-scheme: light) {
+  .marginalia {
+    background-color: var(--marginalia-bg-light);
+    color: var(--marginalia-text-light);
+  }
+
+  .marginalia:hover {
+    background-color: var(--marginalia-hover-bg-light);
+  }
+
+  .marginalia::after {
+    background-color: var(--tooltip-bg-light);
+    color: var(--tooltip-text-light);
+  }
+
+  .marginalia::before {
+    border-color: var(--arrow-bg-light) transparent transparent transparent;
+  }
+}
+
+/* 深色模式样式 */
+@media (prefers-color-scheme: dark) {
+  .marginalia {
+    background-color: var(--marginalia-bg-dark);
+    color: var(--marginalia-text-dark);
+  }
+
+  .marginalia:hover {
+    background-color: var(--marginalia-hover-bg-dark);
+  }
+
+  .marginalia::after {
+    background-color: var(--tooltip-bg-dark);
+    color: var(--tooltip-text-dark);
+  }
+
+  .marginalia::before {
+    border-color: var(--arrow-bg-dark) transparent transparent transparent;
+  }
+}
+
+

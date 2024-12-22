@@ -894,7 +894,8 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 
   
 </div>
-<p><img src="28-1.png" alt="" loading="lazy" /></p>
+<img src="28-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>注意，此处 GIN 索引与常规的 B 树索引在某些方面有所不同。在 B 树索引的内部节点中，最左边的键是空的，因为它们实际上是多余的；在 GIN 索引中，这些键根本就不会被存储。因此，对子节点的引用也随之改变。高键在两种索引中都有使用，但在 GIN 索引中，它占据了合理的最右边的位置。在 B 树中，同级节点是通过双向列表绑定的；而 GIN 使用单向列表，因为树总是只往一个方向遍历。</p>
 <p>在这个理论示例中，所有的 posting lists 都适合于常规页面，除了 &ldquo;farm&rdquo; 词素的 posting list。这个词素在多达六个文档中出现过，因此它的 ID 被移到了一个单独的 posting tree 中。</p>
 <h3>28.2.1 页面布局<span class="hx-absolute -hx-mt-20" id="2821-页面布局"></span>
@@ -1035,7 +1036,7 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 <p>第五个 (可选) 函数用于部分搜索，以检查索引元素是否部分匹配搜索键。在此特例下，部分搜索包括通过前缀搜索词素。例如，查询 &ldquo;c:*&rdquo; 对应于所有以字母 &ldquo;c&rdquo; 开头的词素。</p>
 <p>第二个函数从文档中提取词素，而第三个函数从搜索查询中提取词素。使用不同的函数是合理的，因为至少文档和查询由不同的数据类型表示，即 tsvector 和 tsquery。此外，搜索查询的函数决定了搜索的执行方式。如果查询要求文档包含特定的词素，那么搜索将仅限于至少包含一个查询中指定词素的文档。如果没有这样的条件 (例如，如果需要不包含特定词素的文档)，则必须扫描所有文档——这当然要昂贵得多。</p>
 <blockquote>
-<p>如果查询包含任何其他搜索键，首先会根据这些键扫描索引，然后重新检查这些中间结果。因此，没有必要完整扫描索引。</p>
+<p>如果查询包含任何其他搜索键，<span class="marginalia" data-note="v. 13">首先会根据这些键扫描索引</span>，然后重新检查这些中间结果。因此，没有必要完整扫描索引。</p>
 </blockquote>
 <p>第四个和第六个函数是 consistency 函数，用于确定找到的文档是否满足搜索查询。作为输入，第四个函数获取查询中指定词素在文档中确切出现的信息。第六个函数在不确定的上下文中操作，当不确定文档中是否存在某些词素时可以被调用。操作符类不必实现这两个函数：只提供其中一个就足够了，但在这种情况下搜索效率可能会受到影响。</p>
 <p>tsvector_ops 操作符类仅支持一个用于将文档与搜索查询相匹配的操作符：@@，<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 该操作符也包含在 GiST 操作符类中。</p>
@@ -1043,10 +1044,12 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
     <a href="#2823-%e6%90%9c%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看一下 &ldquo;everywhere | oink&rdquo; 查询的搜索算法，其中两个词素通过 OR 操作符连接。首先，支持函数 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 从 tsquery 类型的搜索字符串中提取词素 &ldquo;everywhere 和 oink&rdquo; (搜索键)。</p>
 <p>由于查询要求特定的词素存在，至少包含一个查询中指定键的文档的 TID 被绑定成一个列表。为此，每个搜索键对应的 TID 在词素树中被搜索出来，并被添加到一个公共列表中。索引中存储的所有 TIDS 都是有序的，这允许将几个有序的 TIDS 流合并为一个。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
 <p>注意，键是通过 AND、OR 还是任何其他操作符组合起来的并不重要：搜索引擎处理的是键的列表，它并不了解搜索查询的语义。</p>
-<p><img src="28-2.png" alt="" loading="lazy" /></p>
+<img src="28-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>每个找到的与文档相对应的 TID 都由 consistency 函数 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> 检查。正是这个函数解释了搜索查询，并且只保留那些满足查询条件的 TIDS (或者至少可能满足条件，并且需要由表重新检查)。</p>
 <p>在此特例下，consistency 函数保留了所有的 TIDS：</p>
-<p><img src="28-3.png" alt="" loading="lazy" /></p>
+<img src="28-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>搜索查询可以包含前缀，而不是常规的词素。如果应用程序用户可以在搜索字段中输入单词的几个首字母并期望立即获得结果，这将非常有用。例如，&ldquo;pig:*&rdquo; 查询将会匹配所有包含以 &ldquo;pig&rdquo; 开头的词素的文档：这里我们可以得到 &ldquo;pigs&rdquo;，如果 old MacDonald 在他的农场饲养了它们，我们也能得到 &ldquo;pigeons&rdquo;。</p>
 <p>这种部分搜索使用一个特殊的支持函数来匹配索引中的词素和搜索键；<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup> 除了前缀匹配外，这个函数也可以实现部分搜索的其他逻辑。</p>
 <h3>28.2.4 频繁和罕见的词素<span class="hx-absolute -hx-mt-20" id="2824-频繁和罕见的词素"></span>
@@ -1057,9 +1060,11 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 <p>显然，这种优化也可以应用到涉及两个以上词素的更复杂的搜索场景。算法按词素的频率排序，将它们逐个添加到强制词素列表中，并在剩余的词素不再能保证文档满足查询时停止。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup></p>
 <p>例如，让我们考虑 &ldquo;farm &amp; ( cluck | chick )&rdquo; 查询。最不常见的词素是 &ldquo;chick&rdquo;；它被立即添加到强制性词素列表中。为了检查其他词素是否可以被认为是可选的，consistency 函数对强制性词素取假，对所有其他词素取真。函数返回 true AND (true OR false) = true，这意味着剩余的词素是&quot;自给自足的&quot;，其中至少一个必须成为强制性词素。</p>
 <p>下一个最不频繁的词素 (&ldquo;cluck&rdquo;) 被添加到列表中，现在 consistency 函数返回 true AND (false OR false) = false。因此，&ldquo;chick&rdquo; 和 &ldquo;cluck&rdquo; 词素变为强制性的，而 &ldquo;farm&rdquo; 仍然是可选的。</p>
-<p><img src="28-4.png" alt="" loading="lazy" /></p>
+<img src="28-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>posting list 的长度为三，因为强制性词素出现了三次：</p>
-<p><img src="28-5.png" alt="" loading="lazy" /></p>
+<img src="28-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>因此，如果词素频率已知，就有可能以最有效的方式合并词素树，从罕见的词素开始，跳过那些肯定是冗余的频繁词素的页面范围。这减少了需要调用 consistency 函数的次数。</p>
 <p>为了确保这种优化确实有效，让我们查询 pgsql-hackers 归档。我们需要指定两个词素，一个常见的和一个罕见的：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1158,10 +1163,11 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 <p>但每个文档通常包含许多需要被索引的词素。所以，即使我们只是创建或修改一个文档，索引树仍然会经历很多修改。这就是为什么 GIN 更新十分慢的原因。</p>
 <p>下图显示了将 TID (4,1) 的 &ldquo;Everywhere clucks, moos, and oinks&rdquo; 行插入到表中后树的状态。词素 &ldquo;cluck&rdquo;、&ldquo;moo&rdquo; 和 &ldquo;oink&rdquo; 的 posting list 被扩展；&ldquo;everywher&rdquo; 词素的列表超过了最大大小，并作为一个单独的树被拆分出来。</p>
 <p>然而，如果更新一个索引以一次性合并多个文档的相关变化，那么与连续的变化相比，总的工作量可能会减少，因为这些文件可能包含一些共同的词素。</p>
-<p>此优化由 fastupdate 存储参数控制。推迟的索引更新累积在一个无序的 posting list 中，该列表物理上存储在元素树外的单独列表页面中。当这个列表变得足够大时，其所有内容将一次性转移到索引中，并且列表被清空。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup> 列表的最大大小由 gin_pending_list_limit 参数或同名的索引存储参数定义。</p>
-<p><img src="28-6.png" alt="" loading="lazy" /></p>
+<p>此优化由 <span class="marginalia" data-note="on"><em>fastupdate</em></span> 存储参数控制。推迟的索引更新累积在一个无序的 posting list 中，该列表物理上存储在元素树外的单独列表页面中。当这个列表变得足够大时，其所有内容将一次性转移到索引中，并且列表被清空。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup> 列表的最大大小由 gin_pending_list_limit 参数或同名的索引存储参数定义。</p>
+<img src="28-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>默认情况下，此类延迟更新是启用的，但你应该记住，这会减慢检索速度：除了树本身之外，还必须扫描整个无序列表的词素。此外，插入时间会变得更不可预测，因为任何更改都可能导致溢出，从而导致昂贵的合并过程。后者由于可以在索引清理期间异步执行合并而得到部分平滑。</p>
-<p>创建新索引时，<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 元素也会分批添加，而不是逐个添加，这样会太慢。所有更改并不是保存到磁盘上的无序列表中，而是累积在 maintenance_work_mem 内存块中，并在该块没有更多可用空间后转移到索引中。为该操作分配的内存越多，建立索引的速度就越快。</p>
+<p>创建新索引时，<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 元素也会分批添加，而不是逐个添加，这样会太慢。所有更改并不是保存到磁盘上的无序列表中，而是累积在 <span class="marginalia" data-note="64MB"><em>maintenance_work_mem</em></span> 内存块中，并在该块没有更多可用空间后转移到索引中。为该操作分配的内存越多，建立索引的速度就越快。</p>
 <p>本章提供的示例证明了在搜索精度方面，GIN 要优于 GiST 签名树。因此，通常使用 GIN 进行全文检索。然而，GIN 更新缓慢的问题可能会在数据频繁更新时使得 GiST 更受青睐。</p>
 <h3>28.2.6 限制结果集大小<span class="hx-absolute -hx-mt-20" id="2826-限制结果集大小"></span>
     <a href="#2826-%e9%99%90%e5%88%b6%e7%bb%93%e6%9e%9c%e9%9b%86%e5%a4%a7%e5%b0%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>GIN 访问方法总是以位图形式返回结果，无法逐个获取 TIDS。换句话说，支持 BITMAP SCAN 属性，但不支持 INDEX SCAN 属性。</p>
@@ -1194,7 +1200,7 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 
   
 </div>
-<p>因此，GIN 方法提供了一个特殊功能，可以限制索引扫描返回的结果数量。此限制由 gin_fuzzy_search_limit 参数施加，该参数默认关闭。如果启用此参数，索引访问方法将随机跳过一些值，以便大致获得指定数量的行 (因此名为 &ldquo;fuzzy&rdquo;)：<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup></p>
+<p>因此，GIN 方法提供了一个特殊功能，可以限制索引扫描返回的结果数量。此限制由 <span class="marginalia" data-note="0"><em>gin_fuzzy_search_limit</em></span> 参数施加，该参数默认关闭。如果启用此参数，索引访问方法将随机跳过一些值，以便大致获得指定数量的行 (因此名为 &ldquo;fuzzy&rdquo;)：<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1701,7 +1707,8 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
   
 </div>
 <p>创建的索引可以如下表示：</p>
-<p><img src="28-8.png" alt="" loading="lazy" /></p>
+<img src="28-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>让我们考虑一个带有条件 route @&gt; &lsquo;{&ldquo;days_of_week&rdquo;: [6]}&rsquo; 的查询，它选择包含特定路径的 JSON 文档 (即在星期六执飞的航班)。</p>
 <p>支持函数 <sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup>从搜索查询的 JSON 值中提取搜索键：&ldquo;days_of_week&rdquo; 和 &ldquo;6&rdquo;。这些键在元素树中搜索，并且至少包含一个键的文档会被 consistency 函数 <sup id="fnref:24"><a href="#fn:24" class="footnote-ref" role="doc-noteref">24</a></sup> 检查。对于包含策略来说，这个函数要求所有搜索键都可用，但结果仍然需要通过表来重新检查：从索引的角度来看，指定的路径也可以对应到像 {&ldquo;days_of_week&rdquo;: [2], &ldquo;foo&rdquo;: [6]} 这样的文档。</p>
 <h3>28.5.2 jsonb_path_ops 操作符类<span class="hx-absolute -hx-mt-20" id="2852-jsonb_path_ops-操作符类"></span>
@@ -1753,7 +1760,8 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
   
 </div>
 <p>创建的索引可以用下面的树表示：</p>
-<p><img src="28-9.png" alt="" loading="lazy" /></p>
+<img src="28-9.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>当执行具有相同条件 route @&gt; &lsquo;{&ldquo;days_of_week&rdquo;: [6]}&rsquo; 的查询时，支持函数 <sup id="fnref:26"><a href="#fn:26" class="footnote-ref" role="doc-noteref">26</a></sup> 提取整个路径 &ldquo;days_of_week, 6&rdquo; 而不是它的各个部分。两个相匹配文档的 TID 将立即在元素树中找到。</p>
 <p>显然，这些条目会被 consistency 函数检查，<sup id="fnref:27"><a href="#fn:27" class="footnote-ref" role="doc-noteref">27</a></sup> 然后由索引引擎重新检查 (例如，排除哈希冲突)。但通过树进行搜索要高效得多，所以如果索引的操作符提供的支持足以满足查询，最好始终选择 jsonb_path_ops。</p>
 <h2>28.6 索引其他数据类型<span class="hx-absolute -hx-mt-20" id="286-索引其他数据类型"></span>
@@ -1761,7 +1769,7 @@ GIN 访问方法用于表示由独立元素组成的非原子值的数据类型 
 <p><strong>整数数组</strong>。intarray 扩展添加了gin__int_ops 操作符类，用于整数数组。它与标准的 array_ops 操作符类非常相似，但它支持匹配操作符 @@，将文档与搜索查询匹配。</p>
 <p><strong>键值存储</strong>。hstore 扩展实现了键值对的存储，并提供 gin_hstore_ops 操作符类。键和值都会被索引。</p>
 <p><strong>JSON 查询语言</strong>。一个外部的 jsquery 扩展提供了它自己的查询语言和对 JSON 的 GIN 索引支持。</p>
-<p>在 SQL:2016 标准被采纳并且 SQL/JSON 查询语言在 PostgreSQL 中实现之后，标准内置功能似乎是更好的选择。</p>
+<p>在 SQL:2016 标准被采纳并且 SQL/JSON 查询语言在 PostgreSQL 中<span class="marginalia" data-note="v. 12">实现之后</span>，标准内置功能似乎是更好的选择。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

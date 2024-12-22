@@ -814,7 +814,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 <h2>13.2 行级锁模式<span class="hx-absolute -hx-mt-20" id="132-行级锁模式"></span>
     <a href="#132-%e8%a1%8c%e7%ba%a7%e9%94%81%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>行级锁支持四种模式 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。其中两种实现了独占锁，一次只能由一个事务获取，而另外两种提供了共享锁，可以同时由多个事务持有。</p>
 <p>以下是这些模式的兼容性矩阵：</p>
-<p><img src="13-1.png" alt="" loading="lazy" /></p>
+<img src="13-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>13.2.1 独占模式<span class="hx-absolute -hx-mt-20" id="1321-独占模式"></span>
     <a href="#1321-%e7%8b%ac%e5%8d%a0%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Update 模式允许修改任何元组字段，甚至删除整个元组，而 No Key Update 模式只允许那些不涉及与唯一索引相关字段的更改 (换句话说，外键必须不受影响)。</p>
 <p>UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变，因此行通常在 No Key Update 模式下被锁定。</p>
@@ -1084,7 +1085,7 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 </blockquote>
 <p>由于组事务 ID 是 32 位的，因此与常规事务 ID 一样，它们也会因为计数器限制而发生回卷。所以，PostgreSQL 必须以类似于冻结的方式处理组事务 ID：用新的组事务 ID 替换老的 (或者如果当时只有一个事务持有锁，则使用常规事务 ID 替换) <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
 <p>但常规事务 ID 仅在 xmin 字段中被冻结 (非空的 xmax 字段表示元组已过期，并将很快被删除)，对于组事务，必须冻结 xmax 字段：当前行版本可能会被新事务在共享模式下反复锁定。</p>
-<p>组事务的冻结可以通过服务器参数进行管理，类似于为常规冻结提供的参数：<em>vacuum_multixact_freeze_min_age</em>、<em>vacuum_multixact_freeze_table_age</em>、<em>autovacuum_multixact_freeze_max_age</em> 以及 <em>vacuum_multixact_failsafe_age</em>。</p>
+<p>组事务的冻结可以通过服务器参数进行管理，类似于为常规冻结提供的参数：<em>vacuum_multixact_freeze_min_age</em>、<em>vacuum_multixact_freeze_table_age</em>、<em>autovacuum_multixact_freeze_max_age</em> 以及 <span class="marginalia" data-note="v. 14"><em>vacuum_multixact_failsafe_age</em></span>。</p>
 <h2>13.4 等待队列<span class="hx-absolute -hx-mt-20" id="134-等待队列"></span>
     <a href="#134-%e7%ad%89%e5%be%85%e9%98%9f%e5%88%97" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>13.4.1 独占模式<span class="hx-absolute -hx-mt-20" id="1341-独占模式"></span>
     <a href="#1341-%e7%8b%ac%e5%8d%a0%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>虽然行级锁只是一个属性，但是队列的排列方式并不是那么简单。当某个事务准备修改一行时，它必须遵循以下步骤 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>：</p>
@@ -1205,7 +1206,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 </div>
 </blockquote>
 </blockquote>
-<p><img src="13-2.png" alt="" loading="lazy" /></p>
+<img src="13-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>第二个事务只进行到第二步。因此，除了锁定表及其自身 ID 之外，它还添加了两个锁，这两个锁也在 pg_locks 视图中反映了出来：第一步获取的元组锁和第二步请求的第二个事务 ID 的锁：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1329,7 +1331,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 
   
 </div>
-<p><img src="13-3.png" alt="" loading="lazy" /></p>
+<img src="13-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>要获取当前等待的全貌，可以使用锁定进程的信息扩展 pg_stat_activity 视图：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1464,7 +1467,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
   
 </div>
 <p>现在，第三个和第四个事务都在等待第二个事务完成，有陷入竞争状态的风险。队列实际上已经瓦解了。</p>
-<p><img src="13-4.png" alt="" loading="lazy" /></p>
+<img src="13-4.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>如果其他事务在队列还在的时候加入了队列，那么所有事务都会被拖入到这场竞争中。</p>
 <p>结论是：在多个并发进程中更新同一行不是一个好主意。在高负载下，这个热点很快就会变成一个瓶颈，导致性能问题。</p>
 <p>让我们提交所有已开启的事务。</p>
@@ -1662,7 +1666,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 
   
 </div>
-<p><img src="13-5.png" alt="" loading="lazy" /></p>
+<img src="13-5.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>现在让第三个事务以共享模式锁定该行。这种锁与已获取的锁兼容，因此这个事务跳过了队列：</p>
 <blockquote>
 <blockquote>
@@ -1714,7 +1719,8 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 
   
 </div>
-<p><img src="13-6.png" alt="" loading="lazy" /></p>
+<img src="13-6.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>如果第一个事务在此时完成，第二个事务醒来后发现该行仍被锁定，并回到队列中，但这次它将发现自己位于第三个事务之后：</p>
 <blockquote>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1915,8 +1921,9 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 </blockquote>
 <p>如果发生了死锁，并且没有任何参与者设置了超时，那么事务将永远相互等待。这就是为什么锁管理器 <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 执行自动死锁检测的原因。</p>
 <p>然而，这种检测需要一些代价，不应该在每次请求锁时都浪费 (毕竟，死锁并不会经常发生)。</p>
-<p><img src="13-7.png" alt="" loading="lazy" /></p>
-<p>因此，如果进程尝试获取锁失败，并在加入队列后进入休眠状态，PostgreSQL 会自动设置一个由 deadlock_timeout 参数 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 定义的超时时间。如果资源在此期间就变得可用，那么很好，这样就可以避免额外的检测成本。但是，如果在 deadlock_timeout 时间单位之后，仍然在等待，等待进程就会醒来并发起检测。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
+<img src="13-7.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
+<p>因此，如果进程尝试获取锁失败，并在加入队列后进入休眠状态，PostgreSQL 会自动设置一个由 deadlock_timeout 参数 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 定义的超时时间。如果资源在此期间就变得可用，那么很好，这样就可以避免额外的检测成本。但是，如果在 <span class="marginalia" data-note="1s"><em>deadlock_timeout</em></span> 时间单位之后，仍然在等待，等待进程就会醒来并发起检测。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
 <p>这种检测实际上是构建一个等待图，并在其中搜索循环 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。为了&quot;冻结&quot;图的当前状态，PostgreSQL 将在整个检测期间停止对所有重锁的处理。</p>
 <p>如果没有检测到死锁，进程将再次进入休眠状态；迟早会轮到它。</p>
 <p>如果检测到死锁，其中一个事务将被强制终止，从而释放这个事务的锁并使其他事务能够继续执行。在大多数情况下，是发起检测的事务被中断，但如果循环中包括一个 autovacuum 进程，并且当前没有在冻结元组以防止回卷，那么服务器会终止 autovacuum 进程，因为它的优先级较低。</p>

@@ -957,7 +957,7 @@
 
   
 </div>
-<p>让我们检查一下在 VACUUM FULL 之后会发生什么。当该命令运行时，可以在 pg_stat_progress_cluster 视图中跟踪其进度 (与为 VACUUM 提供的 pg_stat_progress_vacuum 视图类似)：</p>
+<p>让我们检查一下在 VACUUM FULL 之后会发生什么。当该命令运行时，可以在 <span class="marginalia" data-note="v. 12">pg_stat_progress_cluster</span> 视图中跟踪其进度 (与为 VACUUM 提供的 pg_stat_progress_vacuum 视图类似)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1165,8 +1165,8 @@
 <p>长时间运行 (只读) 事务并不会导致任何问题。因此，一种常见的方式是在不同系统之间分配负载：在主库上执行快速的 OLTP 查询，并将所有 OLAP 事务转移到备库。尽管这使得解决方案变得更加昂贵和复杂，但这些措施可能是不可或缺的。</p>
 <p>在某些情况下，长事务是应用程序或驱动 BUG 的结果，而不是必需的。如果问题无法以优雅的方式解决，管理员可以使用以下两个参数：</p>
 <ul>
-<li>old_snapshot_threshold 参数定义了快照的最大生命周期。一旦到达此时间，服务器便有权移除过期的元组；如果长时间运行的事务仍然需要它们，那么便会出现 &ldquo;snapshot too old&rdquo; 的错误。</li>
-<li>idle_in_transaction_session_timeout 参数限制了空闲事务的生命周期。事务一旦达到此阈值后，便会被中止。</li>
+<li><span class="marginalia" data-note="v. 9.6"><em>old_snapshot_threshold</em></span> 参数定义了快照的最大生命周期。一旦到达此时间，服务器便有权移除过期的元组；如果长时间运行的事务仍然需要它们，那么便会出现 &ldquo;snapshot too old&rdquo; 的错误。</li>
+<li><span class="marginalia" data-note="v. 9.6"><em>idle_in_trasaction_session_timeout</em></span> 参数限制了空闲事务的生命周期。事务一旦达到此阈值后，便会被中止。</li>
 </ul>
 <h3>8.3.2 数据更新<span class="hx-absolute -hx-mt-20" id="832-数据更新"></span>
     <a href="#832-%e6%95%b0%e6%8d%ae%e6%9b%b4%e6%96%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>膨胀的另一个原因是同时修改了大量元组。如果所有行都更新了，元组的数量可能会翻倍，而清理操作可能没有足够的时间进行干预。页剪枝可以减缓这个问题，但并不能完全解决它。</p>

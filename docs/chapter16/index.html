@@ -797,8 +797,9 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 <p>飞机上的<strong>座位</strong> (seats) 数量及其在不同舱位之间的分布取决于执飞的特定<strong>飞机</strong>模型 (aircrafts)。假设每个飞机模型只能有一个座舱配置。</p>
 <p>一些表有代理主键，而其他表使用原生主键 (其中一些是复合主键)。这仅仅是出于演示的目的，并不是一个可以效仿的例子。</p>
 <p>示例数据库可以被视为真实系统的转储：它包含了过去某个特定时刻获取的数据快照。要显示此时间，你可以调用 bookings.now() 函数。在示例查询中使用此函数，需要在现实世界中使用 now() 函数。</p>
-<p>机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 bookings.lang 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。</p>
-<p><img src="16-1.png" alt="" loading="lazy" /></p>
+<p>机场名、城市名和飞机型号的名称存储在 airports_data 和 aircrafts_data 表中；它们有两种语言，英语和俄语。为了构造本章中的示例，我通常会查询实体关系图中显示的 airports 和 aircrafts 视图；这些视图基于 <span class="marginalia" data-note="en"><em>bookings.lang</em></span> 参数的值选择输出语言。尽管如此，一些基表的名称仍可能出现在查询计划中。</p>
+<img src="16-1.png" style="width:70%; float:center" />
+<div style="clear:both;"></div>
 <h2>16.2 简单查询协议<span class="hx-absolute -hx-mt-20" id="162-简单查询协议"></span>
     <a href="#162-%e7%ae%80%e5%8d%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>一个简单版本的 client-server 协议 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。</p>
 <h3>16.2.1 解析<span class="hx-absolute -hx-mt-20" id="1621-解析"></span>
@@ -825,7 +826,8 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   
 </div>
 <p>词法分析器识别出五个关键字、五个标识符、一个字符串字面量和三个单字母词素 (逗号、等号和分号)。语法分析器使用这些词素来构建语法树，下图以非常简化的形式显示了语法树。树节点旁边的说明文字指定了查询的相应部分：</p>
-<p><img src="16-2.png" alt="" loading="lazy" /></p>
+<img src="16-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>一个相当晦涩的 RTE 缩写代表 Range Table Entry。PostgreSQL 源代码中使用术语 range table 来表示表、子查询、关联结果，换句话说，指那些可以由 SQL 操作符处理的任何行集。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 <p><strong>语义分析</strong>。语义分析 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 的目的是确认数据库中是否包含查询根据名称引用的表或其他对象，以及用户是否具有访问这些对象的权限。所有语义分析需要的信息都存储在系统表中。</p>
 <p>获得语法分析树后，语义分析器执行进一步的重构，包括添加对特定数据库对象、数据类型和其他信息的引用。</p>
@@ -834,7 +836,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
     <a href="#1622-%e8%bd%ac%e6%8d%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在下一阶段，查询会被转换(重写)。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
 <p>内核出于多种目的使用转换。其中之一是用视图的基本查询所对应的子树来替换语法树中的视图名称。</p>
 <p>另一种使用转换的情况是行级安全的实现。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup></p>
-<p>递归查询的 SEARCH 和 CYCLE 子句也在这个阶段进行转换。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
+<p>递归查询的 SEARCH 和 CYCLE 子句<span class="marginalia" data-note="v. 14">也在此阶段进行转换</span>。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
 <p>在上面的示例中，pg_tables 是一个视图；如果我们将其定义放在查询文本中，它将如下所示：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -864,10 +866,11 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 
   
 </div>
-<p>然而，服务器并不处理查询的文本表示；所有操作都在语法树上执行。下图显示了转换后树的简化版本 (如果打开了 debug_print_rewrite 参数，你可以在服务器日志中看到其完整版本)。</p>
+<p>然而，服务器并不处理查询的文本表示；所有操作都在语法树上执行。下图显示了转换后树的简化版本 (如果打开了 <em>debug_print_rewrite</em> 参数，你可以在服务器日志中看到其完整版本)。</p>
 <p>语法树反映了查询的语法结构，但它并没有说明操作应该以何种顺序执行。</p>
 <p>PostgreSQL 还支持用户通过重写规则系统实现的自定义转换。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
-<p><img src="16-3.png" alt="" loading="lazy" /></p>
+<img src="16-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <blockquote>
 <p>规则系统的支持被宣称为 Postgres 发展的主要目标之一；<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 当规则首次实现时，它还是一个学术项目，但从那时起，规则已经被多次重新设计。规则系统是一个非常强大的机制，但理解和调试它相当困难。甚至有人提议完全从 PostgreSQL 中移除规则，但这个想法并没有获得一致支持。在大多数情况下，使用触发器而不是规则会更安全也更容易。</p>
 </blockquote>
@@ -876,7 +879,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 <p>任何查询都有多条执行路径。语法树中显示的每个操作都可以通过多种方式完成：例如，可以通过读取整个表以获取结果 (并过滤掉冗余项) ，或者通过索引扫描找到所需的行。数据集总是成对连接的，因此有大量不同的选项，这些选项在连接的顺序上各不相同。除此之外，还有多种连接算法：例如，执行器可以扫描第一个数据集的行，并在另一个数据集中检索匹配的行，或者可以先对两个数据集进行排序，然后合并在一起。对于每种算法，我们都可以找到一个使用案例，其中它的表现优于其他算法。</p>
 <p>最佳和非最佳的计划，其执行时间可能相差几个数量级，因此负责优化解析后的查询的规划器 <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 是系统中最复杂的组件之一。</p>
 <p><strong>计划树</strong>。执行计划也以树的形式表示，但其节点涉及的是数据的物理操作，而非逻辑操作。</p>
-<p>如果你想探索完整的计划树，可以通过打开 debug_print_plan 参数将它们转储到服务器日志中。但在实践中，通常查看 EXPLAIN 命令 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 显示的计划的文本表示就足够了。</p>
+<p>如果你想探索完整的计划树，可以通过打开 <em>debug_print_plan</em> 参数将它们转储到服务器日志中。但在实践中，通常查看 EXPLAIN 命令 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 显示的计划的文本表示就足够了。</p>
 <p>下图着重显示了树的主要节点。这些节点正是 EXPLAIN 命令输出中显示的节点。</p>
 <p>现在，让我们关注以下两点：</p>
 <ul>
@@ -912,7 +915,8 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   
 </div>
 <p>查询计划中显示的 Seq Scan 节点对应读取表的操作，而 Nested Loop 节点代表连接操作。</p>
-<p><img src="16-4.png" alt="" loading="lazy" /></p>
+<img src="16-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p><strong>计划搜索</strong>。PostgreSQL 使用基于成本的优化器；<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 它会检查潜在的计划，并估算执行它们所需的资源 (比如 I/O 操作或 CPU 周期)。这种评估会具体细化成一个数字，称为计划的成本。在所有考虑的计划中，优化器会选择成本最低的计划。</p>
 <p>但问题在于，随着连接表的数量增加，潜在可用计划的数量呈指数级增长，因此即使是相对简单的查询，也不可能将全部计划考虑在内。通常情况下，会使用动态规划算法，同时结合一些启发式算法来缩小搜索范围。这使得规划器能够在可接受的时间内为包含大量表的查询找到数学上精确的解决方案。</p>
 <blockquote>
@@ -920,9 +924,9 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 </blockquote>
 <p><strong>管理连接顺序</strong>。查询可以以某种方式构建，以在一定程度上限制搜索范围 (但有可能错过最优计划)。</p>
 <ul>
-<li>通用表表达式 (CTE) 和主查询可以单独优化；为了保证这种行为，你可以指定 MATERIALIZED 子句。<sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup></li>
+<li>通用表表达式 (CTE) 和主查询可以单独优化；为了保证这种行为，你可以<span class="marginalia" data-note="v. 12">指定 MATERIALIZED 子句</span>。<sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup></li>
 <li>在非 SQL 函数中运行的子查询总是单独优化的。(SQL 函数有时可以内联到主查询中。<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup>）</li>
-<li>如果设置了 join_collapse_limit 参数并在查询中使用显式 join 子句，那么某些连接的顺序将由查询语法结构定义；from_cllapse_limit 参数对子查询有相同的影响。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></li>
+<li>如果设置了 <em>join_collapse_limit</em> 参数并在查询中使用显式 join 子句，那么某些连接的顺序将由查询语法结构定义；<em>from_cllapse_limit</em> 参数对子查询有相同的影响。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></li>
 </ul>
 <p>最后一点可能需要解释一下。让我们看一个查询，它没有为 FROM 子句中列出的表指定任何显式连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -943,7 +947,8 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   
 </div>
 <p>此处，规划期必须考虑所有可能的连接组合。查询由语法树的以下部分表示 (示意性地展示)：</p>
-<p><img src="16-5.png" alt="" loading="lazy" /></p>
+<img src="16-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>在下一个示例中，连接有一个由 JOIN 子句定义的特定结构。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -963,17 +968,18 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   
 </div>
 <p>语法分析树表明了这种结构：</p>
-<p><img src="16-6.png" alt="" loading="lazy" /></p>
+<img src="16-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>规划器通常会展平连接树，使其看起来像第一个例子中的那样。规划器算法会遍历树，并用其元素的平面列表替换每个 JOINEXPR 节点。<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup></p>
-<p>然而，只有当生成的平面列表中的元素不超过 join_collapse_limit 时，才会执行这种展平。在这个特定案例中，如果 join_collapse_limit 值小于 5，那么 JOINEXPR 节点将不会被展平。</p>
+<p>然而，只有当生成的平面列表中的元素不超过 <span class="marginalia" data-note="8"><em>join_collapse_limit</em></span> 时，才会执行这种展平。在这个特定案例中，如果 <em>join_collapse_limit</em> 值小于 5，那么 JOINEXPR 节点将不会被展平。</p>
 <p>对于规划器来说，它意味着：</p>
 <ul>
 <li>表 B 必须与表 C 连接 (反之亦然，表 C 必须与表 B 连接；一对连接内的顺序不受限制)。</li>
 <li>表 A、D、E 以及 B 与 C 的连接结果可以按任何顺序连接。</li>
 </ul>
-<p>如果 join_collapse_limit 参数设置为 1，那么由显式 JOIN 子句定义的顺序会被保留。</p>
-<p>对于 FULL OUTER JOIN 操作，无论 join_collapse_limit 参数的值如何，它们都不会被展平。</p>
-<p>from_collapse_limit 参数以类似的方式控制子查询的展平。尽管子查询看起来不像 JOIN 子句，但在语法分析树级别，这种相似性便会变得很明显。</p>
+<p>如果 <em>join_collapse_limit</em> 参数设置为 1，那么由显式 JOIN 子句定义的顺序会被保留。</p>
+<p>对于 FULL OUTER JOIN 操作，无论 <em>join_collapse_limit</em> 参数的值如何，它们都不会被展平。</p>
+<p><span class="marginalia" data-note="8"><em>from_collapse_limit</em></span> 参数以类似的方式控制子查询的展平。尽管子查询看起来不像 JOIN 子句，但在语法分析树级别，这种相似性便会变得很明显。</p>
 <p>这里有一个示例查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -997,9 +1003,10 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   
 </div>
 <p>相应的连接树如下所示。这里唯一的区别是这颗树包含 FROMEXPR 节点，而不是 JOINEXPR (参数名称由此而来)。</p>
-<p><img src="16-7.png" alt="" loading="lazy" /></p>
+<img src="16-7.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p><strong>遗传查询优化</strong>。一旦展平之后，树可能在同一层包含太多元素 — 无论是表还是必须单独优化的连接结果。规划时间会随着需要连接的数据集数量指数级增长，因此可能会超出所有合理的限制。</p>
-<p>如果启用了 geqo 参数，且某一层的元素个数超过了 geqo_threshold 值，那么规划器将使用遗传算法来优化查询。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup> 这种算法比动态规划算法快得多，但不能保证找到的计划是最优的。因此，通常的做法是通过减少必须优化的元素数量来避免使用遗传算法。</p>
+<p>如果启用了 <span class="marginalia" data-note="on"><em>geqo</em></span> 参数，且某一层的元素个数超过了 <span class="marginalia" data-note="12"><em>geqo_threshold</em></span> 值，那么规划器将使用遗传算法来优化查询。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup> 这种算法比动态规划算法快得多，但不能保证找到的计划是最优的。因此，通常的做法是通过减少必须优化的元素数量来避免使用遗传算法。</p>
 <p>遗传算法有多个可配置的参数，<sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup> 但我不打算在这里进行介绍。</p>
 <p><strong>选择最优计划</strong>。一个计划是否可以被认为是最优的，取决于特定客户端如何使用查询结果。如果客户端需要一次性获取完整结果 (例如，用于创建一份报告)，那么计划应优化对所有行的检索。但如果优先级是尽快返回第一行 (例如，用于屏幕显式)，最优计划可能完全不同。</p>
 <p>为了做出选择，PostgreSQL 会计算成本的两个组成部分：</p>
@@ -1037,9 +1044,9 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 <p>有时人们说启动成本是检索结果集第一行的成本，但这并不是太准确。</p>
 </blockquote>
 <p>为了挑选出首选计划，优化器会检查查询是否使用了游标 (通过 SQL 中提供的 DECLARE 命令或在 PL/PGSQL 中显式声明)。<sup id="fnref:24"><a href="#fn:24" class="footnote-ref" role="doc-noteref">24</a></sup> 如果没有，则假定客户端需要一次性获取整个结果，那么优化器会选择总成本最低的计划。</p>
-<p>如果查询是通过游标执行的，所选计划必须优化仅检索占所有数据 cursor_tuple_fraction 比例的行。更准确地说，PostgreSQL 会选择以下表达式值最小的计划：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
+<p>如果查询是通过游标执行的，所选计划必须优化仅检索占所有数据 <span class="marginalia" data-note="0.1"><em>cursor_tuple_fraction</em></span> 比例的行。更准确地说，PostgreSQL 会选择以下表达式值最小的计划：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
 <blockquote>
-<p>startup cost + cursor_tuple_fraction (total cost − startup cost)</p>
+<p>startup cost + <em>cursor_tuple_fraction</em> (total cost − startup cost)</p>
 </blockquote>
 <p><strong>成本估算概要</strong>。为了估算计划的总成本，我们必须获取其所有节点的成本估算值。节点的成本取决于它的类型 (很明显，读取堆数据的成本与排序的成本不同) 和该节点处理的数据量 (更大的数据量通常会产生更高的成本) 。虽然节点类型已知，但数据量只能基于输入集的预估基数 (节点需要的行数作为输入) 和节点的选择率 (输出中剩余行的比例) 来估算。这些计算依赖于收集的统计信息，例如表的大小和表列中数据的分布情况。</p>
 <p>因此，执行的优化取决于由 AUTOVACUUM 收集和更新的统计信息的准确性。</p>
@@ -1077,13 +1084,14 @@ $$</p>
 <h3>16.2.4 执行<span class="hx-absolute -hx-mt-20" id="1624-执行"></span>
     <a href="#1624-%e6%89%a7%e8%a1%8c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>查询优化期间创建的计划现在需要被执行。<sup id="fnref:27"><a href="#fn:27" class="footnote-ref" role="doc-noteref">27</a></sup></p>
 <p>执行器在后端进程内存中打开一个 <em>portal</em>；<sup id="fnref:28"><a href="#fn:28" class="footnote-ref" role="doc-noteref">28</a></sup> 它是一个保持当前正在执行的查询状态的对象。这个状态以一棵树的形式表示，展示了计划树的结构。</p>
-<p><img src="16-8.png" alt="" loading="lazy" /></p>
+<img src="16-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>这棵树的节点就像一条流水线一样运行，相互请求以及发送数据。</p>
 <p>查询执行从根开始。根节点 (在本例中代表 SORT 操作) 从它的子节点中拉取数据。接收到所有行之后，会对它们进行排序并传递给客户端。</p>
 <p>一些节点 (如本例中所示的 NESTLOOP 节点) 从不同来源接收数据集并进行连接。这样的节点从两个子节点拉取数据，一旦接收到满足连接条件的一对行，就立即向上层传递结果 (不像排序，排序必须先获取所有行)。此时，节点的执行被中断，直到其父节点请求下一行。如果只需要部分结果 (例如，查询中有 LIMIT 子句)，那么操作将不会全部执行。</p>
 <p>树的两个 SEQSCAN 叶节点负责表扫描。当父节点向这些节点请求数据时，它们从相应的表中获取后续的行。</p>
-<p>然而一些节点不存储任何行，而是立即向上传递，但其他节点 (例如 SORT) 需要保留潜在的大量数据。为此，在后端进程内存中分配了一个 work_mem 内存块；如果此内存不够，剩余的数据会溢出到磁盘上的临时文件中。<sup id="fnref:29"><a href="#fn:29" class="footnote-ref" role="doc-noteref">29</a></sup></p>
-<p>一个计划可能有多个需要存储数据的节点，因此 PostgreSQL 可能会分配多个内存块，每个内存块的大小为 work_mem。查询可使用的总 RAM 大小不受任何限制。</p>
+<p>然而一些节点不存储任何行，而是立即向上传递，但其他节点 (例如 SORT) 需要保留潜在的大量数据。为此，在后端进程内存中分配了一个 <span class="marginalia" data-note="4MB"><em>work_mem</em></span> 内存块；如果此内存不够，剩余的数据会溢出到磁盘上的临时文件中。<sup id="fnref:29"><a href="#fn:29" class="footnote-ref" role="doc-noteref">29</a></sup></p>
+<p>一个计划可能有多个需要存储数据的节点，因此 PostgreSQL 可能会分配多个内存块，每个内存块的大小为 <em>work_mem</em>。查询可使用的总 RAM 大小不受任何限制。</p>
 <h2>16.3 扩展查询协议<span class="hx-absolute -hx-mt-20" id="163-扩展查询协议"></span>
     <a href="#163-%e6%89%a9%e5%b1%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>在使用简单查询协议时，每个命令 (即使是重复多次的命令) 都必须经过前面提及的所有阶段：</p>
 <ol>
@@ -1267,7 +1275,7 @@ $$</p>
   
 </div>
 <p>当之前的几个 custom plan 比 generic plan 更昂贵时，我们可以很容易想象出一些不愉快的事情；后续计划本来可以更有效，但规划器根本不会考虑。此外，它比较的是估算值而不是实际成本，这也可能导致计算错误。</p>
-<p>然而，如果规划器做出了错误的选择，你可以通过相应地设置 plan_cache_mode 参数来覆盖自动决策，并选择是 generic plan 还是 custom plan：</p>
+<p>然而，<span class="marginalia" data-note="v. 12">如果规划器做出了错误的选择</span>，你可以通过相应地设置 <span class="marginalia" data-note="auto"><em>plan_cache_mode</em></span> 参数来覆盖自动决策，并选择是 generic plan 还是 custom plan：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1289,7 +1297,7 @@ $$</p>
 
   
 </div>
-<p>除了其他信息之外，pg_prepared_statements 视图还显示了所选计划的统计信息：</p>
+<p>除了其他信息之外，pg_prepared_statements 视图还显示了<span class="marginalia" data-note="v. 14">所选计划的统计信息</span>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1311,7 +1319,7 @@ $$</p>
   
 </div>
 <h3>16.3.4 获取结果<span class="hx-absolute -hx-mt-20" id="1634-获取结果"></span>
-    <a href="#1634-%e8%8e%b7%e5%8f%96%e7%bb%93%e6%9e%9c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>扩展查询协议允许批次检索数据，而不是一次性全部检索。SQL 游标几乎具有相同的效果 (除了服务器有一些额外的工作，并且规划器进行了优化，仅获取前面 cursor_tuple_fraction 比例的行，而不是整个结果集)：</p>
+    <a href="#1634-%e8%8e%b7%e5%8f%96%e7%bb%93%e6%9e%9c" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>扩展查询协议允许批次检索数据，而不是一次性全部检索。SQL 游标几乎具有相同的效果 (除了服务器有一些额外的工作，并且规划器进行了优化，仅获取前面 <em>cursor_tuple_fraction</em> 比例的行，而不是整个结果集)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 

@@ -15,7 +15,7 @@
   <meta name="description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
 页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
 这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
-=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) " />
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) 3.1.2 特殊空间 特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。" />
 
   
     <link rel="canonical" href="//localhost:1313/docs/chapter03/" itemprop="url" />
@@ -33,14 +33,14 @@
   <meta itemprop="description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
 页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
 这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
-=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row)">
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) 3.1.2 特殊空间 特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。">
   <meta itemprop="wordCount" content="1582">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 3 章：页与元组">
   <meta name="twitter:description" content="3.1 页面结构 每个页面都有特定的内部布局，通常由以下部分组成 1：
 页头 项指针数组 空闲空间 项 (行版本) 特殊空间 3.1.1 页头 页头位于地址的最低处，其大小固定。它存储着关于页面的各种信息，比如校验和以及页面其他所有部分的大小。
 这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
-=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row)">
+=&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) 3.1.2 特殊空间 特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。">
 
     <link href="/css/compiled/main.css" rel="stylesheet" />
 
@@ -847,7 +847,8 @@
 
   
 </div>
-<p><img src="3-1.png" alt="" loading="lazy" /></p>
+<img src="3-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>3.1.2 特殊空间<span class="hx-absolute -hx-mt-20" id="312-特殊空间"></span>
     <a href="#312-%e7%89%b9%e6%ae%8a%e7%a9%ba%e9%97%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。</p>
 <p>一般来说，索引页面的布局相当多样；它们的内容很大程度上取决于特定的索引类型。即使是同一个索引也可以有不同类型的页面：例如，B 树有一个特殊结构的元数据页面 (第零页) 和与表页面非常相似的常规页面。</p>
@@ -1087,7 +1088,7 @@
 <li>在所有信息位中，到目前为止我们只挑选出了两对。xmin_committed 和 xmin_aborted 表示 xmin 对应的事务已提交或者已中止。xmax_committed 和 xmax_aborted 提供了关于 xmax 事务的类似信息。</li>
 </ul>
 <blockquote>
-<p>pageinspect 扩展提供了 heap_tuple_infomask_flags 函数，用于解释所有的信息位 ，但我目前只检索需要的那些信息位，并以更简洁的形式展示。</p>
+<p>pageinspect 扩展提供了 <span class="marginalia" data-note="v.13">heap_tuple_infomask_flags</span> 函数，用于解释所有的信息位 ，但我目前只检索需要的那些信息位，并以更简洁的形式展示。</p>
 </blockquote>
 <p>让我们回到我们的实验。INSERT 命令已将指针 1 添加到堆页面中，它引用第一个元组，这也是目前唯一的一个元组。</p>
 <p>元组的 xmin 字段被设置为当前事务 ID。此事务目前仍然活跃，因此 xmin_committed 和 xmin_aborted 位均还没有设置。</p>

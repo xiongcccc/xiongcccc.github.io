@@ -48,7 +48,7 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 有两个支持函数参与将值插入到 SP-GiST 索引中。当从根节点开始遍历树时，choose 函数会做出以下决策之一：将新值发给一个现有的子节点，为该值创建一个新的子节点，或者分裂当前节点 (如果这个值与当前节点的前缀不匹配)。如果选定的叶子页面没有足够的空间，picksplit 函数用于决定哪些节点应该移动到新页面。
 现在我将提供一些示例来说明这些算法。
 27.2 点的四叉树 四叉树用于在二维平面上索引点。平面根据选定点被递归地分割成四个区域 (象限)。">
-  <meta itemprop="wordCount" content="1090">
+  <meta itemprop="wordCount" content="1094">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 27 章：SP-GiST">
   <meta name="twitter:description" content="27.1 总览 SP-GiST 名称中的首字母代表空间划分。这里的空间被理解为执行搜索的任意值集合；它不必是常规意义上的空间 (比如二维平面)。名称中的 GiST 部分暗示了 GiST 和 SP-GiST 方法之间的某种相似性：它们都是广义搜索树，并作为索引各种数据类型的框架。
@@ -810,7 +810,7 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 <p>SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这样的值通常称为前缀；它与 GiST 索引中的谓词扮演着相同的角色。指向 SP-GiST 子节点的指针可能含有标签。</p>
 <p>叶节点元素包含一个索引值 (或它的一部分) 以及相应的 TID。</p>
 <p>就像 GiST 一样，SP-GiST 访问方法仅实现主要算法，诸如并发访问、锁和日志记录等底层细节。新的空间划分算法和数据类型可以通过操作符类接口添加。操作符类提供大部分逻辑，并定义了许多索引方面的功能。</p>
-<p>在 SP-GiST 中，搜索从根节点开始，<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 深度优先。通过 consistency 函数来选择值得下降的节点，与 GiST 中使用的 consistency 函数类似。对于树的内部节点，这个函数返回一组其值与搜索谓词不矛盾的子节点。consistency 函数不会下降到这些节点：它仅仅评估相应的标签和前缀。对于叶节点，它判断该节点的索引值是否与搜索谓词匹配。</p>
+<p>在 SP-GiST 中，搜索从根节点开始，<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 深度优先。通过 <em>consistency</em> 函数来选择值得下降的节点，与 GiST 中使用的 consistency 函数类似。对于树的内部节点，这个函数返回一组其值与搜索谓词不矛盾的子节点。consistency 函数不会下降到这些节点：它仅仅评估相应的标签和前缀。对于叶节点，它判断该节点的索引值是否与搜索谓词匹配。</p>
 <p>在非平衡树中，搜索时间会因为分支的深度而有所不同。</p>
 <p>有两个支持函数参与将值插入到 SP-GiST 索引中。当从根节点开始遍历树时，choose 函数会做出以下决策之一：将新值发给一个现有的子节点，为该值创建一个新的子节点，或者分裂当前节点 (如果这个值与当前节点的前缀不匹配)。如果选定的叶子页面没有足够的空间，picksplit 函数用于决定哪些节点应该移动到新页面。</p>
 <p>现在我将提供一些示例来说明这些算法。</p>
@@ -818,12 +818,15 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
     <a href="#272-%e7%82%b9%e7%9a%84%e5%9b%9b%e5%8f%89%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>四叉树用于在二维平面上索引点。平面根据选定点被递归地分割成四个区域 (象限)。</p>
 <p>这个点称为中心点；它作为节点前缀，即定义子值位置的条件。</p>
 <p>根节点将平面分割成四个象限。</p>
-<p><img src="27-1.png" alt="" loading="lazy" /></p>
+<img src="27-1.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>然后，每个象限进一步分割成它自己的四个象限。</p>
-<p><img src="27-2.png" alt="" loading="lazy" /></p>
+<img src="27-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>这个过程持续进行，直到达到所需的区域数量。</p>
-<p><img src="27-3.png" alt="" loading="lazy" /></p>
-<p>这个例子使用了基于 airports_big 表建立的索引。示意图显示，分支深度取决于相应象限中点的密度。为了可视化，我将 fillfactor 存储参数设置为较小的值，这使得树的深度更深。</p>
+<img src="27-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
+<p>这个例子使用了基于 airports_big 表建立的索引。示意图显示，分支深度取决于相应象限中点的密度。为了可视化，我将 <span class="marginalia" data-note="80"><em>fillfactor</em></span> 存储参数设置为较小的值，这使得树的深度更深。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -956,10 +959,12 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 </div>
 <p>让我们深入分析一下四叉树的结构和内部工作原理。我们将使用 GiST 章节中提到的相同例子，它包含几个点。</p>
 <p>以下是在这种情况下如何划分平面的示意图：</p>
-<p><img src="27-4.png" alt="" loading="lazy" /></p>
+<img src="27-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>左边的插图展示了树的某一层级中象限的编号；为了清晰起见，接下来的插图中，我将按照相同的顺序从左到右放置子节点。位于边界上的点被划入编号较小的象限。右边的插图显示了最终的分区。</p>
 <p>你可以在下面看到该索引可能的结构。每个内部节点最多引用四个子节点，每个指针都用象限号标记：</p>
-<p><img src="27-5.png" alt="" loading="lazy" /></p>
+<img src="27-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>27.2.2 页面布局<span class="hx-absolute -hx-mt-20" id="2722-页面布局"></span>
     <a href="#2722-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>与 B 树和 GiST 索引不同，SP-GiST 树节点和页面之间没有一对一的对应关系。由于内部节点通常没有太多子节点，因此多个节点必须被打包进一个单独的页面中。不同类型的节点存储在不同的页面：内部节点存储在内部页面中，而叶节点则存储在叶子页面中。</p>
 <p>内部页面中存储的索引项持有用作前缀的值，以及一组指向子节点的指针；每个指针可能伴随一个标签。</p>
@@ -970,25 +975,32 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 <p>不幸的是，pageinspect 扩展并没有提供窥探 SP-GiST 的函数，但我们可以使用名为 gevel <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> 的外部扩展。它曾试图将其功能整合到 pageinspect 中，但并未成功。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 </blockquote>
 <p>回到我们的例子。下面的插图显示了树节点如何在页面之间分配。quad_point_ops 操作符类实际上并不使用标签。由于一个节点最多可以有四个子节点，因此索引保留了一个固定大小的四指针数组，其中一些可能是空的。</p>
-<p><img src="27-6.png" alt="" loading="lazy" /></p>
+<img src="27-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>27.2.3 搜索<span class="hx-absolute -hx-mt-20" id="2723-搜索"></span>
     <a href="#2723-%e6%90%9c%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们用同样的例子来看一下搜索位于点 (3,7) 上方的点的算法。</p>
-<p><img src="27-7.png" alt="" loading="lazy" /></p>
+<img src="27-7.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>搜索从根节点开始。内部 consistency 函数 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 决定了要下降的子节点。点 (3,7) 与根节点的中心点 (5,5) 进行比较，来选择可能包含所寻找点的象限；在这个例子中，是第一象限和第四象限。</p>
 <p>一旦进入了具有中心点 (7,7) 的节点，我们必须再次选择要下降的子节点。它们属于第一象限和第四象限，但由于第四象限为空，我们只需要检查一个叶节点。叶节点的 consistency 函数 <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 将此节点的点与查询中指定的点 (3,7) 进行比较。只有 (8,9) 满足上述条件。</p>
 <p>现在我们只需要回到上一层，并检查对应于根节点的第四象限的节点。它是空的，所以搜索就完成了。</p>
-<p><img src="27-8.png" alt="" loading="lazy" /></p>
+<img src="27-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>27.2.4 插入<span class="hx-absolute -hx-mt-20" id="2724-插入"></span>
     <a href="#2724-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当一个值被插入到 SP-GiST 树中时，<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 之后的每一个动作都由 choice 函数决定。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 在这个特定的情况下，它简单地将点指向对应其象限的现有节点之一。</p>
 <p>例如，让我们添加值 (7,1)：</p>
-<p><img src="27-9.png" alt="" loading="lazy" /></p>
+<img src="27-9.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>这个值属于第二象限，将被添加到相应的树节点中：</p>
-<p><img src="27-10.png" alt="" loading="lazy" /></p>
+<img src="27-10.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>如果在插入后，所选象限中的叶节点列表变得过大 (必须适应单个页面)，那么页面会分裂。picksplit 函数 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup> 通过计算所有点坐标的平均值来确定新的中心点，从而或多或少均匀地在新象限之间分配子节点。</p>
 <p>下图说明了由于点 (2,1) 插入而导致的页面溢出：</p>
-<p><img src="27-11.png" alt="" loading="lazy" /></p>
+<img src="27-11.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>中心点是 (1,1) 的新内部节点被添加到树中，同时点 (0,0)、(1,2) 和 (2,1) 在新象限之间重新分配：</p>
-<p><img src="27-12.png" alt="" loading="lazy" /></p>
+<img src="27-12.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>27.2.5 属性<span class="hx-absolute -hx-mt-20" id="2725-属性"></span>
     <a href="#2725-%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><strong>访问方法属性</strong>。spgist 方法显示以下属性：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1021,7 +1033,7 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 </div>
 <p>不支持排序和唯一性属性。也不支持多列索引。</p>
 <p>支持排它约束，与 GiST 类似。</p>
-<p>可以创建带有额外 INCLUDE 列的 SP-GiST 索引。</p>
+<p>可以创建带有<span class="marginalia" data-note="v. 14">额外 INCLUDE 列</span>的 SP-GiST 索引。</p>
 <p><strong>索引级属性</strong>。与 GiST 不同，SP-GiST 索引不支持聚簇：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1103,8 +1115,8 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
   
 </div>
 <p>就像本章中的所有其他例子一样，这个索引可以用于仅索引扫描。</p>
-<p>但通常来说，操作符类不一定在叶子页面中存储完整的值，因为可以通过表重新检查它们。举个例子，这允许在 PostGIS 中使用 SP-GiST 索引来处理潜在的大型几何值。</p>
-<p>支持最近邻搜索；我们已经在操作符类中看到了排序操作符 &lt;-&gt;。</p>
+<p>但通常来说，操作符类不一定在叶子页面中<span class="marginalia" data-note="v. 11">存储完整的值</span>，因为可以通过表重新检查它们。举个例子，这允许在 PostGIS 中使用 SP-GiST 索引来处理潜在的大型几何值。</p>
+<p><span class="marginalia" data-note="v. 12">支持最近邻搜索</span>；我们已经在操作符类中看到了排序操作符 &lt;-&gt;。</p>
 <h2>27.3 点的 K 维树<span class="hx-absolute -hx-mt-20" id="273-点的-k-维树"></span>
     <a href="#273-%e7%82%b9%e7%9a%84-k-%e7%bb%b4%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>平面上的点也可以使用另一种分区方法进行索引：我们可以将平面分成两个子区域，而不是四个。这种分区由 kd_point_ops <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup>  操作符类实现：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1125,11 +1137,14 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 </div>
 <p>请注意，索引值、前缀和标签可能具有不同的数据类型。对于这个操作符类，值表示为点，前缀是实数，而没有提供标签 (如 quad_point_ops 中的)。</p>
 <p>让我们在 Y 轴上选择某个坐标 (它在示例中定义了纬度，与机场相对应)。这个坐标将平面分为两个子区域，上区域和下区域：</p>
-<p><img src="27-13.png" alt="" loading="lazy" /></p>
+<img src="27-13.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>对于这些子区域中的每一个，选择 X 轴 (经度) 上的坐标，将它们分成左右两个子区域：</p>
-<p><img src="27-14.png" alt="" loading="lazy" /></p>
+<img src="27-14.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>我们将继续分割每一个得到的子区域，轮流进行水平和垂直划分，直到每个部分中的点适应单一索引页为止：</p>
-<p><img src="27-15.png" alt="" loading="lazy" /></p>
+<img src="27-15.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>以这种方式构建的树的所有内部叶节点将只有两个子节点。这种方法可以很容易地推广到任意维度的空间，因此这样的树通常被称为 k 维树 (k-D 树)。</p>
 <h2>27.4 字符串的基数树<span class="hx-absolute -hx-mt-20" id="274-字符串的基数树"></span>
     <a href="#274-%e5%ad%97%e7%ac%a6%e4%b8%b2%e7%9a%84%e5%9f%ba%e6%95%b0%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>SP-GiST 的 text_ops 操作符类为字符串实现了基数树。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 在这里，内部节点的前缀确实是一个前缀，它是所有子节点中字符串的共同部分。</p>
@@ -1139,7 +1154,8 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 </blockquote>
 <p>子节点存储前缀和标签后面的部分值。叶节点只保留后缀。</p>
 <p>这是一个基于几个名称构建的基数树的例子：</p>
-<p><img src="27-16.png" alt="" loading="lazy" /></p>
+<img src="27-16.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>为了重构叶子页面中索引键的完整值，我们可以从根节点开始，连接所有的前缀和标签。</p>
 <h3>27.4.1 操作符类<span class="hx-absolute -hx-mt-20" id="2741-操作符类"></span>
     <a href="#2741-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>text_ops 操作符类支持通常用于 ordinal 数据类型的比较操作符，包括文本字符串：</p>
@@ -1209,7 +1225,7 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 <blockquote>
 <p>如果将常规操作符 &gt;= 和 &lt; 与 &ldquo;C&rdquo; 以外的排序规则一起使用，那么索引实际上变得毫无用处，因为它处理的是字节而不是字符。</p>
 </blockquote>
-<p>对于这种前缀搜索的情况，操作符类提供了更为合适的 ^@ 操作符：</p>
+<p>对于这种<span class="marginalia" data-note="v. 11">前缀搜索</span>的情况，操作符类提供了更为合适的 ^@ 操作符：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1255,18 +1271,22 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 
   
 </div>
-<p>首先，在根节点上调用内部 consistency 函数 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>，以确定要下降的子节点。这个函数将前缀 V 与标签 A 和 L 连接起来。接收到的值 VA 进入查询条件；字符串字面量在那里被截断，以确保它们的长度不会超过正在检查的值的长度：VA <del>&gt;=</del> &lsquo;VA&rsquo; and VA <del>&lt;</del> &lsquo;VL&rsquo;。条件满足，所以需要检查带标签 A 的子节点。值 VL 以同样的方式检查。它也是一个匹配项，所以也需要检查带标签 L 的节点。</p>
-<p>现在让我们取与值 VA 对应的节点。它的前缀是空的，所以对于三个子节点，内部 consistency 函数通过连接在前一步接收到的 VA 和标签，重构值 VAD、VAL 和 VAS。条件 VAD <del>&gt;=</del> &lsquo;VAL&rsquo; and VAD <del>&lt;</del> &lsquo;VER&rsquo; 不成立，但其他两个值是合适的。</p>
+<p>首先，在根节点上调用内部 consistency 函数 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>，以确定要下降的子节点。这个函数将前缀 V 与标签 A 和 L 连接起来。接收到的值 VA 进入查询条件；字符串字面量在那里被截断，以确保它们的长度不会超过正在检查的值的长度：VA ~ &gt;=~ &lsquo;VA&rsquo; and VA ~ &lt;~ &lsquo;VL&rsquo;。条件满足，所以需要检查带标签 A 的子节点。值 VL 以同样的方式检查。它也是一个匹配项，所以也需要检查带标签 L 的节点。</p>
+<p>现在让我们取与值 VA 对应的节点。它的前缀是空的，所以对于三个子节点，内部 consistency 函数通过连接在前一步接收到的 VA 和标签，重构值 VAD、VAL 和 VAS。条件 VAD ~ &gt;=~ &lsquo;VAL&rsquo; and VAD ~ &lt;~ &lsquo;VER&rsquo; 不成立，但其他两个值是合适的。</p>
 <p>当以这种方式遍历树时，算法会过滤掉不匹配的分支，并到达叶节点。叶节点的 consistency 函数检查在遍历树期间重建的值是否满足查询条件。匹配的值作为索引扫描的结果返回。</p>
-<p><img src="27-17.png" alt="" loading="lazy" /></p>
+<img src="27-17.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>请注意，虽然查询使用了大于和小于操作符，这些操作符对于 B 树来说很常见，但是通过 SP-GiST 进行范围搜索的效率要低得多。在 B 树中，下降到范围的一个边界值，然后扫描叶子页面列表就足够了。</p>
 <h3>27.4.3 插入<span class="hx-absolute -hx-mt-20" id="2743-插入"></span>
     <a href="#2743-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>点的操作符类的 choice 函数总是可以将一个新值导向一个现有子区域之一 (一个象限或其中的一半)。但对于基数树来说并非如此：新值可能与任何现有的前缀都不匹配，在这种情况下必须分裂内部节点。</p>
 <p>让我们将名称 VLADA 添加到一个已经创建的树中。</p>
 <p>choice 函数 <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 成功地从根节点下降到下一个节点 ( V+L )，但值的剩余部分 ADA 与 ADI 前缀不匹配。节点必须被分成两部分：其中一个结果节点将包含公共部分的前缀 (AD)，而前缀的其余部分将被下移一级：</p>
-<p><img src="27-18.png" alt="" loading="lazy" /></p>
+<img src="27-18.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
+<div style="clear:both;"></div>
 <p>然后，再次在同一节点上调用 choice 函数。前缀现在对应于该值，但是没有带有合适标签 (A) 的子节点，所以函数决定创建这样一个节点。最终结果如下图所示；在插入过程中添加或修改的节点会高亮显示=。</p>
-<p><img src="27-19.png" alt="" loading="lazy" /></p>
+<img src="27-19.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <h3>27.4.4 属性<span class="hx-absolute -hx-mt-20" id="2744-属性"></span>
     <a href="#2744-%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>我已经在上面描述了访问方法和索引级属性；它们对所有类都是通用的。大多数列级属性也保持不变。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1301,7 +1321,7 @@ SP-GiST 树的内部节点包含一个满足其所有子节点条件的值。这
 <h2>27.5 其他数据类型<span class="hx-absolute -hx-mt-20" id="275-其他数据类型"></span>
     <a href="#275-%e5%85%b6%e4%bb%96%e6%95%b0%e6%8d%ae%e7%b1%bb%e5%9e%8b" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>SP-GiST 操作符类不仅限于我们上面讨论的索引点和文本字符串。</p>
 <p><strong>几何类型</strong>。box_ops <sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup> 操作符类实现了一个用于矩形的四叉树。矩形由四维空间中的点表示，所以区域被划分为十六个分区。</p>
-<p>poly_ops 类可用于索引多边形。它是一个模糊操作符类：它实际上使用的是边界框而不是多边形，就像 box_ops 一样，然后通过表重新检查结果。</p>
+<p><span class="marginalia" data-note="v. 11">poly_ops</span> 类可用于索引多边形。它是一个模糊操作符类：它实际上使用的是边界框而不是多边形，就像 box_ops 一样，然后通过表重新检查结果。</p>
 <p>选择 GiST 还是 SP-GiST 在很大程度上取决于要索引的数据性质。例如，PostGIS 文档推荐对于具有大量重叠的对象 (也称为&quot;意大利面数据&quot;) 使用 SP-GiST 索引。<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup></p>
 <p><strong>范围类型</strong>。用于范围的四叉树提供了 range_ops 操作符类。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup> 一个区间由二维点定义：X 轴表示下边界，而 Y 轴表示上边界。</p>
 <p><strong>网络地址类型</strong>。对于 inet 数据类型，inet_ops4 <sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup> 操作符类实现了一个基数树。</p>

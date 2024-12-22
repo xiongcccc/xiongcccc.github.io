@@ -853,7 +853,7 @@
 </li>
 </ul>
 <p>WAL 数据本身可以有不同的格式和含义。例如，它可以是一个必须在指定的偏移量处替换页面某些部分的页面片段。相应的资源管理器必须知道如何解析和重放特定条目。表、各种索引类型、事务状态和其他实体都有单独的管理器。</p>
-<p>WAL 文件在服务器的共享内存中占用特殊的缓冲区。由 wal_buffers 参数定义 WAL 使用的缓存大小。默认情况下，其大小是自动计算的，为总缓冲区缓存大小的 1/32。</p>
+<p>WAL 文件在服务器的共享内存中占用特殊的缓冲区。由 <span class="marginalia" data-note="-1"><em>wal_buffers</em></span> 参数定义 WAL 使用的缓存大小。默认情况下，其大小是自动计算的，为总缓冲区缓存大小的 1/32。</p>
 <p>WAL 缓存与缓冲区缓存非常相似，但它通常以环形缓冲区模式运行：新的条目添加到头部，而旧条目从尾部开始保存至磁盘。如果 WAL 缓存太小，磁盘同步的执行频率会超出以往。</p>
 <p>在低负载下，插入的位置 (缓冲区头部) 几乎总是与已保存到磁盘的条目位置 (缓冲区尾部) 相同：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1035,13 +1035,14 @@
 <p>在此特例中，与 UPDATE 和 COMMIT 操作相关的 WAL 条目占用了大约 100 字节。</p>
 <p>你可以使用相同的方式来评估特定工作负载在单位时间内生成的 WAL 条目的数量。这些信息对于设置检查点来说是必需的。</p>
 <h3>10.2.2 物理结构<span class="hx-absolute -hx-mt-20" id="1022-物理结构"></span>
-    <a href="#1022-%e7%89%a9%e7%90%86%e7%bb%93%e6%9e%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在磁盘上，WAL 作为单独的文件或段存储在 PGDATA/pg_wal 目录中。其大小由只读参数 wal_segment_size 表示。</p>
-<p>对于高负载系统，增加段大小是有意义的，因为这样可能会减少开销，但是此设置只能在集群初始化期间修改 (initdb &ndash;wal-segsize)。</p>
+    <a href="#1022-%e7%89%a9%e7%90%86%e7%bb%93%e6%9e%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在磁盘上，WAL 作为单独的文件或段存储在 PGDATA/pg_wal 目录中。其大小由只读参数 <span class="marginalia" data-note="16MB"><em>wal_segment_size</em></span> 表示。</p>
+<p>对于高负载系统，<span class="marginalia" data-note="v. 11">增加段大小</span>是有意义的，因为这样可能会减少开销，但是此设置只能在集群初始化期间修改 (initdb &ndash;wal-segsize)。</p>
 <p>WAL 条目写入当前文件，直至空间用完；然后 PostgreSQL 会创建一个新的文件。</p>
 <p>我们可以了解特定条目位于哪个文件中，以及从文件开始的偏移量是多少：</p>
-<p><img src="10-1.png" alt="" loading="lazy" /></p>
+<img src="10-1.png" style="width:70%; float:left;" />
+<div style="clear:both;"></div>
 <p>文件名由两部分组成。最高的八位十六进制数字定义了时间线，用于从备份中恢复，而其余部分代表了最高的 LSN 位 (最低的 LSN 位显示在 file_offset 字段中)。</p>
-<p>要查看当前的 WAL 文件，你可以使用如下函数：</p>
+<p>要查看当前的 WAL 文件，你可以使用如下<span class="marginalia" data-note="v. 10">函数</span>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1116,14 +1117,16 @@
 <p><strong>检查点开始</strong>。checkpointer 进程将所有可以立即写入的内容刷新至磁盘：CLOG 事务状态、子事务的元数据以及其他一些结构。</p>
 <p><strong>检查点执行</strong>。大部分检查点的执行时间都花在了将脏页刷新至磁盘上 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>。首先，在检查点开始时，所有脏缓冲区的头部中都设置了一个特殊标记。这个过程发生得非常快，因为不涉及 I/O 操作。</p>
 <p>然后 checkpointer 进程遍历所有缓冲区并将被标记的缓冲区写入至磁盘中。它们的页面不会从缓存中驱逐：只是简单地被写下来，因此可以忽略使用计数和锁定计数。</p>
-<p>页面按照它们的 ID 顺序处理，以尽可能避免随机写入。为了更好地平衡负载，PostgreSQL 在不同的表空间之间交替进行 (因为它们可能位于不同的物理设备上)。</p>
+<p>页面按照它们的 ID 顺序处理，<span class="marginalia" data-note="v. 9.6">以尽可能避免随机写入</span>。为了更好地平衡负载，PostgreSQL 在不同的表空间之间交替进行 (因为它们可能位于不同的物理设备上)。</p>
 <p>后台进程也可以将标记的缓冲区写入磁盘 — 如果后端进程先处理的话。无论如何，此阶段将移除缓冲区标记，因此对于检查点来说，每个缓冲区只会被写入一次。</p>
 <p>当然，当检查点正在进行时，缓冲区缓存中的页面仍然可以修改。但由于新的缓冲区脏页没有被标记，因此 checkpointer 进程会忽略它们。</p>
 <p><strong>检查点完成</strong>。当检查点开始时，所有脏的缓冲区都写入磁盘后，检查点便认为完成了。从现在开始 (但不是更早！)，检查点的起始位置将用作恢复的新起点。在这个点之前写入的所有 WAL 条目都不再需要。</p>
-<p><img src="10-2.png" alt="" loading="lazy" /></p>
+<img src="10-2.png" style="width:80%; float:left;" />
+<div style="clear:both;"></div>
 <p>最后， checkpoiner 会创建一个与检查点完成相对应的 WAL 条目，并指定检查点开始的 LSN。由于检查点在开始时不记录任何内容，因此这个 LSN 可以属于任何类型的 WAL 条目。</p>
 <p>PGDATA/global/pg_control 文件也会更新，以引用最新完成的检查点 (直到这个过程结束，pg_control 都保持为之前的检查点)。</p>
-<p><img src="10-3.png" alt="" loading="lazy" /></p>
+<img src="10-3.png" style="width:80%; float:left;" />
+<div style="clear:both;"></div>
 <p>为了彻底弄清楚这些位点，让我们看一个简单的例子。首先使几个缓存页面变脏：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1442,40 +1445,41 @@
 <p>这提高了被选中用于驱逐的缓冲区是并不是脏的的几率。</p>
 <h2>10.6 WAL 设置<span class="hx-absolute -hx-mt-20" id="106-wal-设置"></span>
     <a href="#106-wal-%e8%ae%be%e7%bd%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>10.6.1 配置检查点<span class="hx-absolute -hx-mt-20" id="1061-配置检查点"></span>
-    <a href="#1061-%e9%85%8d%e7%bd%ae%e6%a3%80%e6%9f%a5%e7%82%b9" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>检查点的持续时间 (更确切地说，将脏的缓冲区写入磁盘的持续时间) 由 checkpoint_completion_target 参数定义。这个值指定了两个相邻检查点开始之间分配给写入的时间比例。不要将该参数设为 1：这可能会导致下一个检查点在前一个检查点完成之前到达。这并不会发生灾难，因为无法同时执行多个检查点，但仍有可能会扰乱常规的操作。</p>
+    <a href="#1061-%e9%85%8d%e7%bd%ae%e6%a3%80%e6%9f%a5%e7%82%b9" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>检查点的持续时间 (更确切地说，将脏的缓冲区写入磁盘的持续时间) 由 <span class="marginalia" data-note="0.9"><em>checkpoint_completion_target</em></span> 参数定义。这个值指定了<span class="marginalia" data-note="v. 14">两个相邻检查点开始之间分配给写入的时间比例</span>。不要将该参数设为 1：这可能会导致下一个检查点在前一个检查点完成之前到达。这并不会发生灾难，因为无法同时执行多个检查点，但仍有可能会扰乱常规的操作。</p>
 <p>在配置其他参数时，我们可以使用如下方式。首先，定义两个相邻检查点之间适当的用于存储 WAL 的容量。容量越大，开销就越小，但这个值无论如何都会受到可用空间和可接受的恢复时长的限制。</p>
 <p>要评估常规负载生成此容量大小所需的时间，你需要记录初始插入 LSN，并时不时检查此位置与当前插入位置之间的差值。</p>
-<p>假设获取的数字是一个典型的检查点间隔时间，我们将其用作 checkpoint_timeout 参数的值。默认设置可能太小；通常会增加该值，比如增加至 30 分钟。</p>
-<p>但是，可能 (甚至很可能) 负载有时会更高，因此在此时间间隔内生成的 WAL 文件的大小会很大。在这种情况下，必须更频繁地执行检查点。为了设置这样的触发器，我们通过 max_wal_size 参数限制恢复所需的 WAL 文件的大小。当超过这个阈值时，服务器便会触发一个额外的检查点 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。</p>
-<p>用于恢复的 WAL 文件包含最新完成的检查点和当前尚未完成的检查点的所有条目。因此，要估算它们的总大小，你应该将计算出的检查点之间的 WAL 大小乘以 1 + checkpoint_completion_target。</p>
+<p>假设获取的数字是一个典型的检查点间隔时间，我们将其用作 <span class="marginalia" data-note="5min"><em>checkpoint_timeout</em></span> 参数的值。默认设置可能太小；通常会增加该值，比如增加至 30 分钟。</p>
+<p>但是，可能 (甚至很可能) 负载有时会更高，因此在此时间间隔内生成的 WAL 文件的大小会很大。在这种情况下，必须更频繁地执行检查点。为了设置这样的触发器，我们通过 <span class="marginalia" data-note="1GB"><em>max_wal_size</em></span> 参数限制恢复所需的 WAL 文件的大小。当超过这个阈值时，服务器便会触发一个额外的检查点 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。</p>
+<p>用于恢复的 WAL 文件<span class="marginalia" data-note="v. 11">包含最新完成的检查点和当前尚未完成的检查点的所有条目</span>。因此，要估算它们的总大小，你应该将计算出的检查点之间的 WAL 大小乘以 1 + <em>checkpoint_completion_target</em>。</p>
 <blockquote>
 <p>在 11 版本之前，PostgreSQL 会为两个已完成的检查点保留 WAL 文件，因此乘数为 2 + checkpoint_completion_target。</p>
 </blockquote>
-<p>按照这种方式，大多数检查点都将按计划执行，每隔 checkpoint_timeout 执行一次； 但是如果负载增加，当 WAL 的大小超过 max_wal_size 值时，便会触发检查点。</p>
+<p>按照这种方式，大多数检查点都将按计划执行，每隔 <em>checkpoint_timeout</em> 执行一次； 但是如果负载增加，当 WAL 的大小超过 <em>max_wal_size</em> 值时，便会触发检查点。</p>
 <p>实际进展会定期与预期数字进行对比 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup>：</p>
 <p><strong>实际进展</strong>由已处理的缓存页面的比例定义。</p>
-<p><strong>预期进度 (按时间)</strong> 由已流逝的时间比例定义，检查点必须在 checkpoint_timeout × checkpoint_completion_target 时间间隔内完成。</p>
-<p><strong>预期进度 (按大小)</strong> 由已填充的 WAL 文件的比例定义，预期数量基于 max_wal_size × checkpoint_completion_target 值估算。</p>
+<p><strong>预期进度 (按时间)</strong> 由已流逝的时间比例定义，检查点必须在 <em>checkpoint_timeout</em> × <em>checkpoint_completion_target</em> 时间间隔内完成。</p>
+<p><strong>预期进度 (按大小)</strong> 由已填充的 WAL 文件的比例定义，预期数量基于 <em>max_wal_size</em> × <em>checkpoint_completion_target</em> 值估算。</p>
 <p>如果脏页提前写入了磁盘，那么 checkpointer 进程会暂停一段时间；如果任一参数有任何延迟，它会尽可能追上 <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup>。由于同时考虑到了时间和数据大小，PostgreSQL 可以使用相同的方式管理计划内和按需的检查点。</p>
-<p>检查点完成后，不再需要恢复的 WAL 文件便会被删除 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>；但是，部分文件 (总共最多 min_wal_size) 会被保留以供重复使用，并且简单地被重命名。</p>
-<p>这种重命名操作减少了频繁创建文件和删除文件所带来的开销，但如果你不需要这个功能的话，可以使用 wal_recycle 参数将其关闭。</p>
+<p>检查点完成后，不再需要恢复的 WAL 文件便会被删除 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>；但是，部分文件 (总共最多 <span class="marginalia" data-note="80MB"><em>min_wal_size</em></span>) 会被保留以供重复使用，并且简单地被重命名。</p>
+<p>这种重命名操作<span class="marginalia" data-note="v. 12">减少了频繁创建文件和删除文件所带来的开销</span>，但如果你不需要这个功能的话，可以使用 <span class="marginalia" data-note="on"><em>wal_recycle</em></span> 参数将其关闭。</p>
 <p>下图显示了正常情况下，存储在磁盘上的 WAL 文件大小是如何变化的。</p>
-<p><img src="10-4.png" alt="" loading="lazy" /></p>
-<p>请务必记住，磁盘上 WAL 文件的实际大小可能会超过 max_wal_size 值：</p>
+<img src="10-4.png" style="width:80%; float:left;" />
+<div style="clear:both;"></div>
+<p>请务必记住，磁盘上 WAL 文件的实际大小可能会超过 <em>max_wal_size</em> 值：</p>
 <ul>
-<li>max_wal_size 参数指定了预期的目标值，而不是硬限制。如果负载激增，写入可能会落后于计划。</li>
+<li><em>max_wal_size</em> 参数指定了预期的目标值，而不是硬限制。如果负载激增，写入可能会落后于计划。</li>
 <li>服务器无权删除尚未被复制或连续归档所处理的 WAL 文件。如果启用了此功能，那么必须不断监控，因为它很容易导致磁盘溢出。</li>
-<li>你可以通过配置 wal_keep_size 参数，保留一定数量的 WAL 文件。</li>
+<li>你可以通过配置 <span class="marginalia" data-note="0MB"><em>wal_keep_size</em></span> 参数，<span class="marginalia" data-note="v. 12">保留一定数量的 WAL 文件</span>。</li>
 </ul>
 <h3>10.6.2 配置后台写入<span class="hx-absolute -hx-mt-20" id="1062-配置后台写入"></span>
     <a href="#1062-%e9%85%8d%e7%bd%ae%e5%90%8e%e5%8f%b0%e5%86%99%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>配置完检查点之后，你还应该配置 bgwriter。总之，这两个进程必须能够在后端进程需要重用之前将脏的缓冲区写入磁盘。</p>
-<p>在执行期间，bgwriter 会定期暂停，休眠 bgwriter_delay 参数所指定的单位时间。</p>
-<p>两次暂停期间写入的页面数量取决于自上次运行以来后端进程访问的缓冲区的平均数量 (PostgreSQL 使用了一个变化的平均值来平衡可能的峰值，并同时避免依赖非常老的数据)。然后将计算出的数字乘以 bgwriter_lru_multiplier。但无论如何，单次运行写入的页面数量不能超过 bgwriter_lru_maxpages 的值。</p>
+<p>在执行期间，bgwriter 会定期暂停，休眠 <span class="marginalia" data-note="200ms"><em>bgwriter_delay</em></span> 参数所指定的单位时间。</p>
+<p>两次暂停期间写入的页面数量取决于自上次运行以来后端进程访问的缓冲区的平均数量 (PostgreSQL 使用了一个变化的平均值来平衡可能的峰值，并同时避免依赖非常老的数据)。然后将计算出的数字乘以 <span class="marginalia" data-note="2"><em>bgwriter_lru_multiplier</em></span>。但无论如何，单次运行写入的页面数量不能超过 <span class="marginalia" data-note="100"><em>bgwriter_lru_maxpages</em></span> 的值。</p>
 <p>如果没有发现脏缓冲区 (即系统中没有发生任何事情)，bgwriter 会休眠，直到其中一个后端进程访问了缓冲区。然后它会醒来并继续执行其常规操作。</p>
 <h3>10.6.3 监控<span class="hx-absolute -hx-mt-20" id="1063-监控"></span>
     <a href="#1063-%e7%9b%91%e6%8e%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>基于监控数据，可以并且也应该去调整检查点设置。</p>
-<p>如果基于大小触发的检查点执行得比 checkpoint_warning 参数所定义的更频繁，那么 PostgreSQL 会发出警告。此设置应符合预期的峰值负载。</p>
-<p>log_checkpoints 参数允许将与检查点相关的信息打印到服务器日志中。让我们打开它：</p>
+<p>如果基于大小触发的检查点执行得比 <span class="marginalia" data-note="30s"><em>checkpoint_warning</em></span> 参数所定义的更频繁，那么 PostgreSQL 会发出警告。此设置应符合预期的峰值负载。</p>
+<p><span class="marginalia" data-note="off"><em>log_checkpoints</em></span> 参数允许将与检查点相关的信息打印到服务器日志中。让我们打开它：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1574,7 +1578,7 @@
 <li>buffers_clean：由 bgwriter 写入的页面</li>
 </ul>
 <p>在配置良好的系统中，buffers_backend 值必须远低于 buffers_checkpoint 和 buffers_clean 的总和。</p>
-<p>在配置后台写入时，请注意 maxwritten_clean 值：它显示了 bgwriter 因超过由 bgwriter_lru_maxpages 定义的阈值而不得不停止的次数。</p>
+<p>在配置后台写入时，请注意 maxwritten_clean 值：它显示了 bgwriter 因超过由 <em>bgwriter_lru_maxpages</em> 定义的阈值而不得不停止的次数。</p>
 <p>以下调用将重置已收集的统计数据：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   

@@ -781,7 +781,7 @@
 <li>溢出页面 — 当主桶页面无法容纳所有元素时使用的额外页面</li>
 <li>位图页面 — 包含位数组的页面，用于跟踪已释放且可以重用的溢出页面</li>
 </ul>
-<p>我们可以使用 pageinspect 扩展窥探索引页面。</p>
+<p>我们可以使用 <span class="marginalia" data-note="v. 10"><em>pageinspect</em></span> 扩展窥探索引页面。</p>
 <p>让我们从一张空表开始：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -801,20 +801,20 @@
 
   
 </div>
-<p>我已经分析了表，因此创建的索引大小将尽可能小；否则，桶的数量将基于假设表包含十个页面的前提来选择。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
+<p>我已经分析了表，因此创建的索引大小将尽可能小；否则，桶的数量将基于假设表<span class="marginalia" data-note="v. 14">包含十个页面</span>的前提来选择。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
 <p>索引包含四个页面：元页面、两个桶页面和一个位图页面 (立即创建以供将来使用)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="o">=&gt;</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="n">hash_page_type</span><span class="p">(</span><span class="n">get_raw_page</span><span class="p">(</span><span class="s1">&#39;t_n_idx&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">page</span><span class="p">))</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">FROM</span><span class="w"> </span><span class="n">generate_series</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="n">page</span><span class="p">;</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">page</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">hash_page_type</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="err">−−−−−−</span><span class="o">+</span><span class="err">−−−−−−−−−−−−−−−−</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="mi">0</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">metapage</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="mi">1</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">bucket</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="mi">2</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">bucket</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="mi">3</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">bitmap</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">(</span><span class="mi">4</span><span class="w"> </span><span class="k">rows</span><span class="p">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT page, hash_page_type<span class="o">(</span>get_raw_page<span class="o">(</span><span class="s1">&#39;t_n_idx&#39;</span>, page<span class="o">))</span>
+</span></span><span class="line"><span class="cl">FROM generate_series<span class="o">(</span>0,3<span class="o">)</span> page<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> page <span class="p">|</span> hash_page_type
+</span></span><span class="line"><span class="cl">−−−−−−+−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl">    <span class="m">0</span> <span class="p">|</span> metapage
+</span></span><span class="line"><span class="cl">    <span class="m">1</span> <span class="p">|</span> bucket
+</span></span><span class="line"><span class="cl">    <span class="m">2</span> <span class="p">|</span> bucket
+</span></span><span class="line"><span class="cl">    <span class="m">3</span> <span class="p">|</span> bitmap
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">4</span> rows<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -826,7 +826,8 @@
 
   
 </div>
-<p><img src="24-1.png" alt="" loading="lazy" /></p>
+<img src="24-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>元页面包含所有与索引有关的控制信息。目前我们只对一些值感兴趣：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -848,9 +849,9 @@
 
   
 </div>
-<p>每个桶的预估行数显示在 ffactor 字段中。这个值是根据块大小和 fillfactor 存储参数的值计算得出的。如果数据分布绝对均匀且没有哈希冲突，你可以使用更高的 fillfactor 值，但在实际情况中，这会增加页面溢出的风险。</p>
+<p>每个桶的预估行数显示在 ffactor 字段中。这个值是根据块大小和 <span class="marginalia" data-note="75"><em>fillfactor</em></span> 存储参数的值计算得出的。如果数据分布绝对均匀且没有哈希冲突，你可以使用更高的 <em>fillfactor</em> 值，但在实际情况中，这会增加页面溢出的风险。</p>
 <p>哈希索引最糟糕的情况是当某个键重复多次时，数据分布会出现较大倾斜。由于哈希函数返回同一个值，所有数据都将被放置在同一个桶中，并且增加桶的数量也无济于事。</p>
-<p>现在索引为空，如 ntuples 字段所示。让我们通过插入多条具有相同索引键的行来导致桶页面溢出。索引中现在出现了一个溢出页面：</p>
+<p>现在索引为空，如 ntuples 字段所示。让我们通过插入多条具有相同索引键的行来导致桶页面溢出。索引中现在<span class="marginalia" data-note="v. 10">出现了一个溢出页面</span>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -877,7 +878,8 @@
 
   
 </div>
-<p><img src="24-2.png" alt="" loading="lazy" /></p>
+<img src="24-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>所有页面的综合统计显示，0 号桶是空的，而所有的值都被放置在 1 号桶中：其中一些位于主页面中，而那些不适合主页面的则可以在溢出页面中找到。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -959,7 +961,8 @@
 
   
 </div>
-<p><img src="24-3.png" alt="" loading="lazy" /></p>
+<img src="24-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>其中一个新页面被 2 号桶使用，而另一个页面保持空闲，待桶 3 出现时便会被使用 (见图 24.3)。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -986,7 +989,7 @@
   
 </div>
 <p>因此，从操作系统的角度来看，哈希索引呈爆发式增长，尽管从逻辑角度来看，哈希表显示的是逐步增长。</p>
-<p>为了一定程度上平缓这种增长，并避免一次分配过多的页面，从第十次增加开始，页面将分成四个相同批次分配，而不是一次性全部分配。</p>
+<p>为了一定程度上<span class="marginalia" data-note="v. 10">平缓这种增长</span>，并避免一次分配过多的页面，从第十次增加开始，页面将分成四个相同批次分配，而不是一次性全部分配。</p>
 <p>元页面的另外两个字段，实际上是位掩码，提供了桶地址的详细信息：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1052,7 +1055,8 @@
 
   
 </div>
-<p><img src="24-4.png" alt="" loading="lazy" /></p>
+<img src="24-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>当指向死元组的指针被移除时，索引页中的空间会被释放。这发生在页面剪枝期间 (当尝试将一个元素插入至一个完全填满的页面时触发) <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>  或执行例行清理时。</p>
 <p>但是，哈希索引不能收缩：一旦分配，索引页将不会返还给操作系统。主页面永久分配给它们的桶，即使它们根本不包含任何元素；被清理的溢出页面在位图中被跟踪，并且可以被重用 (可能被另一个桶重用)。减少索引物理大小的唯一方法是使用 REINDEX 或  VACUUM FULL 命令重建。</p>
 <p>查询计划并没有指示索引类型：</p>

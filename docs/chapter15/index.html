@@ -792,7 +792,8 @@
     <a href="#153-%e4%be%8b%e5%ad%90" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>为了了解如何使用以及在何处使用自旋锁和轻量锁，让我们看下两个共享内存结构：缓冲区缓存和 WAL 缓冲区。我只会提到其中一些锁；由于全貌过于复杂，可能只有 PostgreSQL 内核开发人员感兴趣。</p>
 <h3>15.3.1 缓冲区缓存<span class="hx-absolute -hx-mt-20" id="1531-缓冲区缓存"></span>
     <a href="#1531-%e7%bc%93%e5%86%b2%e5%8c%ba%e7%bc%93%e5%ad%98" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了访问用于定位缓存中特定缓冲区的哈希表，进程必须以共享模式获取一个 BufferMapping 轻量锁以进行读取，或者如果预期有任何修改，则以独占模式获取。</p>
-<p><img src="15-1.png" alt="" loading="lazy" /></p>
+<img src="15-1.png" style="width:70%; float:center" />
+<div style="clear:both;"></div>
 <p>哈希表的访问十分频繁，因此这个锁经常成为瓶颈。为了最大限度地提高粒度，它被构造为一个由 128 个独立的轻量锁组成的锁集，每个锁用于保护哈希表的一个分区。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup></p>
 <blockquote>
 <p>早在 2006 年，Postgres 8.2 版本就将哈希表锁转换为包含 16 个锁的锁集；十年后，当 9.5 版本发布时，锁集的大小增加到了 128 个，但对于现代多核系统来说，这可能仍然不够。</p>
@@ -801,14 +802,15 @@
 <p>为了读取缓冲区中的页面，进程需要获取此缓冲区头中的 BufferContent 锁 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。这个锁通常仅在读取元组指针时持有，稍后，缓冲区锁定提供的保护就足够了。如果需要修改缓冲区的内容，那么必须以独占模式获取 BufferContent 锁。当从磁盘读取某个缓冲区 (或写入磁盘) 时，PostgreSQL 还会在缓冲区头中获取 BufferIO 锁；它实际上是一个用作锁的属性，而不是一个真正的锁 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>。它向请求访问这个页面的其他进程发出信号，告诉它们必须等到 I/O 操作完成。</p>
 <p>指向空闲缓冲区的指针和淘汰机制的时钟指针由一个共同的缓冲区策略自旋锁保护 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。</p>
 <h3>15.3.2 WAL 缓冲区<span class="hx-absolute -hx-mt-20" id="1532-wal-缓冲区"></span>
-    <a href="#1532-wal-%e7%bc%93%e5%86%b2%e5%8c%ba" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><img src="15-2.png" alt="" loading="lazy" /></p>
+    <a href="#1532-wal-%e7%bc%93%e5%86%b2%e5%8c%ba" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><img src="15-2.png" style="width:70%; float:center" />
+<div style="clear:both;"></div>
 <p>WAL 缓存也使用哈希表将页面映射到缓冲区。不同于缓冲区缓存的哈希表，它由单个 WALBufMapping 轻量锁保护，因为 WAL 缓存较小 (通常是缓冲区缓存大小的 1/32 )，并且缓冲区的访问更加有序 <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>。</p>
 <p>将 WAL 页面写入磁盘受到 WALWrite 轻量锁的保护，以确保此操作一次只由一个进程执行。</p>
 <p>为了创建一个 WAL 条目，进程首先在 WAL 页面内预留一些空间，然后用数据填充。空间预留严格有序；进程必须获取一个插入位置的自旋锁，以保护插入指针 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>。但一旦空间被预留后，它就可以由若干并发进程共同填充。为此，每个进程都必须获取构成 WALInsert 锁集的 8 个轻量锁中的任何一个 <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup>。</p>
 <h2>15.4 监控等待<span class="hx-absolute -hx-mt-20" id="154-监控等待"></span>
     <a href="#154-%e7%9b%91%e6%8e%a7%e7%ad%89%e5%be%85" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>毫无疑问，锁对于 PostgreSQL 的正确运行是必不可少的，但它们可能导致不希望的等待。追踪这些等待以了解它们的起源是非常有用的。</p>
-<p>获取长锁概览的最简单方式是调整 log_lock_waits 参数为 on。它会详细记录所有导致事务等待时间超过 deadlock_timeout 的锁至日志中。这些数据在死锁检测完成时显示，因此而得名。</p>
-<p>然而，pg_stat_activity 视图提供了更多有用和完整的信息。每当一个进程 (不管是系统进程还是后端进程) 由于在等待某个东西而无法继续其操作时，此等待就会反映在 wait_event_type 和 wait_event 字段中，分别显示等待的类型和名称。</p>
+<p>获取长锁概览的最简单方式是调整 <span class="marginalia" data-note="off"><em>log_lock_waits</em></span> 参数为 on。它会详细记录所有导致事务等待时间超过 <span class="marginalia" data-note="1s"><em>deadlock_timeout</em></span> 的锁至日志中。这些数据在死锁检测完成时显示，因此而得名。</p>
+<p>然而，<span class="marginalia" data-note="v. 9.6">pg_stat_activity</span> 视图提供了更多有用和完整的信息。每当一个进程 (不管是系统进程还是后端进程) 由于在等待某个东西而无法继续其操作时，此等待就会反映在 wait_event_type 和 wait_event 字段中，分别显示等待的类型和名称。</p>
 <p>所有等待可以归类如下 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>。</p>
 <p>各种锁的等待组成了一个相当大的群组：</p>
 <p><strong>Lock</strong>：重锁</p>
@@ -934,8 +936,8 @@
 
   
 </div>
-<p>默认情况下 (由 pg_wait_sampling.profile_period 参数设置) 每秒采样 100 次。因此，要估算等待时间的秒数，必须将值除以 100。</p>
-<p>在这个特定案例中，大部分等待与将 WAL 条目刷新到磁盘有关。这很好地说明了未知的等待时间：WALSync 事件直到 PostgreSQL 12 才被记录；对于更低的版本，等待概况不会包含第一行，尽管等待本身仍然存在。</p>
+<p>默认情况下 (由 <span class="marginalia" data-note="10ms"><em>pg_wait_sampling.profile_period</em></span> 参数设置) 每秒采样 100 次。因此，要估算等待时间的秒数，必须将值除以 100。</p>
+<p>在这个特定案例中，<span class="marginalia" data-note="v. 12">大部分等待与将 WAL 条目刷新到磁盘有关</span>。这很好地说明了未知的等待时间：WALSync 事件直到 PostgreSQL 12 才被记录；对于更低的版本，等待概况不会包含第一行，尽管等待本身仍然存在。</p>
 <p>如果我们人为降低文件系统的速度，使每个 I/O 操作需要耗时 0.1 秒 (为此，我使用了 slowfs <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup>)，那么等待概况将如下所示：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   

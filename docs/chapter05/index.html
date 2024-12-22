@@ -756,7 +756,7 @@
     <a href="#51-%e9%a1%b5%e5%89%aa%e6%9e%9d" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>在读取或更新堆页面时，PostgreSQL 可以执行一些快速的页面清理，或称之为剪枝 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。剪枝发生在以下情况：</p>
 <ul>
 <li>之前的 UPDATE 操作没有找到足够的空间将新元组放入同一页面中。此事件反映在页头中。</li>
-<li>堆页面中包含的数据超过了 fillfactor 存储参数所允许的量。仅当此页面的填充率低于 fillfactor 百分比时，INSERT 操作才能将新行添加到页面中。其余空间会保留，用于 UPDATE 操作 (默认情况下不保留此空间) 。</li>
+<li>堆页面中包含的数据超过了 <span class="marginalia" data-note="100"><em>fillfactor</em></span> 存储参数所允许的量。仅当此页面的填充率低于 fillfactor 百分比时，INSERT 操作才能将新行添加到页面中。其余空间会保留，用于 UPDATE 操作 (默认情况下不保留此空间) 。</li>
 </ul>
 <p>页剪枝会移除在任何快照中都不再可见的元组 (即超出数据库视界的元组)。页剪枝永远不会超出单个堆页面的范围，但相对得，它执行得非常快。指向剪枝后的元组指针仍在原处，它们可能会被不同的页面所引用。</p>
 <p>出于同样的原因，也不会刷新可见性映射和空闲空间映射 (因此回收的空间是为更新留存的，而不是用于插入)。</p>
@@ -917,7 +917,7 @@
   
 </div>
 <p>索引扫描返回 (0,1)、(0,2) 和 (0,3) 作为元组标识符。服务器尝试读取相应的堆元组，但发现指针是 dead 的状态；这意味着这个元组不再存在，应该被忽略。并且在处理的同时，服务器还会改变索引页中的指针状态，以避免重复访问堆页面 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>。</p>
-<p>让我们扩展显示索引页面的函数，以显示指针是否是 dead 的状态：</p>
+<p>让我们扩展<span class="marginalia" data-note="v. 13">显示索引页面的函数</span>，以显示指针是否是 dead 的状态：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1078,9 +1078,11 @@
 <li>Heap Hot Updated 位表示执行器需要沿着 CTID 链继续扫描。</li>
 <li>Heap Only Tuple 位表示这个元组没有被任何索引引用。</li>
 </ul>
-<p><img src="5-1.png" alt="" loading="lazy" /></p>
+<img src="5-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>随着我们进一步更新，链会增长 — 但仅限于页面范围内：</p>
-<p><img src="5-2.png" alt="" loading="lazy" /></p>
+<img src="5-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>索引仍然只包含一个引用，它指向这个链的头部：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1106,12 +1108,15 @@
     <a href="#53-hot-%e6%9b%b4%e6%96%b0%e7%9a%84%e9%a1%b5%e5%89%aa%e6%9e%9d" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>页剪枝的一个特殊情况 — 也同样重要，是 HOT 更新链的剪枝。</p>
 <p>在上面的例子中，已经超过了 fillfactor 阈值，因此下一次更新会触发页剪枝。但这一次，页面包含了 HOT 链。这个链的头部必须始终保持原位，因为它被索引引用，但其他指针可以被释放，因为它们肯定没有外部引用。</p>
 <p>为了避免移动头部，PostgreSQL 使用双重寻址：索引引用的指针 (在本例中为 (0,1)) 获取到的是 redirect 状态，因为它指向了当前链开始的元组：</p>
-<p><img src="5-3.png" alt="" loading="lazy" /></p>
+<img src="5-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>元组 (0,1)，(0,2)，(0,3) 被剪枝了；头指针 1 被保留，用于重定向，而指针 2 和 3 已被释放 (unused 的状态) ，因此，它们保证没有来自索引的引用。新的元组作为元组 (0,2) 写入到空闲空间中。</p>
 <p>让我们再做一些更新：</p>
-<p><img src="5-4.png" alt="" loading="lazy" /></p>
+<img src="5-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>下一次更新会触发页剪枝：</p>
-<p><img src="5-5.png" alt="" loading="lazy" /></p>
+<img src="5-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>同样，一些元组被剪枝，指向链头的指针也相应地被移动。</p>
 <p>如果经常修改非索引列，那么减少 fillfactor 的值是有意义的，从而在页面中保留一些空间用于更新。当然，你必须牢记，fillfactor 值越低，页面中剩余的空闲空间就越多，因此表的物理大小会增长。</p>
 <h2>5.4 HOT 链分裂<span class="hx-absolute -hx-mt-20" id="54-hot-链分裂"></span>
@@ -1136,7 +1141,8 @@
 </div>
 </blockquote>
 <p>现在我们在第一个会话中执行一些更新操作：</p>
-<p><img src="5-6.png" alt="" loading="lazy" /></p>
+<img src="5-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>当下一次更新发生时，此页面将无法容纳另一个元组，并且页剪枝将无法释放任何空间：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1170,7 +1176,8 @@
   
 </div>
 </blockquote>
-<p><img src="5-7.png" alt="" loading="lazy" /></p>
+<img src="5-7.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>元组 (0,5) 包含跳转到第一个页面的引用 (1,1)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1217,7 +1224,7 @@
 <p>当向 B 树中的插入操作即将使页面一分为二时，就会发生索引剪枝，因为原始页面已经没有足够的空间了。问题是，即使稍后删除了一些索引条目，两个单独的索引页也不会合并为一个。这会导致索引膨胀，一旦膨胀，即使删除了很大一部分数据，索引也无法收缩。但是，如果剪枝可以删除一些元组，那么页面分裂可能会被推迟。</p>
 <p>可以从索引中剪枝两种类型的元组。</p>
 <p>首先，PostgreSQL 会剪枝那些被标记为 dead 的元组 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。正如我之前所说，如果 PostgreSQL 在索引扫描过程中，检测到索引条目指向一个在任何快照中均不再可见或根本不存在的元组，便会设置这样的标记。</p>
-<p>如果没有元组已知是 dead 的，PostgreSQL 会检查那些引用同一个表行的不同版本的索引条目。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 因为 MVCC，更新操作可能会生成大量的行版本，而其中许多可能很快就会消失在数据库视界之外。HOT 更新减缓了这种影响，但它们并不总是适用：如果要更新的列是索引的一部分，那么相应的引用将传播到所有索引。在页面分裂之前，搜索尚未标记为 dead 但已经可以剪枝的行是有意义的。为了实现这一点，PostgreSQL 必须检查堆元组的可见性。此类检查需要访问表，因此仅针对&quot;有希望的&quot;的索引元组执行，这些元组是为了 MVCC 目的而创建的现有元组的副本。进行这样的检查比允许额外的页面分裂成本更低。</p>
+<p>如果没有元组已知是 dead 的状态，PostgreSQL 会检查那些<span class="marginalia" data-note="v. 14">引用同一个表行的不同版本的索引条目</span>。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 因为 MVCC，更新操作可能会生成大量的行版本，而其中许多可能很快就会消失在数据库视界之外。HOT 更新减缓了这种影响，但它们并不总是适用：如果要更新的列是索引的一部分，那么相应的引用将传播到所有索引。在页面分裂之前，搜索尚未标记为 dead 但已经可以剪枝的行是有意义的。为了实现这一点，PostgreSQL 必须检查堆元组的可见性。此类检查需要访问表，因此仅针对&quot;有希望的&quot;的索引元组执行，这些元组是为了 MVCC 目的而创建的现有元组的副本。进行这样的检查比允许额外的页面分裂成本更低。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

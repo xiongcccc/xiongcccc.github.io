@@ -64,7 +64,7 @@ PostgreSQL 包括多个&#34;自省&#34;扩展，这些扩展在日常工作中�
 本书中的文字和所有代码示例都适用于 PostgreSQL 14。在某些段落旁边，你可以看到页边空白处标有一个版本号。这意味着提供的信息从所标注版本开始适用，而所有之前的版本要么没有描述的功能，要么采用了不同的实现。对于尚未将系统升级到最新版本的用户，这样的提示可能会非常有用。
 我还使用页边空白处来显示所讨论参数的默认值。普通参数和存储参数的名称均以斜体字显示，例如：work_mem。
 在脚注中，我提供了多个信息来源的链接。首先也是最重要的是，我列出了 PostgreSQL 的文档 1，这些文档是知识的源泉。作为项目的重要组成部分，它们始终由 PostgreSQL 开发者自行更新。然而，最重要的参考资料无疑是源代码 2。即使你不了解 C 语言，单纯通过阅读注释和浏览 README 文件，你也可以找到很多答案。有时，我还会引用 commitfest 的条目 3：你总是可以通过阅读 psql-hackers 邮件列表中的相关讨论，追溯所有变更的历史，并理解开发者做出决策的逻辑，但这需要翻阅大量邮件。">
-  <meta itemprop="wordCount" content="116">
+  <meta itemprop="wordCount" content="136">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="PostgreSQL 14 Internals">
   <meta name="twitter:description" content="关于此书
@@ -806,20 +806,73 @@ PostgreSQL 包括多个&#34;自省&#34;扩展，这些扩展在日常工作中�
 <h2>约定<span class="hx-absolute -hx-mt-20" id="约定"></span>
     <a href="#%e7%ba%a6%e5%ae%9a" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>我试图以一种可以从头到尾逐页阅读的方式来编写这本书。然而，要一次性揭示所有真相几乎是不可能的，所以我不得不多次回到同一个话题。如果每次都写上&quot;将在后面讨论&quot;，这不可避免地会让文本变得冗长。因此，在这种情况下，我只是在页边空白处标注了页码，以便你参考后续的讨论。类似地，指向前面的数字，将带你回到之前已经讨论过该主题的页面。</p>
 <p>本书中的文字和所有代码示例都适用于 PostgreSQL 14。在某些段落旁边，你可以看到页边空白处标有一个版本号。这意味着提供的信息从所标注版本开始适用，而所有之前的版本要么没有描述的功能，要么采用了不同的实现。对于尚未将系统升级到最新版本的用户，这样的提示可能会非常有用。</p>
-<p>我还使用页边空白处来显示所讨论参数的默认值。普通参数和存储参数的名称均以斜体字显示，例如：<em>work_mem</em>。</p>
+<p>我还使用页边空白处来显示所讨论参数的默认值。普通参数和存储参数的名称均以斜体字显示，例如：<span class="marginalia" data-note="4MB"><em>work_mem</em></span>。</p>
 <p>在脚注中，我提供了多个信息来源的链接。首先也是最重要的是，我列出了 PostgreSQL 的文档 <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>，这些文档是知识的源泉。作为项目的重要组成部分，它们始终由 PostgreSQL 开发者自行更新。然而，最重要的参考资料无疑是源代码 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>。即使你不了解 C 语言，单纯通过阅读注释和浏览 README 文件，你也可以找到很多答案。有时，我还会引用 commitfest 的条目 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>：你总是可以通过阅读 psql-hackers 邮件列表中的相关讨论，追溯所有变更的历史，并理解开发者做出决策的逻辑，但这需要翻阅大量邮件。</p>
 <blockquote>
 <p>书中包含的旁注可能会使讨论偏离主线 (但我还是忍不住把它们加入书中)，这些内容以这样的形式印刷，便于跳过。</p>
 </blockquote>
 <p>当然，本书包含了多个代码示例，主要是 SQL 代码。代码示例以提示符 =&gt; 开始，必要时会跟随服务器的响应信息：</p>
-<p><img src="docs-1.png" alt="" loading="lazy" /></p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT now<span class="o">()</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">              now
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> 2023−03−06 14:00:08.008545+03
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
 <p>如果你在 PostgreSQL 14 中仔细重复所有提供的命令，你应该能够获得完全相同的结果 (包括事务 ID 和其他不重要的细节)。无论如何，本书中的所有代码示例都是由包含这些命令的脚本生成的。</p>
 <p>当需要演示多个事务的并发执行时，在另一个会话中运行的代码会缩进，并用一条竖线标注。</p>
-<p><img src="docs-2.png" alt="" loading="lazy" /></p>
+<blockquote>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SHOW server_version<span class="p">;</span>
+</span></span><span class="line"><span class="cl"> server_version
+</span></span><span class="line"><span class="cl">−−−−−−−−−−−−−−−−
+</span></span><span class="line"><span class="cl"> 14.7
+</span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+</blockquote>
 <p>要尝试这些命令 (这对自学很有用，就像任何实验一样)，可以打开两个 psql 终端。</p>
 <p>命令名称和各种数据库对象 (如表与列、函数或扩展) 的名称在文本中使用无衬线字体突出显示：UPDATE，pg_class。</p>
 <p>如果从操作系统调用程序，它会以 $ 结尾的提示符显示：</p>
-<p><img src="docs-3.png" alt="" loading="lazy" /></p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ whoami
+</span></span><span class="line"><span class="cl">postgres</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
 <p>我使用的是 Linux，但不涉及任何技术细节；只需要对这个操作系统有一些基本了解就足够了。</p>
 <h2>致谢<span class="hx-absolute -hx-mt-20" id="致谢"></span>
     <a href="#%e8%87%b4%e8%b0%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>写书并非孤军奋战，现在我有一个绝佳的机会来感谢那些帮助过我的好人们。</p>

@@ -44,7 +44,7 @@ PostgreSQL 提供了多种连接方式：
 PostgreSQL 提供了多种连接方式：
 嵌套循环连接 哈希连接 归并连接 连接方法是实现 SQL 连接逻辑操作的算法。这些基本算法经常有针对特定连接类型的特殊变体，尽管它们可能只支持其中一些。例如，嵌套循环支持内连接 (在计划中由 Nested Loop 节点表示) 和左外连接(由 Nested Loop Left Join 节点表示) ，但它不能用于全外连接。
 同一算法的一些变体也可以被其他操作使用，如聚合。">
-  <meta itemprop="wordCount" content="1670">
+  <meta itemprop="wordCount" content="1668">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 21 章：嵌套循环">
   <meta name="twitter:description" content="21.1 连接类型和方式 连接是 SQL 语言的关键特性；它们是其强大和灵活的基础。行集 (直接从表中检索或作为其他操作的结果接收) 始终成对连接。
@@ -717,7 +717,7 @@ PostgreSQL 提供了多种连接方式：
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2123-%e7%bc%93%e5%ad%98%e8%a1%8c-memoization">21.2.3 缓存行 (Memoization)
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2123-span-classmarginalia-data-notev-14%e7%bc%93%e5%ad%98%e8%a1%8c-memoizationspan">21.2.3 缓存行 (Memoization)
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -733,7 +733,7 @@ PostgreSQL 提供了多种连接方式：
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2127-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f">21.2.7 并行模式
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2127-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan">21.2.7 并行模式
         </a>
       </li></ul>
       <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
@@ -785,9 +785,10 @@ PostgreSQL 提供了多种连接方式：
 </ul>
 <h3>21.2.1 笛卡尔积<span class="hx-absolute -hx-mt-20" id="2121-笛卡尔积"></span>
     <a href="#2121-%e7%ac%9b%e5%8d%a1%e5%b0%94%e7%a7%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>无论集合中的行数如何，嵌套循环连接都是查找笛卡尔积最有效的方式：</p>
-<p><img src="21-1.png" alt="" loading="lazy" /></p>
+<img src="21-1.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>嵌套循环节点使用上述算法进行连接。它总是有两个子节点：计划中显示较高的节点对应于外集合，而较低的节点代表内集合。</p>
-<p>在此例中，内集合由 Materialize 节点 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 表示。此节点返回从其子节点接收到的行，并保存它们以备将来使用 (这些行在内存中累积，直到它们的总大小达到 work_mem；然后 PostgreSQL 会将它们溢出到磁盘上的临时文件中)。如果再次访问，节点读取所累积的行而无需调用子节点。这样执行器就可以避免再次扫描全表，只读取满足条件的行即可。</p>
+<p>在此例中，内集合由 Materialize 节点 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 表示。此节点返回从其子节点接收到的行，并保存它们以备将来使用 (这些行在内存中累积，直到它们的总大小达到 <span class="marginalia" data-note="4MB"><em>work_mem</em></span>；然后 PostgreSQL 会将它们溢出到磁盘上的临时文件中)。如果再次访问，节点读取所累积的行而无需调用子节点。这样执行器就可以避免再次扫描全表，只读取满足条件的行即可。</p>
 <p>对于使用常规等值连接的查询，也可以构建类似的计划：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -827,7 +828,8 @@ PostgreSQL 提供了多种连接方式：
 <li>处理要返回的每一行的成本</li>
 </ul>
 <p>此处是成本估算的依赖图：</p>
-<p><img src="21-2.png" alt="" loading="lazy" /></p>
+<img src="21-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>连接的成本计算如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -890,7 +892,8 @@ PostgreSQL 提供了多种连接方式：
 <li>处理要返回的每一行的成本</li>
 </ul>
 <p>此处的依赖图如下：</p>
-<p><img src="21-3.png" alt="" loading="lazy" /></p>
+<img src="21-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>在这个例子中，物化降低了重复获取数据的成本。计划中显示了第一次 Materialize 调用的成本，但没有列出所有后续的调用情况。我不会在此处提供任何计算说明，<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 但在此特例下，估算值是 0.0125。</p>
 <p>因此，这个例子中执行的连接成本计算如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -977,11 +980,7 @@ PostgreSQL 提供了多种连接方式：
   
 </div>
 <p>显然，不使用外键也可以连接表。那么选择率将取自特定连接条件的预估选择率。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
-<p>对于这个例子中的等值连接，假设值均匀分布，选择率估算的通用公式如下：
-$$
-\min \left( \frac{1}{nd_{1}}, \frac{1}{nd_{2}} \right)
-$$
-其中 nd1 和 nd2 分别表示第一个集合和第二个集合中连接键不同值的数量。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup></p>
+<p>对于这个例子中的等值连接，假设值均匀分布，选择率估算的通用公式如下：$\min \left( \frac{1}{n d_1}, \frac{1}{n d_2} \right)$，其中 nd1 和 nd2 分别表示第一个集合和第二个集合中连接键不同值的数量。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup></p>
 <p>非重复值的统计信息显示 tickets 表中的票号是唯一的 (这是意料之中的，因为 ticket_no 列是主键)，并且 ticket_flights 中每张票大约有三个匹配行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1119,8 +1118,8 @@ $$
 
   
 </div>
-<h3>21.2.3 缓存行 (Memoization)<span class="hx-absolute -hx-mt-20" id="2123-缓存行-memoization"></span>
-    <a href="#2123-%e7%bc%93%e5%ad%98%e8%a1%8c-memoization" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果使用相同的参数值重复扫描内集合 (从而给出相同的结果)，那么缓存该集合的行可能会有益。</p>
+<h3>21.2.3 <span class="marginalia" data-note="v. 14">缓存行 (Memoization)</span><span class="hx-absolute -hx-mt-20" id="2123-span-classmarginalia-data-notev-14缓存行-memoizationspan"></span>
+    <a href="#2123-span-classmarginalia-data-notev-14%e7%bc%93%e5%ad%98%e8%a1%8c-memoizationspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果使用相同的参数值重复扫描内集合 (从而给出相同的结果)，那么缓存该集合的行可能会有益。</p>
 <p>此类缓存由 Memoize <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>  节点执行。与 Materialize 节点类似，旨在处理参数化连接，并且具有更复杂的实现：</p>
 <ul>
 <li>Materialize 节点只是简单地保存所有子节点返回的行，而 Memoize 则确保不同参数值返回的行分开保存。</li>
@@ -1161,13 +1160,13 @@ $$
 
   
 </div>
-<p>用于存储缓存行的内存块大小等于 work_mem × hash_mem_multiplier。正如第二个参数名所暗示的那样，缓存行存储在哈希表中 (使用开放寻址) <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>。哈希键 (在计划中显示为 Cache Key) 是参数值 (如果不止一个参数，则为多个值)。</p>
+<p>用于存储缓存行的内存块大小等于 <span class="marginalia" data-note="4MB"><em>work_mem</em></span> × <span class="marginalia" data-note="1.0"><em>hash_mem_multiplier</em></span>。正如第二个参数名所暗示的那样，缓存行存储在哈希表中 (使用开放寻址) <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>。哈希键 (在计划中显示为 Cache Key) 是参数值 (如果不止一个参数，则为多个值)。</p>
 <p>所有哈希键绑定到一个列表中；其一端被认为是冷的 (因为它包含长时间未使用的键)，而另一端是热的 (它存储最近使用的键)。</p>
 <p>如果对 Memoize 节点的调用显示传递的参数值对应于已缓存的行，那么这些行将被传递到父节点 (嵌套循环) 而无需检查子节点。然后使用过的哈希键被移动到列表的热端。</p>
 <p>如果缓存中不包含所需的行，Memoize 节点将从其子节点中提取并缓存它们，然后传递给上层节点。相应的哈希键也会变热。</p>
 <p>随着新数据被缓存，它可以填满所有可用的内存。为了释放一些空间，对应于冷键的行会被逐出。该逐出算法不同于缓冲区缓存中使用的算法，但目的相同。</p>
 <p>某些参数值可能有太多匹配的行，即使所有其他行都已被逐出也不适合所分配的内存块。这样的参数会被跳过 — 只缓存一些行是没有意义的，因为下一次调用仍然必须从子节点获取所有的行。</p>
-<p><strong>成本和基数估算</strong>。这些计算与我们上面已看到的十分相似。我们只需要记住，计划中显示的 Memoize 节点的成本与其实际成本无关：它只是其子节点的成本增加了 cpu_tuple_cost 的值。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
+<p><strong>成本和基数估算</strong>。这些计算与我们上面已看到的十分相似。我们只需要记住，计划中显示的 Memoize 节点的成本与其实际成本无关：它只是其子节点的成本增加了 <span class="marginalia" data-note="0.01"><em>cpu_tuple_cost</em></span> 的值。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
 <p>对于 Materialize 节点，我们已经遇到过类似的情况：它的成本仅为后续扫描进行计算 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup>，且不会反映在计划中。</p>
 <p>显然，只有当 Memoize 比其子节点成本更低时，才有意义使用。每次后续 Memoize 扫描的成本取决于预期的缓存访问概况以及可用于缓存的内存块大小。计算值在很大程度上取决于对扫描内层数据集时使用的不同参数值数量的准确估算。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 基于这个数字，你可以权衡行被缓存和从缓存中逐出的概率。预期的命中降低了估算成本，而潜在的逐出增加了成本。在此处我们将跳过这些计算细节。</p>
 <p>为了弄清楚查询执行期间实际发生了什么，我们将像往常一样使用 EXPLAIN ANALYZE 命令：</p>
@@ -1209,7 +1208,7 @@ $$
   
 </div>
 <p>该查询选择沿相同航线并由特定类型的飞机执飞的航班，因此所有 Memoize 节点上的调用都使用相同的哈希键。第一行必须从表中获取第 (Misses: 1)，但后续所有的行都在缓存中找到 (Hits: 112)。整个操作只需要 1 kB 的内存。</p>
-<p>其他两个显示的值为零：它们代表逐出的次数和由于无法缓存与特定参数集相关的所有行时发生的缓存溢出次数。较大的数字表示分配的缓存太小，这可能是由于对不同参数值的数量预估不准确造成的。那么使用 Memoize 节点可能会非常昂贵。在极端情况下，你可以通过关闭 enable_memoize 参数来禁止规划器使用缓存。</p>
+<p>其他两个显示的值为零：它们代表逐出的次数和由于无法缓存与特定参数集相关的所有行时发生的缓存溢出次数。较大的数字表示分配的缓存太小，这可能是由于对不同参数值的数量预估不准确造成的。那么使用 Memoize 节点可能会非常昂贵。在极端情况下，你可以通过关闭 <span class="marginalia" data-note="on"><em>enable_memoize</em></span> 参数来禁止规划器使用缓存。</p>
 <h3>21.2.4 外连接<span class="hx-absolute -hx-mt-20" id="2124-外连接"></span>
     <a href="#2124-%e5%a4%96%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可用于执行左外连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1436,8 +1435,8 @@ $$
 
   
 </div>
-<h3>21.2.7 并行模式<span class="hx-absolute -hx-mt-20" id="2127-并行模式"></span>
-    <a href="#2127-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可以参与并行计划的执行。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
+<h3>21.2.7 <span class="marginalia" data-note="v. 9.6">并行模式</span><span class="hx-absolute -hx-mt-20" id="2127-span-classmarginalia-data-notev-96并行模式span"></span>
+    <a href="#2127-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环连接可以参与并行计划的执行。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
 <p>只有外集合可以并行处理，因为它可以由多个工作进程同时扫描。获取了外部行之后，每个工作进程必须顺序地搜索内集合中的匹配行。</p>
 <p>下面显示的查询包括多个连接；它搜索持有特定航班机票的乘客：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">

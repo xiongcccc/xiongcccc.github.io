@@ -32,7 +32,7 @@
   <meta itemprop="description" content="17.1 基础统计信息 基础的关系级统计信息 1 存储在 pg_class 系统目录表中，其中包括以下数据：
 关系中元组的数量 (reltuples) 关系大小，以页为单位 (relpages) 可见性映射中标记的页面数量 (relallvisible) 以下是 flights 表的这些值：
 =&gt; SELECT reltuples, relpages, relallvisible FROM pg_class WHERE relname = &#39;flights&#39;; reltuples | relpages | relallvisible −−−−−−−−−−−&#43;−−−−−−−−−−&#43;−−−−−−−−−−−−−−− 214867 | 2624 | 2624 (1 row) 如果查询没有施加任何过滤条件，那么 reltuples 值将作为基数进行估算：">
-  <meta itemprop="wordCount" content="1880">
+  <meta itemprop="wordCount" content="1875">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 17 章：统计信息">
   <meta name="twitter:description" content="17.1 基础统计信息 基础的关系级统计信息 1 存储在 pg_class 系统目录表中，其中包括以下数据：
@@ -767,7 +767,7 @@
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1791-%e6%89%a9%e5%b1%95%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af">17.9.1 扩展表达式统计信息
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#1791-span-classmarginalia-data-notev-14%e6%89%a9%e5%b1%95%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%afspan">17.9.1 扩展表达式统计信息
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -779,15 +779,15 @@
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17101-%e5%88%97%e4%b9%8b%e9%97%b4%e7%9a%84%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96">17.10.1 列之间的函数依赖
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17101-span-classmarginalia-data-notev-10%e5%88%97%e4%b9%8b%e9%97%b4%e7%9a%84%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96span">17.10.1 列之间的函数依赖
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17102-%e5%a4%9a%e5%85%83%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8f">17.10.2 多元非重复值的数量
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17102-span-classmarginalia-data-notev-10%e5%a4%9a%e5%85%83%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8fspan">17.10.2 多元非重复值的数量
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17103-%e5%a4%9a%e5%85%83-mcv-%e5%88%97%e8%a1%a8">17.10.3 多元 MCV 列表
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#17103-span-classmarginalia-data-notev-12%e5%a4%9a%e5%85%83-mcv-%e5%88%97%e8%a1%a8span">17.10.3 多元 MCV 列表
         </a>
       </li></ul>
       <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
@@ -862,8 +862,8 @@
   
 </div>
 <p>统计信息在表分析期间收集，包括手动收集和自动收集。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 此外，由于基础统计信息至关重要，因此在其他某些操作 (比如 VACUUM FULL 和 CLUSTER、<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> CREATE INDEX 和 REINDEX <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> ) 期间也会计算这些数据，并在清理期间进行细化。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup></p>
-<p>出于分析目的，会从表中随机选择 300 × default_statistics_target 行进行采样。建立特定精度的统计信息所需的样本大小与进行分析的数据量关系不大，因此不需要考虑表的大小。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
-<p>采样行数取自相同数量 (300 × default_statistics_target) 的随机页面。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> 显然，如果表本身越小，那么就可能读取更少的页面，并且为分析选择的行数也会更少。</p>
+<p>出于分析目的，会从表中随机选择 300 × <span class="marginalia" data-note="100"><em>default_statistics_target</em></span> 行进行采样。建立特定精度的统计信息所需的样本大小与进行分析的数据量关系不大，因此不需要考虑表的大小。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
+<p>采样行数取自相同数量 (300 × <em>default_statistics_target</em>) 的随机页面。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup> 显然，如果表本身越小，那么就可能读取更少的页面，并且为分析选择的行数也会更少。</p>
 <p>在大表中，统计信息收集不包括所有行，因此估算值可能与实际值有所不同。这是完全正常的：如果数据在变化，统计信息无论如何都不可能始终准确。达到数量级的准确度就足以选择一个合适的计划。</p>
 <p>让我们创建一个 flights 表的副本，并禁用自动清理以便可以控制自动分析的开始时间：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -903,7 +903,7 @@
 
   
 </div>
-<p>值 reltuples = −1 用于区分尚未分析的表和没有任何行的真正的空表。</p>
+<p>值 reltuples = −1 <span class="marginalia" data-note="v. 14">用于区分</span>尚未分析的表和没有任何行的真正的空表。</p>
 <p>在表创建后不久，很有可能会有一些行被插入到表中。因此，对当前情况一无所知的规划器会假设表包含 10 个页面：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1128,9 +1128,11 @@
 <h2>17.3 非重复值<span class="hx-absolute -hx-mt-20" id="173-非重复值"></span>
     <a href="#173-%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>pg_stats 视图中的 n_distinct 字段显示了列中非重复值的数量。</p>
 <p>如果 n_distinct 为负数，其绝对值表示列中非重复值的比例，而不是它们实际的数量。例如，-1 表示所有列值都是唯一的，而 -3 意味着每个值平均出现在三行中。如果非重复值的预估数量超过了总行数的 10%，那么分析器会使用一个比例值来显式；在这种情况下，进一步的数据更新不太可能改变这个比例值。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
-<p><img src="17-1.png" alt="" loading="lazy" /></p>
+<img src="17-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>如果预期数据分布均匀，那么会使用非重复值的数量。例如，在评估 &ldquo;<em>column</em> = <em>expression</em>&rdquo; 条件的基数时，如果在规划阶段无法知道表达式的确切值，那么规划器假设该表达式可以以相等的概率取任何列值：<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
-<p><img src="17-6.png" alt="" loading="lazy" /></p>
+<img src="17-6.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>此处 InitPlan 节点只执行一次，计算出的值在主计划中使用。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1201,7 +1203,8 @@
 <h2>17.4 高频值<span class="hx-absolute -hx-mt-20" id="174-高频值"></span>
     <a href="#174-%e9%ab%98%e9%a2%91%e5%80%bc" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>如果数据分布不均，那么会根据高频值 (MCV) 及其频率的统计信息对预估值进行微调。pg_stats 视图分别在 most_common_vals 和 most_common_freqs 字段中显示这些数组。</p>
 <p>以下是各种类型的飞机关于此类统计信息的一个例子：</p>
-<p><img src="17-3.png" alt="" loading="lazy" /></p>
+<img src="17-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1277,7 +1280,7 @@
   
 </div>
 <p>MCV 列表还用于预估不等条件的选择率。例如，&quot;<em>column</em> &lt; <em>value</em>&quot; 这样的条件要求分析器在 most_common_vals 中搜索所有小于目标值的值，并将 most_common_freqs 中列出的相应频率相加。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup></p>
-<p>当非重复值不是太多时，MCV 统计信息效果最佳。数组的最大大小由 default_statistics_target 参数定义，该参数也限制了用于分析目的而随机采样的行数。</p>
+<p>当非重复值不是太多时，MCV 统计信息效果最佳。数组的最大大小由 <span class="marginalia" data-note="100"><em>default_statistics_target</em></span> 参数定义，该参数也限制了用于分析目的而随机采样的行数。</p>
 <p>在某些情况下，增加默认参数值是有意义的，从而扩大 MCV 列表并提高预估的准确性。你可以在列级别执行该操作：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1299,12 +1302,9 @@
 <p>采样大小也会增长，但仅限于指定的表。</p>
 <p>由于 MCV 数组存储了实际的值，因此可能会占用相当多的空间。为了控制 pg_statistic 大小并避免给规划器增加无用功，大于 1 kB 的值会被排除在分析和统计之外。但由于如此大的值可能是唯一的，它们可能本来就不会出现在 most_common_vals 中。</p>
 <h2>17.5 直方图<span class="hx-absolute -hx-mt-20" id="175-直方图"></span>
-    <a href="#175-%e7%9b%b4%e6%96%b9%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>如果非重复值太多以至于无法存储在数组中，PostgreSQL 便会使用直方图。在这种情况下，值会分布在直方图的多个桶之间。桶的数量也受到 default_statistics_target 参数的限制。</p>
-<p>桶宽度的选择方式是使每个桶获得大致相同数量的值 (这个特性在图中通过面积相等的阴影矩形来体现)。直方图不考虑包含在 MCV 列表中的值。因此，每个桶中值的累积频率等于
-$$
-\frac{1}{\text{number of buckets}}
-$$
-直方图作为桶的边界值数组存储在 pg_stats 视图的 histogram_bounds 字段中：</p>
+    <a href="#175-%e7%9b%b4%e6%96%b9%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>如果非重复值太多以至于无法存储在数组中，PostgreSQL 便会使用直方图。在这种情况下，值会分布在直方图的多个桶之间。桶的数量也受到 <em>default_statistics_target</em> 参数的限制。</p>
+<p>桶宽度的选择方式是使每个桶获得大致相同数量的值 (这个特性在图中通过面积相等的阴影矩形来体现)。直方图不考虑包含在 MCV 列表中的值。因此，每个桶中值的累积频率等于 $\frac{1}{\text{number of buckets}}$。</p>
+<p>直方图作为桶的边界值数组存储在 pg_stats 视图的 histogram_bounds 字段中：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1327,7 +1327,8 @@ $$
   
 </div>
 <p>结合 MCV 列表，直方图用于估算大于和小于条件的选择率等操作 <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>。例如，让我们看一下为后排座位签发的登机牌数量：</p>
-<p><img src="17-4.png" alt="" loading="lazy" /></p>
+<img src="17-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1348,11 +1349,7 @@ $$
 
   
 </div>
-<p>我特意选择了位于两个直方图桶之间边界上的座位号。这个条件的选择率将估算为</p>
-<p>$$
-\frac{N}{\text{number of buckets}}
-$$
-其中 N 是包含满足条件的值 (即位于指定值右侧的桶) 的桶数量。同时还需要考虑到 MCV 不包含在直方图中。</p>
+<p>我特意选择了位于两个直方图桶之间边界上的座位号。这个条件的选择率将估算为 $\frac{N}{\text{number of buckets}}$，其中 N 是包含满足条件的值 (即位于指定值右侧的桶) 的桶数量。同时还需要考虑到 MCV 不包含在直方图中。</p>
 <p>顺便说一下，空值也不会出现在直方图中，但 seat_no 列本来就没有这样的值：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1448,7 +1445,8 @@ $$
 
   
 </div>
-<p><img src="17-5.png" alt="" loading="lazy" /></p>
+<img src="17-5.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>在非边界值的一般情况下，规划器采用线性插值来考虑包含目标值的桶的部分。</p>
 <p>以下是后座的实际数量：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1470,7 +1468,7 @@ $$
 
   
 </div>
-<p>随着增加 default_statistics_target 值，估算的准确性可能会提高，但正如我们的例子所示，即使列包含许多唯一值，直方图与 MCV 列表相结合通常也可以提供很好的结果：</p>
+<p>随着增加 <em>default_statistics_target</em> 值，估算的准确性可能会提高，但正如我们的例子所示，即使列包含许多唯一值，直方图与 MCV 列表相结合通常也可以提供很好的结果：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1491,7 +1489,7 @@ $$
 
   
 </div>
-<p>只有当能产生更好的规划时，提高预估的准确性才有意义。不加思考便增加 default_statistics_target 值可能会减慢规划和分析的速度，而不会带来任何好处。话虽如此，减小此参数值 (降至零) 可能会导致选择不良的计划，即使这确实加快了规划和分析的速度。这种节省通常是不合理的。</p>
+<p>只有当能产生更好的规划时，提高预估的准确性才有意义。不加思考便增加 <em>default_statistics_target</em> 值可能会减慢规划和分析的速度，而不会带来任何好处。话虽如此，减小此参数值 (降至零) 可能会导致选择不良的计划，即使这确实加快了规划和分析的速度。这种节省通常是不合理的。</p>
 <h2>17.6 非标量数据类型的统计信息<span class="hx-absolute -hx-mt-20" id="176-非标量数据类型的统计信息"></span>
     <a href="#176-%e9%9d%9e%e6%a0%87%e9%87%8f%e6%95%b0%e6%8d%ae%e7%b1%bb%e5%9e%8b%e7%9a%84%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>对于非标量数据类型，PostgreSQL 不仅可以收集值的分布统计信息，还可以收集用于构造这些值的元素的分布信息。当查询不符合第一范式的列时，它可以提高规划的准确性。</p>
 <ul>
@@ -1499,7 +1497,7 @@ $$
 <li>elem_count_histogram 数组显示了值中不同元素的数量的直方图，收集此数据仅用于估算在数组上操作的选择率。</li>
 <li>对于范围类型，PostgreSQL 为范围长度以及范围的下边界与上边界构建了分布直方图。这些直方图用于估算在这些类型上各种操作的选择率 <sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup>，但 pg_stats 视图没有显示它们。</li>
 </ul>
-<p>multirange 数据类型也收集类似的统计信息。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
+<p>multirange 数据类型也会<span class="marginalia" data-note="v. 14">收集类似的统计信息</span>。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup></p>
 <h2>17.7 平均列宽<span class="hx-absolute -hx-mt-20" id="177-平均列宽"></span>
     <a href="#177-%e5%b9%b3%e5%9d%87%e5%88%97%e5%ae%bd" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>pg_stats 视图中的 avg_width 字段显示了存储在列中的值的平均大小。当然，对于像 integer 或 char(3) 这样的类型，这个大小总是相同的，但是对于变长的数据类型，比如 text，列与列之间可能有很大的不同：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1588,8 +1586,8 @@ $$
 </div>
 <p>规划器对函数的语义一无所知，即使是标准函数也是如此。我们的常识表明，在一月份执飞的航班数量大约占总航班数量的 1/12 左右，这一数字比预测值高出一个数量级。</p>
 <p>为了提高估算的准确性，我们需要收集表达式统计信息，而不是依赖于列级别的统计信息。有两种方法可以做到这一点。</p>
-<h3>17.9.1 扩展表达式统计信息<span class="hx-absolute -hx-mt-20" id="1791-扩展表达式统计信息"></span>
-    <a href="#1791-%e6%89%a9%e5%b1%95%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>第一个方法是使用扩展表达式统计信息 <sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup>。默认情况下不会收集此类统计信息；你必须通过运行 CREATE STATISTICS 命令手动创建相应的数据库对象：</p>
+<h3>17.9.1 <span class="marginalia" data-note="v. 14">扩展表达式统计信息</span><span class="hx-absolute -hx-mt-20" id="1791-span-classmarginalia-data-notev-14扩展表达式统计信息span"></span>
+    <a href="#1791-span-classmarginalia-data-notev-14%e6%89%a9%e5%b1%95%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%afspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>第一个方法是使用扩展表达式统计信息 <sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup>。默认情况下不会收集此类统计信息；你必须通过运行 CREATE STATISTICS 命令手动创建相应的数据库对象：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1634,7 +1632,7 @@ $$
   
 </div>
 <p>要应用所收集的统计信息，查询必须指定和 CREATE STATISTICS 命令形式完全相同的表达式。</p>
-<p>扩展统计信息的大小限制可以通过运行 ALTER STATISTICS 命令单独调整。例如：</p>
+<p>扩展统计信息的大小限制可以通过运行 ALTER STATISTICS 命令<span class="marginalia" data-note="v. 13">单独调整</span>。例如：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1650,7 +1648,7 @@ $$
 
   
 </div>
-<p>所有与扩展统计信息相关的元数据都存储在系统目录的 pg_statistic_ext 表中，而收集的数据本身位于一个名为 pg_statistic_ext_data 的单独的表中。这种分离用于实现对敏感信息的访问控制。</p>
+<p>所有与扩展统计信息相关的元数据都存储在系统目录的 pg_statistic_ext 表中，而收集的数据本身位于一个名为 pg_statistic_ext_data 的单独的表中。这种分离用于<span class="marginalia" data-note="v. 12">实现对敏感信息的访问控制</span>。</p>
 <p>特定用户可用的扩展表达式统计信息位于一个单独的视图中，以一种更简便的格式显示：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1737,7 +1735,7 @@ $$
 
   
 </div>
-<p>你可以使用 ALTER INDEX 命令来调整与索引相关的统计信息的准确性。如果你不知道索引表达式对应的列名，则需要先找出它。例如：</p>
+<p>你可以使用 ALTER INDEX 命令来<span class="marginalia" data-note="v. 11">调整与索引相关的统计信息的准确性</span>。如果你不知道索引表达式对应的列名，则需要先找出它。例如：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1763,8 +1761,8 @@ $$
 <h2>17.10 多元统计信息<span class="hx-absolute -hx-mt-20" id="1710-多元统计信息"></span>
     <a href="#1710-%e5%a4%9a%e5%85%83%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>你还可以收集涵盖多个列的多元统计信息。作为前置条件，你必须使用 CREATE STATISTICS 命令手动创建相应的扩展统计信息。</p>
 <p>PostgreSQL 实现了三种类型的多元统计信息。</p>
-<h3>17.10.1 列之间的函数依赖<span class="hx-absolute -hx-mt-20" id="17101-列之间的函数依赖"></span>
-    <a href="#17101-%e5%88%97%e4%b9%8b%e9%97%b4%e7%9a%84%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一列中的值 (完全或部分) 依赖于另一列中的值，并且过滤条件包括这两列，那么基数预估会偏低。</p>
+<h3>17.10.1 <span class="marginalia" data-note="v. 10">列之间的函数依赖</span><span class="hx-absolute -hx-mt-20" id="17101-span-classmarginalia-data-notev-10列之间的函数依赖span"></span>
+    <a href="#17101-span-classmarginalia-data-notev-10%e5%88%97%e4%b9%8b%e9%97%b4%e7%9a%84%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一列中的值 (完全或部分) 依赖于另一列中的值，并且过滤条件包括这两列，那么基数预估会偏低。</p>
 <p>让我们考虑一个包含两个过滤条件的查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1812,7 +1810,7 @@ $$
 
   
 </div>
-<p>这是关联谓词的一个众所周知的问题。规划器会假设谓词之间互不依赖，因此整体选择率被估算为逻辑与连接的过滤条件的选择率之积。上面的计划清楚地说明了这个问题：一旦 Bitmap Heap Scan 节点按 departure_airport 列的条件过滤结果，那么 Bitmap Index scan 在 flight_no 列上的条件的预估值就会大大减少。</p>
+<p>这是关联谓词的一个众所周知的问题。规划器会假设谓词之间互不依赖，因此整体选择率被估算为逻辑与连接的过滤条件的选择率之积。上面的计划清楚地说明了这个问题：一旦 Bitmap Heap Scan 节点按 departure_airport 列的条件过滤结果，那么 Bitmap Index Scan 在 flight_no 列上的条件的预估值就会大大减少。</p>
 <p>然而，我们确实知道飞机是由航班号明确定义的：第二个条件实际上是多余的 (当然，除非机场名称有误)。在这种情况下，我们可以通过应用函数依赖的扩展统计信息来改善估算。</p>
 <p>让我们在两个列之间的函数依赖上创建一个扩展统计信息：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1881,8 +1879,8 @@ $$
   
 </div>
 <p>此处的 2 和 5 是存储在 pg_attribute 表中的列编号，而相应的值定义了函数依赖的程度：从 0 (无依赖) 到 1 (第二列中的值完全依赖于第一列中的值)。</p>
-<h3>17.10.2 多元非重复值的数量<span class="hx-absolute -hx-mt-20" id="17102-多元非重复值的数量"></span>
-    <a href="#17102-%e5%a4%9a%e5%85%83%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>不同列中值的唯一组合的统计信息可以改善在多个列上执行的 GROUP BY 操作的基数估算。</p>
+<h3>17.10.2 <span class="marginalia" data-note="v. 10">多元非重复值的数量</span><span class="hx-absolute -hx-mt-20" id="17102-span-classmarginalia-data-notev-10多元非重复值的数量span"></span>
+    <a href="#17102-span-classmarginalia-data-notev-10%e5%a4%9a%e5%85%83%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>不同列中值的唯一组合的统计信息可以改善在多个列上执行的 GROUP BY 操作的基数估算。</p>
 <p>例如，此处估算的可能的出发机场和到达机场的配对数量是机场总数的平方；然而，实际值要小得多，因为并非所有的机场对都通过直达航班连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1976,8 +1974,8 @@ $$
 
   
 </div>
-<h3>17.10.3 多元 MCV 列表<span class="hx-absolute -hx-mt-20" id="17103-多元-mcv-列表"></span>
-    <a href="#17103-%e5%a4%9a%e5%85%83-mcv-%e5%88%97%e8%a1%a8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果值的分布不均，仅依赖函数依赖可能是不够的，因为估算的准确性高度依赖于特定的一组值。例如，规划器低估了波音 737 从谢列梅捷沃机场出发的航班数量：</p>
+<h3>17.10.3 <span class="marginalia" data-note="v. 12">多元 MCV 列表</span><span class="hx-absolute -hx-mt-20" id="17103-span-classmarginalia-data-notev-12多元-mcv-列表span"></span>
+    <a href="#17103-span-classmarginalia-data-notev-12%e5%a4%9a%e5%85%83-mcv-%e5%88%97%e8%a1%a8span" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果值的分布不均，仅依赖函数依赖可能是不够的，因为估算的准确性高度依赖于特定的一组值。例如，规划器低估了波音 737 从谢列梅捷沃机场出发的航班数量：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -2070,8 +2068,8 @@ $$
 
   
 </div>
-<p>就像常规 MCV 列表一样，多元 MCV 列表包含 default_statistics_target 个值 (如果在列级别也设置了该参数，则使用其最大值)。</p>
-<p>如果需要，你也可以像对扩展表达式统计信息那样更改列表大小：</p>
+<p>就像常规 MCV 列表一样，多元 MCV 列表包含 <span class="marginalia" data-note="100"><em>default_statistics_target</em></span> 个值 (如果在列级别也设置了该参数，则使用其最大值)。</p>
+<p>如果需要，你也可以像对扩展表达式统计信息那样<span class="marginalia" data-note="v. 13">更改列表大小</span>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -2089,7 +2087,7 @@ $$
 </div>
 <p>在所有这些示例中，我只使用了两列，但你同样可以收集更多列的多元统计信息。</p>
 <p>要在一个对象中组合多种类型的统计信息，你可以在其定义中提供这些类型的逗号分隔列表。如果没有指定类型，那么 PostgresSQL 会收集指定列的所有可能类型的统计信息。</p>
-<p>除了实际的列名，多元统计信息还可以使用任意表达式，就像表达式统计信息一样。</p>
+<p>除了实际的列名，多元统计信息还可以<span class="marginalia" data-note="v. 14">使用任意表达式</span>，就像表达式统计信息一样。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

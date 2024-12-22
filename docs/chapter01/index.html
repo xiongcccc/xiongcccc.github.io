@@ -794,7 +794,8 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 <p><strong>template0</strong> 用于从逻辑备份中恢复数据或创建一个含有不同编码的数据库等情况，绝对不可修改此数据库。</p>
 <p><strong>template1</strong> 作为用户在集簇中创建的所有其他数据库的模板。</p>
 <p><strong>postgres</strong> 是一个常规的数据库，你可以根据需要使用。</p>
-<p><img src="1-1.png" alt="" loading="lazy" /></p>
+<img src="1-1.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <h3>1.1.2 系统目录<span class="hx-absolute -hx-mt-20" id="112-系统目录"></span>
     <a href="#112-%e7%b3%bb%e7%bb%9f%e7%9b%ae%e5%bd%95" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>所有集簇对象 (例如表、索引、数据类型或函数) 的元数据都存储在属于系统目录 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 的表中。每个数据库都有其自己的一组用于描述该数据库对象的表 (和视图)。有几个系统目录表是整个集簇共有的，它们不属于任何特定的数据库 (从技术上讲，使用的是一个 ID 为零的虚拟数据库)，但可以从所有数据库中访问这些表。</p>
 <p>系统目录可以使用常规 SQL 查询进行查看，所有对系统目录的修改都是通过 DDL 命令执行的。psql 客户端还提供了一系列命令，用于显式系统目录的内容。</p>
@@ -816,7 +817,8 @@ postgres 是一个常规的数据库，你可以根据需要使用。
     <a href="#114-%e8%a1%a8%e7%a9%ba%e9%97%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>不同于决定对象逻辑分布的数据库和模式，表空间定义了物理数据布局。表空间实际上是文件系统中的一个目录。你可以在表空间之间分布数据，使得归档数据存储在低速磁盘上，而频繁更新的数据则存储在快速磁盘上。</p>
 <p>同一个表空间可以被不同数据库使用，并且每个数据库可以在多个表空间中存储数据。这意味着逻辑结构和物理数据布局并不相互依赖。</p>
 <p>每个数据库都有所谓的默认表空间。除非指定了其他位置，否则所有数据库对象都在此表空间中创建。与该数据库相关的系统目录对象也存储在那里。</p>
-<p><img src="1-2.png" alt="" loading="lazy" /></p>
+<img src="1-2.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>在集簇初始化期间，会创建两个表空间：</p>
 <p><strong>pg_default</strong> 位于 PGDATA/base 目录中；除非明确选择了另一个表空间，否则它会被用作默认表空间。</p>
 <p><strong>pg_global</strong> 位于 PGDATA/global 目录中；它存储着整个集簇公共的系统目录对象。</p>
@@ -835,7 +837,8 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 <p>起初，分支由一个单一文件表示。其文件名由一个数字 ID (oid) 组成，可以通过与分支类型相对应的后缀来扩展。</p>
 <p>随着时间的推移，文件会增长，当其大小达到 1GB 时，就会创建该分支的另一个文件 (这些文件有时被称为段)。段的序列号会被添加到文件名的末尾。</p>
 <p>1GB 的文件大小限制历史上是为了支持各种无法处理大文件的文件系统而设定的。在编译 PostgreSQL 时，你可以更改此限制 (./configure &ndash;with-segsize)。</p>
-<p><img src="1-3.png" alt="" loading="lazy" /></p>
+<img src="1-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>因此，单个关系在磁盘上由多个文件表示。即使是没有索引的小表，也至少会有三个文件，对应于必需的分支数量。</p>
 <p>每个表空间目录 (pg_global 除外) 都包含特定数据库的单独子目录。属于同一表空间和数据库的对象，其所有文件都位于同一子目录中。你必须要考虑到这一点，因为文件系统可能无法很好地处理单个目录中存在太多文件的情况。</p>
 <p>有几种标准类型的分支。</p>
@@ -962,7 +965,7 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 <p>为了加快搜索速度，空闲空间映射以一棵树的形式组织，它至少有三个数据页 (因此即使是几乎空的表，其文件大小也会有所体现)。</p>
 <p>空闲空间映射既适用于表，也适用于索引。但是，由于索引行不能被添加到任意页面 (例如，B 树根据排序的顺序定义插入位置)，PostgreSQL 只跟踪那些已经完全清空并且可以在索引结构中重用的页面。</p>
 <p><strong>可见性映射</strong> <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 可以快速显示页面是否需要被清理或冻结。 为此，它为每个表页面提供了两个比特位。第一个比特，为仅包含最新行版本的页面设置。vacuum 操作会跳过这样的页面，因为没有东西需要清理。此外，当某个事务尝试从这样的页面读取一行数据时，没有必要检查其可见性，因此便可以使用仅索引扫描。</p>
-<p>第二个比特，当页面包含的行版本都已被冻结后，便会设置该比特位。我将使用&quot;冻结映射&quot;术语来指代这部分分支。</p>
+<p><span class="marginalia" data-note="v. 9.6">当页面包含的行版本都已被冻结后</span>，便会设置第二个比特。我将使用&quot;冻结映射&quot;术语来指代这部分分支。</p>
 <p>可见性映射文件带有 _vm 后缀。它们通常是最小的文件：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1045,7 +1048,7 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 <p>如果这一行仍然不够短，那么 main 属性将被移动到 TOAST 表中。</p>
 </li>
 </ol>
-<p>阈值是 2000 字节，但可以通过使用 toast_tuple_target 存储参数在表级别重新定义。</p>
+<p>阈值是 2000 字节，但可以通过使用 <em>toast_tuple_target</em> 存储参数<span class="marginalia" data-note="v. 11">在表级别重新定义。</span></p>
 <p>有时更改某些列的默认策略可能是有用的。如果事先知道特定列中的数据不能被压缩 (例如，此列存储 JPEG 图像)，那么你可以设置该列为 external 策略；这可以避免去徒劳地尝试压缩数据。策略可以按如下所示进行更改：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1232,7 +1235,7 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 </div>
 <p>我们可以看到字符被切成块。块大小的选择方式是：使得 TOAST 表的页面可以容纳四行。这个值在不同的版本中有所差异，取决于页头的大小。</p>
 <p>当访问一个长属性时，PostgreSQL 会自动恢复原始值并返回给客户端，这一切对于应用来说无缝进行。如果长属性不参与查询，那么根本不会读取 TOAST 表。这就是为什么在生产解决方案中应避免使用 * 的原因之一。</p>
-<p>如果客户端查询长值的前几个块，即使值已被压缩，PostgreSQL 也只会读取所需的块。</p>
+<p>如果客户端查询长值的前几个块，即使值已被压缩，<span class="marginalia" data-note="v. 13">PostgreSQL 也只会读取所需的块</span>。</p>
 <p>然而，数据压缩和切片需要大量资源；恢复原始值也是如此。这就是为什么将大量数据存储在 PostgreSQL 中并不是一个好主意，特别是如果这些数据正在被频繁使用，并且不需要事务逻辑 (如扫描的账户文件)。一个可能的更好选择是将这些数据存储在文件系统中，数据库中只保留相应文件的名称。但这样数据库系统就不能保证数据的一致性了。</p>
 <h2>1.2 进程和内存<span class="hx-absolute -hx-mt-20" id="12-进程和内存"></span>
     <a href="#12-%e8%bf%9b%e7%a8%8b%e5%92%8c%e5%86%85%e5%ad%98" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>一个 PostgreSQL 服务实例由多个相辅相成的进程组成。</p>
@@ -1258,7 +1261,8 @@ postgres 是一个常规的数据库，你可以根据需要使用。
 <p>由于磁盘 (尤其是 HDD，但 SSD 也是如此) 的速度比 RAM 慢得多，因此 PostgreSQL 使用了缓存：保留一部分共享内存用于最近读取的页面，寄希望于这些页面会被多次使用，从而减少重复访问磁盘的开销。被修改的数据会在一定的延迟后再刷盘，而不是立即刷新。</p>
 <p>缓冲区缓存占据了大部分的共享内存，共享内存中还包含其他由服务器用来加速磁盘访问的缓冲区。</p>
 <p>操作系统也有其自己的缓存。PostgreSQL (几乎) 从不绕过操作系统机制而使用 direct I/O，因此这会导致双缓存。</p>
-<p><img src="1-4.png" alt="" loading="lazy" /></p>
+<img src="1-4.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>如果发生故障 (例如断电或操作系统崩溃) ，存储在 RAM 中的数据会丢失，包括缓冲区缓存中的数据。保留在磁盘上的文件包括在不同时间点写入的页面。为了能够恢复数据的一致性，PostgreSQL 在其运行期间维护了预写式日志 (WAL)，这使得在必要时，可以重复执行丢失的操作。</p>
 <h2>1.3 客户端和服务端协议<span class="hx-absolute -hx-mt-20" id="13-客户端和服务端协议"></span>
     <a href="#13-%e5%ae%a2%e6%88%b7%e7%ab%af%e5%92%8c%e6%9c%8d%e5%8a%a1%e7%ab%af%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>postmaster 进程的另一项任务是监听传入的连接。一旦出现新的客户端，postmaster 便会生成一个单独的后端进程 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>，并与该后端进程建立连接，开始会话。会话持续至客户端断开连接或连接丢失。</p>

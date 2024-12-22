@@ -46,7 +46,7 @@ WAL 条目可以按以下模式之一写入：
 在潜在的暂停之后，完成事务的进程将所有累积的 WAL 条目刷新到磁盘并执行同步 (重要的是保存提交记录以及之前与此事务相关的所有条目；其余的被写入，只是因为不会增加成本)。
 从此刻起，ACID 的持久性要求得到保证 — 事务被认为已可靠提交了 4。这就是为什么同步模式是默认模式的原因。
 同步提交的缺点是延迟较长 (COMMIT 命令直到同步结束才返回控制) 和较低的系统吞吐量，尤其是对于 OLTP 负载。">
-  <meta itemprop="wordCount" content="1496">
+  <meta itemprop="wordCount" content="1497">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 11 章：WAL 模式">
   <meta name="twitter:description" content="11.1 性能 当服务器正常运行时，WAL 文件会不断写入磁盘。然而，这些写入是顺序的：几乎没有随机访问，因此即使是 HDD 也能应对这项任务。因为这种类型的负载与典型的数据文件访问非常不同，因此可能值得为 WAL 文件设置单独的物理存储，并将 PGDATA/pg_wal 目录替换为指向已挂载文件系统中目录的符号链接。
@@ -778,23 +778,23 @@ WAL 条目可以按以下模式之一写入：
 <li>同步模式在事务提交时，将所有相关的 WAL 条目保存至磁盘之前会禁止任何进一步的操作。</li>
 <li>异步模式意味着立即提交事务，随后在后台将 WAL 条目写入磁盘。</li>
 </ul>
-<p>当前模式由 synchronous_commit 参数定义。</p>
+<p>当前模式由 <span class="marginalia" data-note="on"><em>synchronous_commit</em></span> 参数定义。</p>
 <p><strong>同步模式</strong>。为了可靠地记录提交的事实，仅仅将 WAL 条目传递给操作系统是不够的；你还必须确保磁盘同步已经成功完成。由于同步涉及实际的 IO 操作 (非常慢)，因此尽可能少地执行它是有益的。</p>
-<p>为此，完成事务并将 WAL 条目写入磁盘的后端进程可以按照 commit_delay 参数定义的时间暂停一小会。但是，这只会发生在系统中至少有 commit_siblings 个活跃事务的情况下 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>：在这段暂停期间，其中一些事务可能会完成，服务器会设法一次性同步所有的 WAL 条目。这很像扶着电梯门让某人赶上电梯。</p>
-<p>默认情况下不会暂停。只有在执行大量短 OLTP 事务的系统中，修改 commit_delay 参数才有意义。</p>
+<p>为此，完成事务并将 WAL 条目写入磁盘的后端进程可以按照 <span class="marginalia" data-note="0s"><em>commit_delay</em></span> 参数定义的时间暂停一小会。但是，这只会发生在系统中至少有 <span class="marginalia" data-note="5"><em>commit_siblings</em></span> 个活跃事务的情况下 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>：在这段暂停期间，其中一些事务可能会完成，服务器会设法一次性同步所有的 WAL 条目。这很像扶着电梯门让某人赶上电梯。</p>
+<p>默认情况下不会暂停。只有在执行大量短 OLTP 事务的系统中，修改 <em>commit_delay</em> 参数才有意义。</p>
 <p>在潜在的暂停之后，完成事务的进程将所有累积的 WAL 条目刷新到磁盘并执行同步 (重要的是保存提交记录以及之前与此事务相关的所有条目；其余的被写入，只是因为不会增加成本)。</p>
 <p>从此刻起，ACID 的持久性要求得到保证 — 事务被认为已可靠提交了 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。这就是为什么同步模式是默认模式的原因。</p>
 <p>同步提交的缺点是延迟较长 (COMMIT 命令直到同步结束才返回控制) 和较低的系统吞吐量，尤其是对于 OLTP 负载。</p>
-<p><strong>异步模式</strong>。为了开启异步提交 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>，你需要关闭 synchronous_commit 参数。</p>
-<p>在异步模式下，WAL 条目由 walwriter <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 进程写入磁盘，该进程在工作和休息之间交替。暂停的持续时间由 wal_writer_delay 定义。</p>
+<p><strong>异步模式</strong>。为了开启异步提交 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>，你需要关闭 <em>synchronous_commit</em> 参数。</p>
+<p>在异步模式下，WAL 条目由 walwriter <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 进程写入磁盘，该进程在工作和休息之间交替。暂停的持续时间由 <span class="marginalia" data-note="200ms"><em>wal_writer_delay</em></span> 定义。</p>
 <p>从暂停中醒来后，walwriter 进程检查缓存中是否有新的完全填满的 WAL 页面。如果出现任何此类页面，那么 walwriter 进程会跳过当前的页面，将此类页面写入磁盘。否则，它会写入当前半空的页面，因为它已经被唤醒了 <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。</p>
 <p>这个算法的目的是避免多次刷新同一个页面，这对于数据变化密集的工作负载可以带来显著的性能提升。</p>
 <p>虽然 WAL 缓存使用环形缓冲区，但 walwriter 在到达缓存的最后一页时会停止；暂停后，下一个写入周期会从第一页开始。因此，在最坏的情况下，walwriter 需要运行 3 次才能到达特定的 WAL 条目：首先，写入所有位于缓存末尾的完整页面，然后它会回到开头，最后处理包含该条目的未满页面。但在大多数情况下，它只需要一到两个周期。</p>
-<p>每当写入 wal_writer_flush_after 量的数据后，便会执行同步，并在写入周期结束时再次执行同步。</p>
-<p>异步提交比同步提交更快，因为它们不必等待磁盘物理写入。但是可靠性会受到影响：你可能会丢失在故障前三倍 wal_writer_delay 时间范围内提交的数据 (默认为 0.6 秒)。</p>
+<p>每当写入 <span class="marginalia" data-note="1MB"><em>wal_writer_flush_after</em></span> 量的数据后，便会执行同步，并在写入周期结束时再次执行同步。</p>
+<p>异步提交比同步提交更快，因为它们不必等待磁盘物理写入。但是可靠性会受到影响：你可能会丢失在故障前三倍 <em>wal_writer_delay</em> 时间范围内提交的数据 (默认为 0.6 秒)。</p>
 <p>在实际情况中，这两种模式相辅相成。在同步模式下，与长事务相关的 WAL 条目仍然可以异步写入以释放 WAL 缓冲区。反之亦然，即使在异步模式下，与即将从缓冲区缓存中逐出的页面相关的 WAL 条目也会立即刷新到磁盘 — 否则无法继续操作。</p>
 <p>在大多数情况下，系统设计人员必须在性能和持久性之间做出艰难的选择。</p>
-<p>synchronous_commit 参数也可以针对特定事务设置。如果可以在应用程序级别将所有事务分类为绝对关键 (如处理财务数据) 或不那么重要，那么你可以提高性能，同时冒着只丢失非关键事务的风险。</p>
+<p><em>synchronous_commit</em> 参数也可以针对特定事务设置。如果可以在应用程序级别将所有事务分类为绝对关键 (如处理财务数据) 或不那么重要，那么你可以提高性能，同时冒着只丢失非关键事务的风险。</p>
 <p>为了了解异步提交潜在的性能增益，让我们使用 pgbench <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>  测试比较两种模式下的延迟和吞吐量。</p>
 <p>首先，初始化所需的表：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -898,13 +898,13 @@ WAL 条目可以按以下模式之一写入：
 <p>检查点进程也必须以可靠的方式保存数据，确保脏页从操作系统缓存进入磁盘。此外，它还必须同步其他进程已经执行的所有文件操作 (如页面写入或文件删除)：当检查点完成时，所有这些操作的结果必须已经保存在磁盘上 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>。</p>
 <p>还有一些其他情况需要 fail-safe 写入，例如在 minimal WAL 级别下执行未记录日志的操作。</p>
 <p>操作系统提供了多种方式以保证将数据立即写入非易失性存储。所有方式都可归结为以下两种主要方式：要么在写入后调用单独的同步命令 (例如 fsync 或 fdatasync)，要么在打开或写入文件时指定执行同步的要求 (甚至绕过操作系统缓存的直接写入)。</p>
-<p>pg_test_fsync 工具可以帮助你根据操作系统和文件系统确认同步 WAL 的最佳方式；首选方式可以在 wal_sync_method 参数中指定。对于其他操作，会自动选择合适的同步方式，无法配置 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>。</p>
+<p>pg_test_fsync 工具可以帮助你根据操作系统和文件系统确认同步 WAL 的最佳方式；首选方式可以在 <em>wal_sync_method</em> 参数中指定。对于其他操作，会自动选择合适的同步方式，无法配置 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>。</p>
 <p>这里一个微妙的方面是，在每种特定情况下，最合适的方式取决于硬件。例如，如果你使用带有备用电池的控制器，那么可以利用其缓存，因为电池可以在断电时保护数据。</p>
-<p>你应该记住，异步提交和缺乏同步是两个完全不同的事情。关闭同步 (通过 fsync 参数) 可以提高系统性能，但任何故障都会导致致命的数据丢失。异步模式可以保证崩溃恢复到一致的状态，但一些最新的数据更新可能会丢失。</p>
+<p>你应该记住，异步提交和缺乏同步是两个完全不同的事情。关闭同步 (通过 <span class="marginalia" data-note="on"><em>fsync</em></span> 参数) 可以提高系统性能，但任何故障都会导致致命的数据丢失。异步模式可以保证崩溃恢复到一致的状态，但一些最新的数据更新可能会丢失。</p>
 <h3>11.2.2 数据损坏<span class="hx-absolute -hx-mt-20" id="1122-数据损坏"></span>
     <a href="#1122-%e6%95%b0%e6%8d%ae%e6%8d%9f%e5%9d%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>技术设备并不是完美无缺的，数据在内存中、磁盘上，或通过接口电缆传输时都可能受损。这类错误通常在硬件层处理，但仍有些可能会遗漏。</p>
 <p>为了及时发现问题，PostgreSQL 始终通过校验和保护 WAL 条目。</p>
-<p>数据页也可以计算校验和 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。这可以在集群初始化期间完成，也可以在服务器停止时 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 通过运行 pg_checksums <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup>  工具来完成。</p>
+<p>数据页也可以计算校验和 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。这可以在集群初始化期间完成，也可以在服务器停止时 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 通过运行 <span class="marginalia" data-note="v. 12">pg_checksum</span> <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup>  工具来完成。</p>
 <p>在生产系统中，应该始终启用校验和，尽管有一些 (较小的) 计算和验证的开销。这提高了及时发现数据损坏的机会，即使仍然会存在一些极端的情况：</p>
 <ul>
 <li>只有在访问页面时才会执行校验和检验，因此数据损坏可能会在很长一段时间内都不会被察觉，直到它扩散到所有备份，导致没有了正确数据的来源。</li>
@@ -994,7 +994,7 @@ WAL 条目可以按以下模式之一写入：
 
   
 </div>
-<p>如果无法从备份中恢复数据，那么至少尝试读取损坏的页面是有意义的 (有可能得到混乱的输出)。 为此，你需要启用 ignore_checksum_failure 参数：</p>
+<p>如果无法从备份中恢复数据，那么至少尝试读取损坏的页面是有意义的 (有可能得到混乱的输出)。 为此，你需要启用 <span class="marginalia" data-note="off"><em>ignore_checksum_failure</em></span> 参数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1020,10 +1020,10 @@ WAL 条目可以按以下模式之一写入：
 <p>在此情况下，一切都进行得很顺利，因为我们损坏的是页头的非关键部分 (最新 WAL 条目的 LSN)，而不是数据本身。</p>
 <h3>11.2.3 非原子写<span class="hx-absolute -hx-mt-20" id="1123-非原子写"></span>
     <a href="#1123-%e9%9d%9e%e5%8e%9f%e5%ad%90%e5%86%99" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>数据库页面通常占 8 kB，但是在更底层，写入是按块执行的，这些块通常更小 (通常是 512 字节或 4 kB)。 因此，如果发生故障，页面可能仅写入了部分。在恢复期间，将常规的 WAL 条目应用于这类页面是没有意义的。</p>
-<p>为了避免部分写入，PostgreSQL 会在 WAL 中保存检查点启动之后首次被修改页面的完整镜像 (FPI)。此行为由 full_page_writes 参数控制，但将其关闭可能会导致严重的数据损坏。</p>
+<p>为了避免部分写入，PostgreSQL 会在 WAL 中保存检查点启动之后首次被修改页面的完整镜像 (FPI)。此行为由 <span class="marginalia" data-note="on"><em>full_page_writes</em></span> 参数控制，但将其关闭可能会导致严重的数据损坏。</p>
 <p>如果恢复进程在 WAL 中遇到了 FPI ，那么它将无条件地将其写入磁盘 (不检查它的 LSN )；就像任何 WAL 条目一样，FPI 也受到校验和的保护，因此其损坏不会被忽视。然后，常规 WAL 条目将应用于这一状态，这一状态被保证是正确的。</p>
-<p>没有单独的 WAL 条目类型用于设置提示位：这种操作被认为是非关键性的，因为任何访问页面的查询都会重新设置所需的位。但是，任何提示位的更改都会影响页面的校验和。 因此，如果启用了校验和 (或者打开了 wal_log_hints 参数)，提示位的修改也将记录为 FPIs <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>。</p>
-<p>即使日志机制从 FPI <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup>  中排除了空白空间，生成的 WAL 文件的大小仍然会显著增加。如果通过wal_compression 参数启用了 WAL 压缩，这种情况可以大大改善。</p>
+<p>没有单独的 WAL 条目类型用于设置提示位：这种操作被认为是非关键性的，因为任何访问页面的查询都会重新设置所需的位。但是，任何提示位的更改都会影响页面的校验和。 因此，如果启用了校验和 (或者打开了 <span class="marginalia" data-note="off"><em>wal_log_hints</em></span> 参数)，提示位的修改也将记录为 FPIs <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>。</p>
+<p>即使日志机制从 FPI <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup>  中排除了空白空间，生成的 WAL 文件的大小仍然会显著增加。如果通过 <span class="marginalia" data-note="off"><em>wal_compression</em></span> 参数启用了 WAL 压缩，这种情况可以大大改善。</p>
 <p>让我们使用 pgbench 工具进行一个简单的实验。我们将执行一个检查点，并立即开始一项带有事务数量限制的基准测试：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1165,16 +1165,16 @@ WAL 条目可以按以下模式之一写入：
 
   
 </div>
-<p>总而言之，当启用了校验和或 full_page_writes 导致了大量 FPI 时 (几乎总是如此)，尽管会有一些额外的 CPU 开销，使用压缩仍是有意义的。</p>
+<p>总而言之，当启用了校验和或 <em>full_page_writes</em> 导致了大量 FPI 时 (几乎总是如此)，尽管会有一些额外的 CPU 开销，使用压缩仍是有意义的。</p>
 <h2>11.3 WAL 级别<span class="hx-absolute -hx-mt-20" id="113-wal-级别"></span>
     <a href="#113-wal-%e7%ba%a7%e5%88%ab" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>预写日志的主要目的是实现崩溃恢复。但是，如果你扩展了记录信息的范围，那么 WAL 也可以用于其他目的。PostgreSQL 提供了 minimal、replica 和 logical 三个日志级别。每个级别包括前一个级别记录的所有内容，并增加了一些额外信息。</p>
-<p>正在使用的级别由 wal_level 参数定义；修改这个参数需要重启服务器。</p>
+<p>正在使用的级别由 <span class="marginalia" data-note="replica"><em>wal_level</em></span> 参数定义；修改这个参数需要重启服务器。</p>
 <h3>11.3.1 Minimal<span class="hx-absolute -hx-mt-20" id="1131-minimal"></span>
     <a href="#1131-minimal" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>minimal 级别仅保证崩溃恢复。为了节省空间，如果当前事务中创建或截断表的操作涉及大量数据插入 (比如 CREATE TABLE AS SELECT 或者 CREATE INDEX 命令) <sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup>，则不记录这些操作。所有需要的数据都会立即刷新到磁盘，而不是记录这些操作，并且系统表的更改在事务提交后立即可见。</p>
 <p>如果此类操作因故障而中断，那么已写入磁盘的数据会不可见，一致性不会受到影响。如果操作完成时发生了故障，所有需要应用后续 WAL 条目的数据都已保存至磁盘上了。</p>
-<p>对于新创建的表，必须写入以使此优化生效的数据量由 wal_skip_threshold 参数定义。</p>
+<p>对于新创建的表，必须写入以<span class="marginalia" data-note="v. 13">使此优化生效</span>的数据量由 <span class="marginalia" data-note="2MB"><em>wal_skip_threshold</em></span> 参数定义。</p>
 <p>让我们看看在 minimal 级别记录了什么。</p>
-<p>默认情况下，使用了更高的 replica 级别，此级别支持数据复制。如果选择 minimal 级别，还必须在 max_wal_senders 参数中将允许的 walsender 进程数设置为零：</p>
+<p>默认情况下，<span class="marginalia" data-note="v. 10">使用了更高的 replica 级别</span>，此级别支持数据复制。如果选择 minimal 级别，还必须在 <span class="marginalia" data-note="10"><em>max_wal_senders</em></span> 参数中将允许的 walsender 进程数设置为零：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 

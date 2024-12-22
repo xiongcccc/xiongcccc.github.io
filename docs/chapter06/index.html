@@ -851,7 +851,7 @@
 
   
 </div>
-<p>autovacuum_enabled 存储参数用于关闭自动清理；此处，我们仅出于实验的目的而关闭它，以精确控制清理的启动时间。</p>
+<p><em>autovacuum_enabled</em> 存储参数用于关闭自动清理；此处，我们仅出于实验的目的而关闭它，以精确控制清理的启动时间。</p>
 <p>让我们插入一行数据并进行几次更新：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1134,10 +1134,10 @@
 </div>
 <p>VACUUM 的输出显示了以下信息：</p>
 <ul>
-<li>VACUUM 没有检测到可以移除的元组 (0 REMOVABLE)。</li>
-<li>两个元组不能被移除 (2 NONREMOVABLE)。</li>
-<li>其中一个不可移除的元组状态是 dead (1 DEAD)，其他的正在使用。</li>
-<li>VACUUM 当前所遵循的视界 (OLDEST XMIN) 是活跃事务的视界。</li>
+<li>VACUUM 没有检测到可以移除的元组 (<code>0 REMOVABLE</code>)。</li>
+<li>两个元组不能被移除 (<code>2 NONREMOVABLE</code>)。</li>
+<li>其中一个不可移除的元组状态是 dead (<code>1 DEAD</code>)，其他的正在使用。</li>
+<li>VACUUM 当前所遵循的视界 (<code>OLDEST XMIN</code>) 是活跃事务的视界。</li>
 </ul>
 <p>一旦活跃事务完成，数据库视界将向前移动，VACUUM 便可以继续：</p>
 <blockquote>
@@ -1237,13 +1237,13 @@
 <p>一切都从扫描表开始，寻找死元组；如果找到，首先从索引中移除它们，然后从表自身中移除。如果一次性需要清理太多的死元组，那么会重复此过程。在最后阶段，可能会执行堆截断。</p>
 <h3>6.3.1 堆扫描<span class="hx-absolute -hx-mt-20" id="631-堆扫描"></span>
     <a href="#631-%e5%a0%86%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在第一阶段，执行堆扫描 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。扫描过程会考虑可见性映射：在此映射中跟踪的所有页面都会被跳过，因为这些页面肯定不包含过期的元组。如果一个元组超出了视界且不再需要，那么其 ID 将被添加到一个特殊的 tid 数组中。这些元组还不能被移除，因为它们仍然可能被索引引用。</p>
-<p>tid 数组位于 VACUUM 进程的本地内存中；分配的内存块大小由 maintenance_work_mem 参数定义。整个内存块是一次性分配的，而不是按需分配。但是，分配的内存永远不会超过最坏情况下所需的容量，因此如果表很小，清理操作可能使用的内存比此参数指定的要少。</p>
+<p>tid 数组位于 VACUUM 进程的本地内存中；分配的内存块大小由 <span class="marginalia" data-note="64MB"><em>maintenance_work_mem</em></span> 参数定义。整个内存块是一次性分配的，而不是按需分配。但是，分配的内存永远不会超过最坏情况下所需的容量，因此如果表很小，清理操作可能使用的内存比此参数指定的要少。</p>
 <h3>6.3.2 索引清理<span class="hx-absolute -hx-mt-20" id="632-索引清理"></span>
     <a href="#632-%e7%b4%a2%e5%bc%95%e6%b8%85%e7%90%86" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>第一阶段可能有两个结果：要么表全部扫描了，要么在此操作完成之前，为 tid 数组分配的内存已满。无论哪种情况，索引清理 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 都会开始。在此阶段，表上创建的每个索引都会被完整扫描，以找到所有引用 tid 数组中记录的元组条目。这些条目将从索引页面中移除。</p>
 <blockquote>
 <p>索引可以通过索引键帮助你快速定位到一个堆元组，但还没有办法通过相应的元组 ID 快速找到索引条目。这个功能目前正在为 B 树实现中 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>，但这项工作尚未完成。</p>
 </blockquote>
-<p>如果有多个大于 min_parallel_index_scan_size 的索引，那么这些索引可以被后台工作进程并行清理。除非子句 parallel N 明确指定了并行度级别，否则 VACUUM 会为每个合适的索引启动一个工作进程 (在后台工作进程数量的总体限制内) <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。一个索引不能由多个工作进程处理。</p>
+<p>如果有多个大于 <span class="marginalia" data-note="512kB"><em>min_parallel_index_scan_size</em></span> 的索引，那么这些索引可以被后台工作进程<span class="marginalia" data-note="v. 13">并行清理</span>。除非子句 parallel N 明确指定了并行度级别，否则 VACUUM 会为每个合适的索引启动一个工作进程 (在后台工作进程数量的总体限制内) <sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup>。一个索引不能由多个工作进程处理。</p>
 <p>在索引清理阶段，PostgreSQL 会更新空闲空间映射并计算清理的统计信息。但是，如果仅插入行 (既不删除也不更新)，那么会跳过此阶段，因为在此情况下表中没有死元组。那么，只有在最后，作为独立的索引规整 (index cleanup) <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>  阶段的一部分，才会强制进行一次索引扫描。</p>
 <p>索引清理阶段在索引中不再保留对过期堆元组的引用，但这些元组本身仍然存在于表中。这是正常的：索引扫描无法找到任何死元组，而对表的顺序扫描依赖于可见性规则将它们过滤掉。</p>
 <h3>6.3.3 堆清理<span class="hx-absolute -hx-mt-20" id="633-堆清理"></span>
@@ -1254,7 +1254,7 @@
     <a href="#634-%e5%a0%86%e6%88%aa%e6%96%ad" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>已清理的堆页面包含一些空闲空间；有时，你可能会幸运地清除整个页面。如果文件末尾有若干个空页面，那么清理进程可以&quot;咬掉&quot;这条尾巴，并将回收的空间返回给操作系统。这发生在堆截断 <sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 期间，即清理的最后阶段。</p>
 <p>堆截断需要获取表上短暂的排它锁。为了避免阻塞其他进程太久，尝试获取锁的时间不超过 5 秒。</p>
 <p>由于需要锁表，因此仅当尾部空闲空间至少占表大小的 1/16 或达到 1000 页的长度时，才会执行截断。这些阈值是硬编码的，无法配置。</p>
-<p>如果，尽管采取了这些预防措施，表锁仍然可能会导致问题，那么可以使用 vacuum_truncate 和 toast.vacuum_truncate 存储参数完全禁用截断。</p>
+<p>如果，尽管采取了这些预防措施，表锁仍然可能会导致问题，那么可以使用 <em>vacuum_truncate</em> 和 <em>toast.vacuum_truncate</em> 存储参数<span class="marginalia" data-note="v. 12">彻底禁用截断</span>。</p>
 <h2>6.4 分析<span class="hx-absolute -hx-mt-20" id="64-分析"></span>
     <a href="#64-%e5%88%86%e6%9e%90" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>在讨论清理时，我们必须提到另一个与之密切相关的任务，即使它们之间没有正式的联系。这便是分析 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup>，或者说为查询规划器收集统计信息。收集的统计信息包括表中的行数 (pg_class.reltuples) 和页数(pg_class.relpages)、列中的数据分布情况以及一些其他信息。</p>
 <p>你可以使用 ANALYZE <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 命令手动运行分析，或通过调用 VACUUM ANALYZE 将其与 VACUUM 相结合。不过这两个任务还是顺序执行的，所以性能方面没有区别。</p>
@@ -1269,8 +1269,8 @@
 <p>此外，典型的工作负载可能会随着时间而变化，因此就算有一个固定的清理计划也无济于事：表更新得越频繁，就越需要更频繁地进行清理。</p>
 <p>这个问题由自动清理 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup> 解决，它根据表更新的强度启动清理和分析进程。</p>
 <h3>6.5.1 自动清理机制<span class="hx-absolute -hx-mt-20" id="651-自动清理机制"></span>
-    <a href="#651-%e8%87%aa%e5%8a%a8%e6%b8%85%e7%90%86%e6%9c%ba%e5%88%b6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>启用自动清理时 (autovacuum 配置参数为 on) ，系统中始终运行着自动清理守护进程。该进程定义了自动清理的周期，并根据统计信息维护着&quot;活跃&quot;数据库的列表。如果启用了 track_counts 参数，则会收集此类统计信息。不要关闭这些参数，否则自动清理将无法工作。</p>
-<p>每隔 autovacuum_naptime 时间，自动清理守护进程就会为列表中的每个活跃数据库启动一个自动清理工作进程 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> (这些工作进程如往常一样由 postmaster 创建) 。因此，如果集簇中有 N 个活跃数据库，那么在 autovacuum_naptime 时间间隔内将生成 N 个工作进程。但是，并行运行的自动清理工作进程总数不能超过 autovacuum_max_workers 参数定义的阈值。</p>
+    <a href="#651-%e8%87%aa%e5%8a%a8%e6%b8%85%e7%90%86%e6%9c%ba%e5%88%b6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>启用自动清理时 (<span class="marginalia" data-note="on"><em>autovacuum</em></span> 配置参数为 on) ，系统中始终运行着自动清理守护进程。该进程定义了自动清理的周期，并根据统计信息维护着&quot;活跃&quot;数据库的列表。如果启用了 <span class="marginalia" data-note="on"><em>track_counts</em></span> 参数，则会收集此类统计信息。不要关闭这些参数，否则自动清理将无法工作。</p>
+<p>每隔 <span class="marginalia" data-note="1min"><em>autovacuum_naptime</em></span> 时间，自动清理守护进程就会为列表中的每个活跃数据库启动一个自动清理工作进程 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> (这些工作进程如往常一样由 postmaster 创建) 。因此，如果集簇中有 N 个活跃数据库，那么在 <em>autovacuum_naptime</em> 时间间隔内将生成 N 个工作进程。但是，并行运行的自动清理工作进程总数不能超过  <span class="marginalia" data-note="3"><em>autovacuum_max_workers</em></span> 参数定义的阈值。</p>
 <blockquote>
 <p>自动清理工作进程与常规的后台工作进程十分相似，但它们比这种通用的任务管理机制出现得早得多。自动清理的实现决定保持不变，因此自动清理工作进程不使用 max_worker_processes 槽。</p>
 </blockquote>
@@ -1283,59 +1283,59 @@
 <p>自动清理的工作方式类似于 VACUUM 命令发起的手动清理，但有一些细微差别：</p>
 <ul>
 <li>
-<p>手动清理会在 maintenance_work_mem 所指定大小的内存块中累积元组 ID。但是，对自动清理使用相同的限制是不可取的，因为这会导致过多的内存消耗：可能有多个自动清理工作进程同时运行，每个工作进程都会同时获得 maintenance_work_mem 大小的内存。相反，PostgreSQL 为自动清理进程提供了单独的内存限制，该限制由 autovacuum_work_mem 参数定义。</p>
-<p>默认情况下，autovacuum_work_mem 参数回退到常规 maintenance_work_mem 参数的限制，因此如果 autovacuum_max_workers 的值较高，你可能需要相应地调整 autovacuum_work_mem 的值。</p>
+<p>手动清理会在 <em>maintenance_work_mem</em> 所指定大小的内存块中累积元组 ID。但是，对自动清理使用相同的限制是不可取的，因为这会导致过多的内存消耗：可能有多个自动清理工作进程同时运行，每个工作进程都会同时获得 <em>maintenance_work_mem</em> 大小的内存。相反，PostgreSQL 为自动清理进程提供了单独的内存限制，该限制由 <em>autovacuum_work_mem</em> 参数定义。</p>
+<p>默认情况下，<span class="marginalia" data-note="-1"><em>autovacuum_work_mem</em></span> 参数回退到常规 <em>maintenance_work_mem</em> 参数的限制，因此如果 <em>autovacuum_max_workers</em> 的值较高，你可能需要相应地调整 <em>autovacuum_work_mem</em> 的值。</p>
 </li>
 <li>
 <p>只能通过手动清理才能并发处理表上创建的多个索引；使用自动清理会导致大量并行进程，因此不允许这样做。</p>
 </li>
 </ul>
-<p>如果工作进程未能在 autovacuum_naptime 时间间隔内完成所有预期任务，那么自动清理守护进程会在该数据库中生成另外一个工作进程，并行运行。第二个工作进程会创建自己的待清理和待分析的对象列表，并开始处理它们。表级别层面没有并行性；只有不同的表可以同时被处理。</p>
+<p>如果工作进程未能在 <em>autovacuum_naptime</em> 时间间隔内完成所有预期任务，那么自动清理守护进程会在该数据库中生成另外一个工作进程，并行运行。第二个工作进程会创建自己的待清理和待分析的对象列表，并开始处理它们。表级别层面没有并行性；只有不同的表可以同时被处理。</p>
 <h3>6.5.2 哪些表需要被清理？<span class="hx-absolute -hx-mt-20" id="652-哪些表需要被清理"></span>
     <a href="#652-%e5%93%aa%e4%ba%9b%e8%a1%a8%e9%9c%80%e8%a6%81%e8%a2%ab%e6%b8%85%e7%90%86" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>你可以在表级别禁用自动清理 — 尽管很难想象为什么需要这样做。为此，提供了两个存储参数，一个用于常规的表，另一个用于 TOAST 表：</p>
 <ul>
-<li>autovacuum_enabled</li>
-<li>toast.autovacuum_enabled</li>
+<li><em>autovacuum_enabled</em></li>
+<li><em>toast.autovacuum_enabled</em></li>
 </ul>
 <p>通常情况下，自动清理由累积的死元组数量或新行的插入数量触发。</p>
 <p><strong>死元组累积</strong>。统计信息收集器会不断计算死元组数量；当前死元组的数量显示在名为 pg_stat_all_tables 的系统表中。</p>
 <p>当死元组超过以下两个参数所定义的阈值时，则必须清除死元组：</p>
 <ul>
-<li>autovacuum_vacuum_threshold，指定死元组的数量 (绝对值)</li>
-<li>autovacuum_vacuum_scale_factor，设置表中死元组的比例</li>
+<li><span class="marginalia" data-note="50"><em>autovacuum_vacuum_threshold</em></span>，指定死元组的数量 (绝对值)</li>
+<li><span class="marginalia" data-note="0.2"><em>autovacuum_vacuum_scale_factor</em></span>，设置表中死元组的比例</li>
 </ul>
-<p>如果满足以下条件，则需要进行清理：pg_stat_all_tables.n_dead_tup &gt; autovacuum_vacuum_threshold + autovacuum_vacuum_scale_factor × pg_class.reltuples。</p>
-<p>此处主要参数当然是 autovacuum_vacuum_scale_factor：它的值对于大表很重要 (而且大表可能会导致大部分问题)。默认值 20% 似乎太大，可能需要大幅减小。</p>
+<p>如果满足以下条件，则需要进行清理：pg_stat_all_tables.n_dead_tup &gt; <em>autovacuum_vacuum_threshold</em> + <em>autovacuum_vacuum_scale_factor</em> × pg_class.reltuples。</p>
+<p>此处主要参数当然是 <em>autovacuum_vacuum_scale_factor</em>：它的值对于大表很重要 (而且大表可能会导致大部分问题)。默认值 20% 似乎太大，可能需要大幅减小。</p>
 <p>对于不同的表，最佳参数值可能会有所不同：这很大程度上取决于表的大小和工作负载的类型。设置合理的初始值是有意义的，然后使用存储参数为特定的表覆盖这些值：</p>
 <ul>
-<li>autovacuum_vacuum_threshold 和 toast.autovacuum_vacuum_threshold</li>
-<li>autovacuum_vacuum_scale_factor 和 toast.autovacuum_vacuum_scale_factor</li>
+<li><em>autovacuum_vacuum_threshold</em> 和 <em>toast.autovacuum_vacuum_threshold</em></li>
+<li><em>autovacuum_vacuum_scale_factor</em> 和 <em>toast.autovacuum_vacuum_scale_factor</em></li>
 </ul>
-<p><strong>行插入</strong>。如果仅插入行，而不删除或更新行，那么表中不会包含死元组。但是这样的表也应该被清理以提前冻结堆元组，并更新可见性映射 (从而允许使用仅索引扫描)。</p>
+<p><strong>行插入</strong>。如果仅插入行，而不删除或更新行，那么表中不会包含死元组。但是这样的表也应该被清理<span class="marginalia" data-note="v. 13">以提前冻结堆元组，并更新可见性映射</span> (从而允许使用仅索引扫描)。</p>
 <p>如果自上次清理以来插入的行数超过了另一对类似参数所定义的阈值，那么表便会被清理：</p>
 <ul>
-<li>autovacuum_vacuum_insert_threshold</li>
-<li>autovacuum_vacuum_insert_scale_factor</li>
+<li><span class="marginalia" data-note="1000"><em>autovacuum_vacuum_insert_threshold</em></span></li>
+<li><span class="marginalia" data-note="0.2"><em>autovacuum_vacuum_insert_scale_factor</em></span></li>
 </ul>
 <p>公式如下：</p>
-<p>pg_stat_all_tables.n_ins_since_vacuum &gt; autovacuum_vacuum_insert_threshold + autovacuum_vacuum_insert_scale_factor × pg_class.reltuples</p>
+<p>pg_stat_all_tables.n_ins_since_vacuum &gt; <em>autovacuum_vacuum_insert_threshold</em> + <em>autovacuum_vacuum_insert_scale_factor</em> × pg_class.reltuples</p>
 <p>与前面的示例一样，你可以使用存储参数在表级别覆盖这些值：</p>
 <ul>
-<li>autovacuum_vacuum_insert_threshold 和 TOAST 相对应的参数</li>
-<li>autovacuum_vacuum_insert_scale_factor 和 TOAST 相对应的参数</li>
+<li><em>autovacuum_vacuum_insert_threshold</em> 和 TOAST 相对应的参数</li>
+<li><em>autovacuum_vacuum_insert_scale_factor</em> 和 TOAST 相对应的参数</li>
 </ul>
 <h3>6.5.3 哪些表需要被分析？<span class="hx-absolute -hx-mt-20" id="653-哪些表需要被分析"></span>
     <a href="#653-%e5%93%aa%e4%ba%9b%e8%a1%a8%e9%9c%80%e8%a6%81%e8%a2%ab%e5%88%86%e6%9e%90" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>自动分析只需要处理修改过的行，因此计算比自动清理要简单一些。</p>
 <p>如果自上次分析以来修改的行数超过了以下两个配置参数所定义的阈值，那么就需要对表进行分析：</p>
 <ul>
-<li>autovacuum_analyze_threshold</li>
-<li>autovacuum_analyze_scale_factor</li>
+<li><span class="marginalia" data-note="50"><em>autovacuum_analyze_threshold</em></span></li>
+<li><span class="marginalia" data-note="0.1"><em>autovacuum_analyze_scale_factor</em></span></li>
 </ul>
-<p>如果满足以下条件，则会触发自动分析：pg_stat_all_tables.n_mod_since_analyze &gt; autovacuum_analyze_threshold + autovacuum_analyze_scale_factor × pg_class.reltuples</p>
+<p>如果满足以下条件，则会触发自动分析：pg_stat_all_tables.n_mod_since_analyze &gt; <em>autovacuum_analyze_threshold</em> + <em>autovacuum_analyze_scale_factor</em> × pg_class.reltuples</p>
 <p>要覆盖特定表的自动分析设置，你可以使用同名存储参数：</p>
 <ul>
-<li>autovacuum_analyze_threshold</li>
-<li>autovacuum_analyze_scale_factor</li>
+<li><em>autovacuum_analyze_threshold</em></li>
+<li><em>autovacuum_analyze_scale_factor</em></li>
 </ul>
 <p>由于不会分析 TOAST 表，因此没有相应参数。</p>
 <h3>6.5.4 自动清理实践<span class="hx-absolute -hx-mt-20" id="654-自动清理实践"></span>
@@ -1513,7 +1513,7 @@
 
   
 </div>
-<p>pg_class.reltuples 值被设为 -1；这个替代零值的特殊常数用于区分没有任何统计信息的表和已经分析过的真正的空表。为了方便计算，负值被当做零值处理，因此值是 50 + 0.2 × 0 = 50。</p>
+<p><span class="marginalia" data-note="v. 14">pg_class.reltuples 值被设为 -1</span>；这个替代零值的特殊常数用于区分没有任何统计信息的表和已经分析过的真正的空表。为了方便计算，负值被当做零值处理，因此值是 50 + 0.2 × 0 = 50。</p>
 <p>max_ins_tup 的值是 1000，与预期的 1200 不同，原因也是一样的。</p>
 <p>让我们看一下 analyze 视图：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1606,7 +1606,7 @@
 <p>如果满足以下至少一个条件，将开始进行清理操作：</p>
 <ul>
 <li>累计超过 250 个死元组</li>
-<li>插入表中的行数超过了 200</li>
+<li><span class="marginalia" data-note="v. 13">插入表中的行数超过了 200</span></li>
 </ul>
 <p>让我们再次关闭自动清理 ，并更新 251 行，使阈值超过 1：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1660,32 +1660,32 @@
 <h2>6.6 管理负载<span class="hx-absolute -hx-mt-20" id="66-管理负载"></span>
     <a href="#66-%e7%ae%a1%e7%90%86%e8%b4%9f%e8%bd%bd" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>在页级别操作，清理不会阻塞其他进程；但尽管如此，它仍会增加系统负载，并且可能对性能产生明显影响。</p>
 <h3>6.6.1 Vacuum 限流<span class="hx-absolute -hx-mt-20" id="661-vacuum-限流"></span>
-    <a href="#661-vacuum-%e9%99%90%e6%b5%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了控制清理的强度，PostgreSQL 会在处理表的过程中定期暂停。在完成大约 vacuum_cost_limit 个单位工作后，进程会进入休眠状态，并在 vacuum_cost_delay 时间间隔内保持空闲。</p>
-<p>vacuum_cost_delay 的默认值为 0，意味着例行清理实际上从不休眠，因此 vacuum_cost_limit 的确切值并没有区别。这基于如果管理员不得不手动清理，他们可能希望尽快完成的假设。</p>
-<p>如果设置了睡眠时间，那么每当在缓冲区缓存中的页面处理上花费了 vacuum_cost_limit 个单位工作后，进程就会暂停。如果在缓冲区缓存中找到页面，那么每个页面读取的成本预估为 vacuum_cost_page_hit 个单位，否则为 vacuum_cost_page_miss <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>。如果一个干净的页面被 VACUUM 弄脏了，它会增加额外的 vacuum_cost_page_dirty 单位 <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup>。</p>
-<p>如果保持 vacuum_cost_limit 参数的默认值，VACUUM 在最佳情况下每个周期最多可以处理 200 个页面 (如果所有页面都被缓存，并且没有页面被 VACUUM 弄脏)，在最坏的情况下只能处理 9 个页面 (如果所有页面都从磁盘读取，并且变脏了)。</p>
+    <a href="#661-vacuum-%e9%99%90%e6%b5%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了控制清理的强度，PostgreSQL 会在处理表的过程中定期暂停。在完成大约 <span class="marginalia" data-note="200"><em>vacuum_cost_limit</em></span> 个单位工作后，进程会进入休眠状态，并在 <span class="marginalia" data-note="0"><em>vacuum_cost_delay</em></span> 时间间隔内保持空闲。</p>
+<p><em>vacuum_cost_delay</em> 的默认值为 0，意味着例行清理实际上从不休眠，因此 <em>vacuum_cost_limit</em> 的确切值并没有区别。这基于如果管理员不得不手动清理，他们可能希望尽快完成的假设。</p>
+<p>如果设置了睡眠时间，那么每当在缓冲区缓存中的页面处理上花费了 <em>vacuum_cost_limit</em> 个单位工作后，进程就会暂停。如果在缓冲区缓存中找到页面，那么每个页面读取的成本预估为 <span class="marginalia" data-note="1"><em>vacuum_cost_page_hit</em></span> 个单位，否则为 <span class="marginalia" data-note="2"><em>vacuum_cost_page_miss</em></span> <sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup>。如果一个干净的页面被 VACUUM 弄脏了，它会增加额外的 <span class="marginalia" data-note="20"><em>vacuum_cost_page_dirty</em></span> 单位 <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup>。</p>
+<p>如果保持 <em>vacuum_cost_limit</em> 参数的默认值，VACUUM 在最佳情况下每个周期最多可以处理 200 个页面 (如果所有页面都被缓存，并且没有页面被 VACUUM 弄脏)，在最坏的情况下只能处理 9 个页面 (如果所有页面都从磁盘读取，并且变脏了)。</p>
 <h3>6.6.2 Autovacuum 限流<span class="hx-absolute -hx-mt-20" id="662-autovacuum-限流"></span>
     <a href="#662-autovacuum-%e9%99%90%e6%b5%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Autovacuum 限流 <sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup> 和 VACUUM 限流十分类似。但是，Autovacuum 可以以不同的强度运行，因为它有自己的一套参数：</p>
 <ul>
-<li>autovacuum_vacuum_cost_limit</li>
-<li>autovacuum_vacuum_cost_delay</li>
+<li><span class="marginalia" data-note="-1"><em>autovacuum_vacuum_cost_limit</em></span></li>
+<li><span class="marginalia" data-note="2ms"><em>autovacuum_vacuum_cost_delay</em></span></li>
 </ul>
-<p>如果这些参数中的任何一个设置为 -1，那么便会回退到常规 VACUUM 相应的参数。 因此，默认情况下，autovacuum_vacuum_cost_limit 参数依赖于 vacuum_cost_limit 的值。</p>
+<p>如果这些参数中的任何一个设置为 -1，那么便会回退到常规 VACUUM 相应的参数。 因此，默认情况下，<em>autovacuum_vacuum_cost_limit</em> 参数依赖于 <em>vacuum_cost_limit</em> 的值。</p>
 <blockquote>
 <p>在 12 版本之前，autovacuum_vacuum_cost_delay 的默认值为 20 ms，这会导致在现代硬件上的性能非常之差。</p>
 </blockquote>
-<p>每个周期内，Autovacuum 的工作单位限制在 autovacuum_vacuum_cost_limit，并且由于此限制在所有工作进程之间共享，因此对系统的总体影响大致相同，无论其数量如何。因此，如果你需要加快自动清理的速度，那么 autovacuum_max_workers 和 autovacuum_vacuum_cost_limit 的值都应该按比例增加。</p>
+<p>每个周期内，Autovacuum 的工作单位限制在 <em>autovacuum_vacuum_cost_limit</em>，并且由于此限制在所有工作进程之间共享，因此对系统的总体影响大致相同，无论其数量如何。因此，如果你需要加快自动清理的速度，那么 <em>autovacuum_max_workers</em> 和 <em>autovacuum_vacuum_cost_limit</em> 的值都应该按比例增加。</p>
 <p>如果需要，你可以通过设置以下存储参数来覆盖特定表的这些设置：</p>
 <ul>
-<li>autovacuum_vacuum_cost_delay 和 toast.autovacuum_vacuum_cost_delay</li>
-<li>autovacuum_vacuum_cost_limit 和 toast.autovacuum_vacuum_cost_limit</li>
+<li><em>autovacuum_vacuum_cost_delay</em> 和 <em>toast.autovacuum_vacuum_cost_delay</em></li>
+<li><em>autovacuum_vacuum_cost_limit</em> 和 <em>toast.autovacuum_vacuum_cost_limit</em></li>
 </ul>
 <h2>6.7 监控<span class="hx-absolute -hx-mt-20" id="67-监控"></span>
-    <a href="#67-%e7%9b%91%e6%8e%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>如果对清理操作进行监控，你可以检测到无法一次性移除死元组的情况，因为对这些死元组的引用不适合 maintenance_work_mem 内存块。在这种情况下，所有索引将不得不被完全扫描多次。对于大表来说，这可能需要相当长的时间，从而对系统造成显著负载。尽管查询不会被阻塞，但额外的 I/O 操作也会严重限制系统的吞吐量。</p>
+    <a href="#67-%e7%9b%91%e6%8e%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>如果对清理操作进行监控，你可以检测到无法一次性移除死元组的情况，因为对这些死元组的引用不适合 <em>maintenance_work_mem</em> 内存块。在这种情况下，所有索引将不得不被完全扫描多次。对于大表来说，这可能需要相当长的时间，从而对系统造成显著负载。尽管查询不会被阻塞，但额外的 I/O 操作也会严重限制系统的吞吐量。</p>
 <p>此类问题可以通过更频繁地清理表 (以便每次只需清理较少的元组) 或分配更多的内存来改善。</p>
 <h3>6.7.1 监控 Vacuum<span class="hx-absolute -hx-mt-20" id="671-监控-vacuum"></span>
-    <a href="#671-%e7%9b%91%e6%8e%a7-vacuum" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当使用 VERBOSE 子句运行时，VACUUM 命令执行清理并显示状态报告信息，pg_stat_progress_vacuum 视图显示了已启动进程的当前状态。</p>
-<p>分析也有类似的视图 (pg_stat_progress_analyze)，尽管它通常执行得非常快并且不太可能导致问题。</p>
+    <a href="#671-%e7%9b%91%e6%8e%a7-vacuum" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当使用 VERBOSE 子句运行时，VACUUM 命令执行清理并显示状态报告信息，<span class="marginalia" data-note="v. 9.6">pg_stat_progress_vacuum</span> 视图显示了已启动进程的当前状态。</p>
+<p>分析也有类似的视图 (<span class="marginalia" data-note="v. 13">pg_stat_progress_analyze</span>)，尽管它通常执行得非常快并且不太可能导致问题。</p>
 <p>让我们在表中插入更多的行，并全部更新，这样 VACUUM 就需要运行相当长的一段时间：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1790,10 +1790,11 @@
 </ul>
 <p>整体的清理进度由 heap_blks_vacuumed 与 heap_blks_total 的比率所定义，但你必须记住，由于索引扫描，这个比率会间歇性变化。事实上，更重要的是要关注清理的循环次数：如果这个值大于 1，说明分配的内存不足以一次性完成清理。</p>
 <p>你可以在 VACUUM VERBOSE 命令的输出中看到整个过程，此时命令已经完成了：</p>
-<p><img src="6-1.png" alt="" loading="lazy" /></p>
-<p>总而言之，进行了 3 次索引扫描； 每次扫描最多移除了 174522 个指向死元组的指针。这个值由能放入 maintenance_work_mem 中的 TID 数组指针的数量 (每个指针需要 6 个字节) 所定义。可能的最大大小由 pg_stat_progress_vacuum.max_dead_tuples 显示，但实际使用的空间总是要稍小一些。这保证了当读取下一个页面时，无论这个页面中有多少指向死元组的指针，都将适合剩余的内存。</p>
+<img src="6-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
+<p>总而言之，进行了 3 次索引扫描； 每次扫描最多移除了 174522 个指向死元组的指针。这个值由能放入 <em>maintenance_work_mem</em> 中的 TID 数组指针的数量 (每个指针需要 6 个字节) 所定义。可能的最大大小由 pg_stat_progress_vacuum.max_dead_tuples 显示，但实际使用的空间总是要稍小一些。这保证了当读取下一个页面时，无论这个页面中有多少指向死元组的指针，都将适合剩余的内存。</p>
 <h3>6.7.2 监控 Autovacuum<span class="hx-absolute -hx-mt-20" id="672-监控-autovacuum"></span>
-    <a href="#672-%e7%9b%91%e6%8e%a7-autovacuum" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>监控 autovacuum 的主要方式是将其状态信息 (类似于 VACUUM VERBOSE 命令的输出) 打印到服务器日志中，以供进一步的分析。如果 log_autovacuum_min_duration 参数设置为零，则记录所有 autovacuum 的运行状况：</p>
+    <a href="#672-%e7%9b%91%e6%8e%a7-autovacuum" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>监控 autovacuum 的主要方式是将其状态信息 (类似于 VACUUM VERBOSE 命令的输出) 打印到服务器日志中，以供进一步的分析。如果 <span class="marginalia" data-note="-1"><em>log_autovacuum_min_duration</em></span> 参数设置为零，则记录所有 autovacuum 的运行状况：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1851,7 +1852,7 @@
 
   
 </div>
-<p>为了跟踪需要被清理和分析的表列表，你可以使用我们已经审阅过的 need_vacuum 和 need_analyze 视图。如果此列表增长，这意味着自动清理无法应对负载，则需要通过减小间隔 (autovacuum_vacuum_cost_delay) 或者增加间隔内完成的工作量 (autovacuum_vacuum_cost_limit) 来加速清理。同时，并行度也可以增加 (autovacuum_max_workers)。</p>
+<p>为了跟踪需要被清理和分析的表列表，你可以使用我们已经审阅过的 need_vacuum 和 need_analyze 视图。如果此列表增长，这意味着自动清理无法应对负载，则需要通过减小间隔 (<em>autovacuum_vacuum_cost_delay</em>) 或者增加间隔内完成的工作量 (<em>autovacuum_vacuum_cost_limit</em>) 来加速清理。同时，并行度也可以增加 (<em>autovacuum_max_workers</em>)。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

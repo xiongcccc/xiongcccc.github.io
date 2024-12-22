@@ -855,13 +855,13 @@
 <li>
 <p>它们不会导致死锁，所以不包含在等待图中。</p>
 <p>然而，如果扩展关系的过程超过了 deadlock_timeout，仍会执行死锁检测。这不是一种典型的情况，但如果大量进程同时执行多个插入操作，就可能会发生。在这种情况下，会多次调用死锁检测，这实际上会导致正常的系统操作瘫痪。</p>
-<p>为了将此风险降至最低，堆文件会一次性扩展多个页面 (与等待锁的进程数成比例，但每次操作不超过 512 个页面) <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。例外的是 B 树索引文件，一次只扩展一个页面 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
+<p>为了将此风险降至最低，<span class="marginalia" data-note="v. 9.6">堆文件会一次性扩展多个页面</span> (与等待锁的进程数成比例，但每次操作不超过 512 个页面) <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。例外的是 B 树索引文件，一次只扩展一个页面 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
 </li>
 </ul>
 <h2>14.3 页锁<span class="hx-absolute -hx-mt-20" id="143-页锁"></span>
     <a href="#143-%e9%a1%b5%e9%94%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>page 类型的页级重锁 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 仅应用于 GIN 索引，并且仅在以下情况使用。</p>
 <p>GIN 索引可以加速复合值中元素的搜索，例如文本文档中的单词。它们大致可以描述为存储单独的单词而不是整个文档的 B 树。当添加新的文档时，必须彻底更新索引，以包含此文档中出现的每个单词。</p>
-<p>为了提高性能，GIN 索引允许延迟插入，由 fastupdate 存储参数控制。新单词首先会被快速添加到一个无序的 <em>pending list</em> 中，一段时间之后，所有累积的条目都会被移动到主索引结构中。由于不同的文档可能包含重复的单词，因此这种方式无疑是十分划算的。</p>
+<p>为了提高性能，GIN 索引允许延迟插入，由 <span class="marginalia" data-note="on"><em>fastupdate</em></span> 存储参数控制。新单词首先会被快速添加到一个无序的 <em>pending list</em> 中，一段时间之后，所有累积的条目都会被移动到主索引结构中。由于不同的文档可能包含重复的单词，因此这种方式无疑是十分划算的。</p>
 <p>为了避免多个进程同时转移单词，索引的元页面会以独占模式锁定，直到所有的单词从 <em>pending list</em> 中移动到主索引。这个锁不会干扰正常的索引使用。</p>
 <p>就像关系扩展锁一样，页锁在任务完成后立即释放，无需等待事务结束，因此它们永远不会导致死锁。</p>
 <h2>14.4 咨询锁<span class="hx-absolute -hx-mt-20" id="144-咨询锁"></span>
@@ -1137,9 +1137,9 @@
 
   
 </div>
-<p>每个读取的元组都会被单独锁定，并且可能有相当多这样的元组。谓词锁使用它们自己的锁池，这个锁池在服务器启动时分配。谓词锁的总数受到 max_pred_locks_per_transaction × max_connections 的限制 (尽管参数名如此，谓词锁并不是按单独事务计数的)。</p>
+<p>每个读取的元组都会被单独锁定，并且可能有相当多这样的元组。谓词锁使用它们自己的锁池，这个锁池在服务器启动时分配。谓词锁的总数受到 <span class="marginalia" data-note="64"><em>max_pred_locks_per_transaction</em></span> 乘以 <span class="marginalia" data-note="100"><em>max_connections</em></span> 的限制 (尽管参数名如此，谓词锁并不是按单独事务计数的)。</p>
 <p>在这里，我们遇到了与行级锁相同的问题，但解决方式不同：应用了锁升级。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup></p>
-<p>一旦与单个页面相关的元组锁的数量超过了 max_pred_locks_per_page 参数的值，它们就会被一个单独的页级锁替代。</p>
+<p>一旦与单个页面相关的元组锁的数量超过了 <span class="marginalia" data-note="2"><em>max_pred_locks_per_page</em></span> 参数的值，便会被一个单独的<span class="marginalia" data-note="v. 10">页级锁替代</span>。</p>
 <blockquote>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1192,12 +1192,12 @@
 
   
 </div>
-<p>页级锁的升级遵循相同的原则。如果某个特定关系的页级锁的数量超过了 max_pred_locks_per_relation 值，他们将被一个单独的关系级锁替代。(如果此参数设置为负数，那么阈值为 max_pred_locks_per_transaction 除以 max_pred_locks_per_relation 的绝对值；因此，默认的阈值为 32)。</p>
+<p><span class="marginalia" data-note="v. 10">页级锁的升级遵循相同的原则</span>。如果某个特定关系的页级锁的数量超过了 <span class="marginalia" data-note="-2"><em>max_pred_locks_per_relation</em></span> 值，他们将被一个单独的关系级锁替代。(如果此参数设置为负数，那么阈值为 <span class="marginalia" data-note="64"><em>max_pred_locks_per_transaction</em></span> 除以 <em>max_pred_locks_per_relation</em> 的绝对值；因此，默认的阈值为 32)。</p>
 <p>锁升级肯定会导致多次 false-positive 序列化错误，这会对系统吞吐量产生负面影响。所以你必须在性能和在锁上花费的内存之间找到一个合适的平衡点。</p>
 <p>谓词锁支持以下索引类型：</p>
 <ul>
 <li>B 树</li>
-<li>哈希索引，GiST 和 GIN</li>
+<li><span class="marginalia" data-note="v. 11">哈希索引，GiST 和 GIN</span></li>
 </ul>
 <p>如果执行了索引扫描，但索引不支持谓词锁，那么整个索引将被锁定。可以预料，在这种情况下，无故中止的事务数量也会增加。</p>
 <p>为了在可串行化级别下更高效地操作，使用 read only 子句显式声明只读事务是有意义的。如果锁管理器看到只读事务不会与其他事务发生冲突 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup>，它可以释放已经设置的谓词锁并避免获取新的谓词锁。如果这样的事务也被声明为 DEFERABLE 的，那么也可以避免只读事务异常。</p>

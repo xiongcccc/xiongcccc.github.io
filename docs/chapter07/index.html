@@ -18,7 +18,8 @@
 PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展了常规 ID，但它们仅在内部使用，并且从不进入数据页。
 为了正确处理回卷，PostgreSQL 必须比较事务的年龄 (年龄定义为自该事务开始以来，后续出现的事务数量) 而不是事务 ID。因此，我们应该使用更老 (先于) 和更年轻 (后于) 的概念，而不是小于和大于的术语。
 在代码中，这种比较方式通过使用 32 位算术实现：首先找到 32 位事务 ID 之间的差值，然后将这个结果与零进行比较 2。
-为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。" />
+为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。
+然而，这种可视化有一个令人头疼的问题。与最近的事务相比，旧事务 (T1) 处于遥远的过去。但迟早一个新的事务会在与未来有关的半圆中看到它。如果真是这样，那将产生灾难性的影响：从现在开始，所有更新的事务都将看不到事务 T1 所做的更改。" />
 
   
     <link rel="canonical" href="//localhost:1313/docs/chapter07/" itemprop="url" />
@@ -39,7 +40,8 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展了常规 ID，但它们仅在内部使用，并且从不进入数据页。
 为了正确处理回卷，PostgreSQL 必须比较事务的年龄 (年龄定义为自该事务开始以来，后续出现的事务数量) 而不是事务 ID。因此，我们应该使用更老 (先于) 和更年轻 (后于) 的概念，而不是小于和大于的术语。
 在代码中，这种比较方式通过使用 32 位算术实现：首先找到 32 位事务 ID 之间的差值，然后将这个结果与零进行比较 2。
-为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。">
+为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。
+然而，这种可视化有一个令人头疼的问题。与最近的事务相比，旧事务 (T1) 处于遥远的过去。但迟早一个新的事务会在与未来有关的半圆中看到它。如果真是这样，那将产生灾难性的影响：从现在开始，所有更新的事务都将看不到事务 T1 所做的更改。">
   <meta itemprop="wordCount" content="1162">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 7 章：冻结">
@@ -49,7 +51,8 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展了常规 ID，但它们仅在内部使用，并且从不进入数据页。
 为了正确处理回卷，PostgreSQL 必须比较事务的年龄 (年龄定义为自该事务开始以来，后续出现的事务数量) 而不是事务 ID。因此，我们应该使用更老 (先于) 和更年轻 (后于) 的概念，而不是小于和大于的术语。
 在代码中，这种比较方式通过使用 32 位算术实现：首先找到 32 位事务 ID 之间的差值，然后将这个结果与零进行比较 2。
-为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。">
+为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。
+然而，这种可视化有一个令人头疼的问题。与最近的事务相比，旧事务 (T1) 处于遥远的过去。但迟早一个新的事务会在与未来有关的半圆中看到它。如果真是这样，那将产生灾难性的影响：从现在开始，所有更新的事务都将看不到事务 T1 所做的更改。">
 
     <link href="/css/compiled/main.css" rel="stylesheet" />
 
@@ -779,13 +782,15 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 <p>为了正确处理回卷，PostgreSQL 必须比较事务的年龄 (年龄定义为自该事务开始以来，后续出现的事务数量) 而不是事务 ID。因此，我们应该使用更老 (先于) 和更年轻 (后于) 的概念，而不是小于和大于的术语。</p>
 <p>在代码中，这种比较方式通过使用 32 位算术实现：首先找到 32 位事务 ID 之间的差值，然后将这个结果与零进行比较 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>。</p>
 <p>为了更好地可视化这个概念，你可以将一系列事务 ID 想象成一个时钟面。对于每个事务，顺时针方向的半圆是未来，而另一半是过去。</p>
-<p><img src="7-1.png" alt="" loading="lazy" /></p>
+<img src="7-1.png" style="width:80%; float:center" />
+<div style="clear:both;"></div>
 <p>然而，这种可视化有一个令人头疼的问题。与最近的事务相比，旧事务 (T1) 处于遥远的过去。但迟早一个新的事务会在与未来有关的半圆中看到它。如果真是这样，那将产生灾难性的影响：从现在开始，所有更新的事务都将看不到事务 T1 所做的更改。</p>
 <h2>7.2 元组冻结和可见性规则<span class="hx-absolute -hx-mt-20" id="72-元组冻结和可见性规则"></span>
     <a href="#72-%e5%85%83%e7%bb%84%e5%86%bb%e7%bb%93%e5%92%8c%e5%8f%af%e8%a7%81%e6%80%a7%e8%a7%84%e5%88%99" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>为了防止这种&quot;时间旅行&quot;，清理进程会执行一项额外的任务 (除了页面清理 <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> )：它寻找超过数据库视界的元组 (所以这些元组在所有快照中都可见) 并以一种特殊的方式标记它们，也就是，冻结它们。</p>
 <p>对于冻结的元组，由于这些元组已知在所有快照中都是可见的，因此可见性规则不必考虑 xmin，可以安全重用此事务 ID。</p>
 <p>你可以想象为 xmin 事务 ID 在冻结的元组中被一个假想的&quot;负无穷大&quot; 所替代 (如下图所示的雪花)；这表明该元组由一个过去很久的事务所创建，它的实际 ID 已经不重要了。然而，实际上 xmin 保持不变，而冻结属性由两个提示位的组合所定义：committed 和 aborted。</p>
-<p><img src="7-2.png" alt="" loading="lazy" /></p>
+<img src="7-2.png" style="width:80%; float:center" />
+<div style="clear:both;"></div>
 <blockquote>
 <p>许多来源 (包括文档) 都提到 FrozenTransactionId = 2。这就是我所提及的&quot;负无穷大&quot; — 在 9.4 之前的版本中，这个值用于替换 xmin，但现在改为使用提示位。这样一来，原来的事务 ID 保留在元组中，这对调试和支持都很方便。即使旧系统已升级到更高版本，它们仍然可能包含已废弃的 FrozenTransactionId。</p>
 </blockquote>
@@ -875,7 +880,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
   
 </div>
-<p>我们将使用 pg_visibility 扩展观察前两个堆页面。当清理完成后，这两个页面都会在可见性映射中被标记 (all_visible) ，但不在冻结映射 (all_frozen) 中，因为它们仍然包含一些未冻结的元组：</p>
+<p>我们将使用 pg_visibility 扩展观察前两个堆页面。当清理完成后，这两个页面都会在可见性映射中被标记 (all_visible) ，但不在冻结映射 (<span class="marginalia" data-note="v. 9.6">all_frozen</span>) 中，因为它们仍然包含一些未冻结的元组：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -926,13 +931,13 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 <h2>7.3 管理冻结<span class="hx-absolute -hx-mt-20" id="73-管理冻结"></span>
     <a href="#73-%e7%ae%a1%e7%90%86%e5%86%bb%e7%bb%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>主要有四个参数用于控制冻结。它们都代表着事务年龄，并定义以下事件何时发生：</p>
 <ul>
-<li>冻结开始 (vacuum_freeze_min_age)</li>
-<li>执行急切冻结 (vacuum_freeze_table_age)</li>
-<li>强制冻结 (autovacuum_freeze_max_age)</li>
-<li>冻结优先 (vacuum_failsafe_age)</li>
+<li>冻结开始 (<em>vacuum_freeze_min_age</em>)</li>
+<li>执行急切冻结 (<em>vacuum_freeze_table_age</em>)</li>
+<li>强制冻结 (<em>autovacuum_freeze_max_age</em>)</li>
+<li>冻结优先 (<span class="marginalia" data-note="v. 14"><em>vacuum_failsafe_age</em></span>)</li>
 </ul>
 <h3>7.3.1 最小冻结年龄<span class="hx-absolute -hx-mt-20" id="731-最小冻结年龄"></span>
-    <a href="#731-%e6%9c%80%e5%b0%8f%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>vacuum_freeze_min_age 参数定义了 xmin 事务的最小冻结年龄。它的值越低，开销就越大：如果一行是&quot;热的&quot;并且被频繁更改，那么冻结其所有新创建的行版本将是一种浪费。将此参数设置为相对较高的值可以允许等待一段时间。</p>
+    <a href="#731-%e6%9c%80%e5%b0%8f%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><span class="marginalia" data-note="50,000,000"><em>vacuum_freeze_min_age</em></span> 参数定义了 xmin 事务的最小冻结年龄。它的值越低，开销就越大：如果一行是&quot;热的&quot;并且被频繁更改，那么冻结其所有新创建的行版本将是一种浪费。将此参数设置为相对较高的值可以允许等待一段时间。</p>
 <p>为了观察冻结过程，我们将这个参数值减为 1：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -990,7 +995,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
   
 </div>
-<p>此时，那些比 vacuum_freeze_min_age = 1 更老的元组将被冻结。但是，vacuum 不会处理可见性映射中标记的任何页面：</p>
+<p>此时，那些比 <em>vacuum_freeze_min_age</em> = 1 更老的元组将被冻结。但是，vacuum 不会处理可见性映射中标记的任何页面：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1063,7 +1068,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
   
 </div>
 <h3>7.3.2 急切冻结年龄<span class="hx-absolute -hx-mt-20" id="732-急切冻结年龄"></span>
-    <a href="#732-%e6%80%a5%e5%88%87%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>正如我们刚刚已看到的，如果一个页面仅包含在所有快照中都可见的当前版本元组，那么 vacuum 将不会冻结它们。为了克服这个限制，PostgreSQL 提供了 vacuum_freeze_table_age 参数。该参数定义了允许 vacuum 忽略可见性映射的事务年龄，因此可以冻结任何堆页面。</p>
+    <a href="#732-%e6%80%a5%e5%88%87%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>正如我们刚刚已看到的，如果一个页面仅包含在所有快照中都可见的当前版本元组，那么 vacuum 将不会冻结它们。为了克服这个限制，PostgreSQL 提供了 <span class="marginalia" data-note="150,000,000"><em>vacuum_freeze_table_age</em></span> 参数。该参数定义了允许 vacuum 忽略可见性映射的事务年龄，因此可以冻结任何堆页面。</p>
 <p>对于每个表，系统表都保留了一个事务 ID，可以确定所有比该事务 ID 更老的事务都已被冻结。这个值为 relfrozenid：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1086,10 +1091,10 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
   
 </div>
-<p>将此事务的年龄与 vacuum_freeze_table_age 的值进行比较，以决定是否到了进行急切冻结的时候。</p>
-<p>得益于冻结映射，在清理期间便无需进行全表扫描：只需检查那些未出现在映射中的页面就足够了。除了这个重要的优化项之外，冻结映射还带来了容错能力：如果清理操作中断，下一次运行将不必回到已处理并且在映射中标记的页面。</p>
-<p>每当系统中的事务数量达到了 vacuum_freeze_table_age − vacuum_freeze_min_age 限制时，PostgreSQL 就会对表中的所有页面进行急切冻结 (如果使用默认值，这将在每 100 百万个事务后发生) 。因此，如果 vacuum_freeze_min_age 值太大，可能会导致过度冻结并且增加开销。</p>
-<p>要冻结整个表，让我们将 vacuum_freeze_table_age 值减小到 4，那么就满足了急切冻结的条件：</p>
+<p>将此事务的年龄与 <em>vacuum_freeze_table_age</em> 的值进行比较，以决定是否到了进行急切冻结的时候。</p>
+<p><span class="marginalia" data-note="v. 9.6">得益于冻结映射，在清理期间便无需进行全表扫描</span>：只需检查那些未出现在映射中的页面就足够了。除了这个重要的优化项之外，冻结映射还带来了容错能力：如果清理操作中断，下一次运行将不必回到已处理并且在映射中标记的页面。</p>
+<p>每当系统中的事务数量达到了 <em>vacuum_freeze_table_age</em> − <em>vacuum_freeze_min_age</em> 限制时，PostgreSQL 就会对表中的所有页面进行急切冻结 (如果使用默认值，这将在每 100 百万个事务后发生) 。因此，如果 <em>vacuum_freeze_min_age</em> 值太大，可能会导致过度冻结并且增加开销。</p>
+<p>要冻结整个表，让我们将 <em>vacuum_freeze_table_age</em> 值减小到 4，那么就满足了急切冻结的条件：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1200,7 +1205,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 </div>
 <h3>7.3.3 强制自动清理年龄<span class="hx-absolute -hx-mt-20" id="733-强制自动清理年龄"></span>
     <a href="#733-%e5%bc%ba%e5%88%b6%e8%87%aa%e5%8a%a8%e6%b8%85%e7%90%86%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>有时，仅仅配置上面讨论的两个参数以及时冻结元组是不够的。自动清理进程可能会被关闭，而常规 VACUUM 根本没有被调用 (这是一个非常糟糕的主意，但从技术上来说是可能的)。另外，一些不活跃的数据库 (比如 template0) 可能不会被清理。PostgreSQL 可以通过以急切模式强制启用自动清理来处理这种情况。</p>
-<p>当数据库中存在某些未冻结事务 ID 的年龄超过 autovacuum_freeze_max_age 值的风险时，将强制启动自动清理 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>  (即使它已关闭)。这种行为基于所有表中最老的 pg_class.relfrozenxid 事务的年龄，因为所有更老的事务都确保已被冻结。此事务 ID 存储在系统表中：</p>
+<p>当数据库中存在某些未冻结事务 ID 的年龄超过 <span class="marginalia" data-note="200,000,000"><em>autovacuum_freeze_max_age</em></span> 值的风险时，将强制启动自动清理 <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>  (即使它已关闭)。这种行为基于所有表中最老的 pg_class.relfrozenxid 事务的年龄，因为所有更老的事务都确保已被冻结。此事务 ID 存储在系统表中：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1223,29 +1228,30 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
   
 </div>
-<p><img src="7-3.png" alt="" loading="lazy" /></p>
-<p>autovacuum_freeze_max_age 被限制在 20 亿个事务 (略小于圆的一半)，默认值是这个值的十分之一。这样做是有充分理由的：较大的值会增加事务 ID 回卷的风险，因为 PostgreSQL 可能无法及时冻结所有需要的元组。在此情况下，服务器必须立即停止以防止可能的问题，并且必须由管理员重启。</p>
-<p>autovacuum_freeze_max_age 的值也会影响到 CLOG 的大小。没有必要保留已冻结事务的状态，集簇中在 datfrozenxid 最老事务之前的所有事务都已经确保被冻结。那些不再需要的 CLOG 文件会被自动清理进程删除 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
-<p>更改 autovacuum_freeze_max_age 参数需要重启服务器。但是，上面讨论的所有冻结设置也可以在表级别通过相应的存储参数进行调整。请注意，所有这些参数的名称都以&quot;auto&quot;开头：</p>
+<img src="7-3.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
+<p><em>autovacuum_freeze_max_age</em> 被限制在 20 亿个事务 (略小于圆的一半)，默认值是这个值的十分之一。这样做是有充分理由的：较大的值会增加事务 ID 回卷的风险，因为 PostgreSQL 可能无法及时冻结所有需要的元组。在此情况下，服务器必须立即停止以防止可能的问题，并且必须由管理员重启。</p>
+<p><em>autovacuum_freeze_max_age</em> 的值也会影响到 CLOG 的大小。没有必要保留已冻结事务的状态，集簇中在 datfrozenxid 最老事务之前的所有事务都已经确保被冻结。那些不再需要的 CLOG 文件会被自动清理进程删除 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
+<p>更改 <em>autovacuum_freeze_max_age</em> 参数需要重启服务器。但是，上面讨论的所有冻结设置也可以在表级别通过相应的存储参数进行调整。请注意，所有这些参数的名称都以&quot;auto&quot;开头：</p>
 <ul>
 <li>
-<p>autovacuum_freeze_min_age 和 toast.autovacuum_freeze_min_age</p>
+<p><em>autovacuum_freeze_min_age</em> 和 <em>toast.autovacuum_freeze_min_age</em></p>
 </li>
 <li>
-<p>autovacuum_freeze_table_age 和 toast.autovacuum_freeze_table_age</p>
+<p><em>autovacuum_freeze_table_age</em> 和 <em>toast.autovacuum_freeze_table_age</em></p>
 </li>
 <li>
-<p>autovacuum_freeze_max_age 和 toast.autovacuum_freeze_max_age</p>
+<p><em>autovacuum_freeze_max_age</em> 和 <em>toast.autovacuum_freeze_max_age</em></p>
 </li>
 </ul>
 <h3>7.3.4 Failsafe 冻结年龄<span class="hx-absolute -hx-mt-20" id="734-failsafe-冻结年龄"></span>
-    <a href="#734-failsafe-%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果自动清理进程已经在努力防止事务 ID 回卷，并且显然在与时间赛跑，那么就会&quot;拉动&quot;安全开关：自动清理进程将忽略 autovacuum_vacuum_cost_delay (vacuum_cost_delay) 值，并将停止清理索引以尽快冻结堆元组。</p>
-<p>如果数据库中存在未冻结事务的年龄有超过 vacuum_failsafe_age 值的风险时，那么就会启用 failsafe 模式 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>。假定此值必须高于 autovacuum_freeze_max_age。</p>
+    <a href="#734-failsafe-%e5%86%bb%e7%bb%93%e5%b9%b4%e9%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果自动清理进程已经在努力防止事务 ID 回卷，并且显然在与时间赛跑，那么就会&quot;拉动&quot;安全开关：自动清理进程将忽略 <em>autovacuum_vacuum_cost_delay</em> (<em>vacuum_cost_delay</em>) 值，并将停止清理索引以尽快冻结堆元组。</p>
+<p>如果数据库中存在未冻结事务的年龄有超过 <span class="marginalia" data-note="1,600,000,000"><em>vacuum_failsafe_age</em></span> 值的风险时，那么就会启用 failsafe 模式 <sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup>。假定此值必须高于 <em>autovacuum_freeze_max_age</em>。</p>
 <h2>7.4 手动冻结<span class="hx-absolute -hx-mt-20" id="74-手动冻结"></span>
     <a href="#74-%e6%89%8b%e5%8a%a8%e5%86%bb%e7%bb%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>有时，手动管理冻结比依靠自动清理会更加方便。</p>
 <h3>7.4.1 Vacuum 时进行冻结<span class="hx-absolute -hx-mt-20" id="741-vacuum-时进行冻结"></span>
-    <a href="#741-vacuum-%e6%97%b6%e8%bf%9b%e8%a1%8c%e5%86%bb%e7%bb%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>你可以通过调用带有 FREEZE 选项的 VACUUM 命令以开启冻结操作。这将冻结所有堆元组，不管元组的事务年龄如何，就好像 vacuum_freeze_min_age 为 0 一样。</p>
-<p>如果这样调用的目的是为了尽快冻结堆元组，那么禁用索引清理是有意义的，就像在 failsafe 模式下所做的那样。你可以通过运行 VACUUM (freeze, index_cleanup false) 命令或通过 vacuum_index_cleanup 存储参数来显式做到这一点。很明显，这不应该定期进行，因为在这种情况下，VACUUM 将无法很好地处理其主要任务 — 页面清理。</p>
+    <a href="#741-vacuum-%e6%97%b6%e8%bf%9b%e8%a1%8c%e5%86%bb%e7%bb%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>你可以通过调用带有 FREEZE 选项的 VACUUM 命令以开启冻结操作。这将冻结所有堆元组，不管元组的事务年龄如何，就好像 <em>vacuum_freeze_min_age</em> 为 0 一样。</p>
+<p>如果这样调用的目的是为了尽快冻结堆元组，那么<span class="marginalia" data-note="v. 12">禁用索引清理</span>是有意义的，就像在 failsafe 模式下所做的那样。你可以通过运行 VACUUM (freeze, index_cleanup false) 命令或通过 <em>vacuum_index_cleanup</em> 存储参数来显式做到这一点。很明显，这不应该定期进行，因为在这种情况下，VACUUM 将无法很好地处理其主要任务 — 页面清理。</p>
 <h3>7.4.2 在初始加载时冻结数据<span class="hx-absolute -hx-mt-20" id="742-在初始加载时冻结数据"></span>
     <a href="#742-%e5%9c%a8%e5%88%9d%e5%a7%8b%e5%8a%a0%e8%bd%bd%e6%97%b6%e5%86%bb%e7%bb%93%e6%95%b0%e6%8d%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在加载数据至数据库时，预估不会更改的数据可以立即被冻结。这是通过带有 FREEZE 选项的 COPY 命令来完成的。</p>
 <p>结果表只有在同一事务中被创建或截断时，元组才能在初始加载期间被冻结，因为这两种操作都会对表获取排它锁。此限制是必要的，因为无论隔离级别如何，冻结的元组都应在所有快照中可见；否则，事务会在加载数据时突然看到刚刚冻结的元组。但如果获取了锁，其他事务将无法访问该表。</p>
@@ -1315,7 +1321,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 </div>
 </blockquote>
 <p>这确实打破了隔离性，但由于数据加载不太可能定期发生，因此在大多数情况下它不会引起任何问题。</p>
-<p>如果加载数据时进行冻结，那么会立即创建可见性映射，并且页头会接收到可见性属性：</p>
+<p>如果在<span class="marginalia" data-note="v. 14">加载数据时进行冻结</span>，那么会立即创建可见性映射，并且页头会接收到可见性属性：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1341,7 +1347,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
   
 </div>
-<p>因此，如果数据已经在加载时冻结，那么表将不会被 VACUUM 处理 (只要数据保持不变)。不幸的是，TOAST 表尚不支持此功能：如果加载了过大的值，VACUUM 将不得不重写整个 TOAST 表，以设置所有页头中的可见性属性。</p>
+<p>因此，如果<span class="marginalia" data-note="v. 14">数据已经在加载时被冻结</span>，那么表将不会被 VACUUM 处理 (只要数据保持不变)。不幸的是，TOAST 表尚不支持此功能：如果加载了过大的值，VACUUM 将不得不重写整个 TOAST 表，以设置所有页头中的可见性属性。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>

@@ -12,7 +12,7 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 
   <title>第 23 章：排序与归并 – PostgreSQL 14 Internals</title>
-  <meta name="description" content="23.1 归并连接 归并连接处理按连接键进行排序的数据集，并返回以类似方式进行排序的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
+  <meta name="description" content="23.1 归并连接 归并连接处理按连接键排序的数据集，并返回以类似方式排序后的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
 23.1.1 归并排序数据集 让我们看一个归并连接的例子；在执行计划中由 Merge Join 节点表示：2
 =&gt; EXPLAIN (costs off) SELECT * FROM tickets t JOIN ticket_flights tf ON tf.ticket_no = t.ticket_no ORDER BY t.ticket_no; QUERY PLAN −−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−− Merge Join Merge Cond: (t.ticket_no = tf.ticket_no) −&gt; Index Scan using tickets_pkey on tickets t −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf (4 rows) 优化器更喜欢这种连接方式，因为它按照 ORDER BY 子句定义的方式返回排序后的结果。在选择计划时，优化器会注意到数据集的排序顺序，并且除非确实需要，否则不会执行任何排序。例如，如果归并连接生成的数据集已经具有合适的排序顺序，那么它可以直接在之后的归并连接中使用：" />
 
@@ -29,13 +29,13 @@
 
   
   <meta itemprop="name" content="第 23 章：排序与归并">
-  <meta itemprop="description" content="23.1 归并连接 归并连接处理按连接键进行排序的数据集，并返回以类似方式进行排序的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
+  <meta itemprop="description" content="23.1 归并连接 归并连接处理按连接键排序的数据集，并返回以类似方式排序后的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
 23.1.1 归并排序数据集 让我们看一个归并连接的例子；在执行计划中由 Merge Join 节点表示：2
 =&gt; EXPLAIN (costs off) SELECT * FROM tickets t JOIN ticket_flights tf ON tf.ticket_no = t.ticket_no ORDER BY t.ticket_no; QUERY PLAN −−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−− Merge Join Merge Cond: (t.ticket_no = tf.ticket_no) −&gt; Index Scan using tickets_pkey on tickets t −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf (4 rows) 优化器更喜欢这种连接方式，因为它按照 ORDER BY 子句定义的方式返回排序后的结果。在选择计划时，优化器会注意到数据集的排序顺序，并且除非确实需要，否则不会执行任何排序。例如，如果归并连接生成的数据集已经具有合适的排序顺序，那么它可以直接在之后的归并连接中使用：">
-  <meta itemprop="wordCount" content="1841">
+  <meta itemprop="wordCount" content="1824">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 23 章：排序与归并">
-  <meta name="twitter:description" content="23.1 归并连接 归并连接处理按连接键进行排序的数据集，并返回以类似方式进行排序的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
+  <meta name="twitter:description" content="23.1 归并连接 归并连接处理按连接键排序的数据集，并返回以类似方式排序后的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。1
 23.1.1 归并排序数据集 让我们看一个归并连接的例子；在执行计划中由 Merge Join 节点表示：2
 =&gt; EXPLAIN (costs off) SELECT * FROM tickets t JOIN ticket_flights tf ON tf.ticket_no = t.ticket_no ORDER BY t.ticket_no; QUERY PLAN −−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−−− Merge Join Merge Cond: (t.ticket_no = tf.ticket_no) −&gt; Index Scan using tickets_pkey on tickets t −&gt; Index Scan using ticket_flights_pkey on ticket_flights tf (4 rows) 优化器更喜欢这种连接方式，因为它按照 ORDER BY 子句定义的方式返回排序后的结果。在选择计划时，优化器会注意到数据集的排序顺序，并且除非确实需要，否则不会执行任何排序。例如，如果归并连接生成的数据集已经具有合适的排序顺序，那么它可以直接在之后的归并连接中使用：">
 
@@ -703,11 +703,11 @@
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2312-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f">23.1.2 并行模式
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2312-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan">23.1.2 并行模式
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2313-%e6%9b%b4%e6%94%b9">23.1.3 更改
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2313-%e8%b0%83%e6%95%b4">23.1.3 调整
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -727,11 +727,11 @@
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2324-%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8f">23.2.4 增量排序
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2324-span-classmarginalia-data-notev-13%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8fspan">23.2.4 增量排序
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
-        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2325-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f">23.2.5 并行模式
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#2325-span-classmarginalia-data-notev-10%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan">23.2.5 并行模式
         </a>
       </li>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -766,7 +766,7 @@
         <div class="content">
           <h1>第 23 章：排序与归并</h1>
           <h2>23.1 归并连接<span class="hx-absolute -hx-mt-20" id="231-归并连接"></span>
-    <a href="#231-%e5%bd%92%e5%b9%b6%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>归并连接处理按连接键进行排序的数据集，并返回以类似方式进行排序的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+    <a href="#231-%e5%bd%92%e5%b9%b6%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>归并连接处理按连接键排序的数据集，并返回以类似方式排序后的结果。输入数据集可能在索引扫描后预排序；否则，执行器必须在真正开始归并之前对它们进行排序。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 <h3>23.1.1 归并排序数据集<span class="hx-absolute -hx-mt-20" id="2311-归并排序数据集"></span>
     <a href="#2311-%e5%bd%92%e5%b9%b6%e6%8e%92%e5%ba%8f%e6%95%b0%e6%8d%ae%e9%9b%86" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看一个归并连接的例子；在执行计划中由 Merge Join 节点表示：<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -864,7 +864,7 @@
 <p>总成本包括从子节点获取数据的成本和计算成本。</p>
 <p>由于连接算法在其中一个数据集结束后立即停止 (当然，除非执行外连接)，因此另一个数据集可能只被部分扫描。为了评估扫描部分的大小，我们可以比较两组数据集中的最大键值。在此示例中，两个数据集都将被完整读取，因此连接的总成本包括两个子节点的总成本之和。</p>
 <p>此外，如果存在任何重复项，内层数据集的一些行可能会被多次扫描。重复扫描的预估次数等于连接结果的基数与内层数据集的基数之间的差值。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 在这个查询中，这些基数是相同的，这意味着数据集中不包含重复项。</p>
-<p>算法比较两个数据集的连接键。单次比较的成本以 cpu_operator_cost 进行估算，而预估的比较次数可以取为两个数据集的行数之和 (加上由于重复项导致的重复读取次数)。结果中包含的每一行的处理成本，如往常一样，以 cpu_tuple_cost 进行估算。</p>
+<p>算法比较两个数据集的连接键。单次比较的成本以 <span class="marginalia" data-note="0.0025"><em>cpu_operator_cost</em></span> 进行估算，而预估的比较次数可以取为两个数据集的行数之和 (加上由于重复项导致的重复读取次数)。结果中包含的每一行的处理成本，如往常一样，以 <span class="marginalia" data-note="0.01"><em>cpu_tuple_cost</em></span> 进行估算。</p>
 <p>因此，在这个例子中，连接的成本如下估计：<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -890,8 +890,8 @@
 
   
 </div>
-<h3>23.1.2 并行模式<span class="hx-absolute -hx-mt-20" id="2312-并行模式"></span>
-    <a href="#2312-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>虽然归并连接没有并行模式，但它仍然可以在并行计划中使用。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
+<h3>23.1.2 <span class="marginalia" data-note="v. 9.6">并行模式</span><span class="hx-absolute -hx-mt-20" id="2312-span-classmarginalia-data-notev-96并行模式span"></span>
+    <a href="#2312-span-classmarginalia-data-notev-96%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>虽然归并连接没有并行模式，但它仍然可以在并行计划中使用。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 <p>外层数据集可以由多个工作进程并行扫描，但内层数据集总是被每个工作进程完整扫描。</p>
 <p>由于并行哈希连接几乎总是成本更低，我将暂时关闭它：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -940,8 +940,8 @@
   
 </div>
 <p>在并行计划中不允许使用全外归并连接和右外归并连接。</p>
-<h3>23.1.3 更改<span class="hx-absolute -hx-mt-20" id="2313-更改"></span>
-    <a href="#2313-%e6%9b%b4%e6%94%b9" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>归并连接算法可用于任何类型的连接。唯一的限制是全外连接和右外连接的连接条件必须包含归并兼容的表达式 (&quot;<em>outer-column equals inner-column</em>&quot; 或 &ldquo;<em>column equals constant</em>&quot;)。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 内连接和左外连接仅通过不相关的条件过滤连接结果，但对于全外连接和右外连接，这种过滤是不适用的。</p>
+<h3>23.1.3 调整<span class="hx-absolute -hx-mt-20" id="2313-调整"></span>
+    <a href="#2313-%e8%b0%83%e6%95%b4" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>归并连接算法可用于任何类型的连接。唯一的限制是全外连接和右外连接的连接条件必须包含归并兼容的表达式 (&quot;<em>outer-column equals inner-column</em>&quot; 或 &ldquo;<em>column equals constant</em>&quot;)。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 内连接和左外连接仅通过不相关的条件过滤连接结果，但对于全外连接和右外连接，这种过滤是不适用的。</p>
 <p>以下是使用归并算法的全外连接示例：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -971,7 +971,7 @@
   
 </div>
 <p>内连接和左外归并连接保留排序顺序。但是，全外连接和右外连接不能保证这一点，因为空值可以楔入外层数据集的有序值之间，这会破坏排序顺序。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 为了恢复所需的顺序，规划器在此处引入了 Sort 节点。当然，这增加了计划的成本，使哈希连接更具吸引力，所以规划器只是因为当前禁用了哈希连接才选择了这个计划。</p>
-<p>但是下一个例子不能没有哈希连接：嵌套循环根本不允许全外连接，而归并连接因为不支持的连接条件而不能使用。因此，不管 enable_hashjoin 参数值如何，都会使用哈希连接：</p>
+<p>但是下一个例子不能没有哈希连接：嵌套循环根本不允许全外连接，而归并连接因为不支持的连接条件而不能使用。因此，不管 <em>enable_hashjoin</em> 参数值如何，都会使用哈希连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1109,7 +1109,7 @@
   
 </div>
 <h3>23.2.1 快排<span class="hx-absolute -hx-mt-20" id="2321-快排"></span>
-    <a href="#2321-%e5%bf%ab%e6%8e%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果待排序的数据集适合 work_mem 块，则使用经典的快排方法。该算法在所有的教科书上都有介绍，此处不再过多描述。</p>
+    <a href="#2321-%e5%bf%ab%e6%8e%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果待排序的数据集适合 <span class="marginalia" data-note="4MB"><em>work_mem</em></span> 块，则使用经典的快排方法。该算法在所有的教科书上都有介绍，此处不再过多描述。</p>
 <p>至于实现，排序是由一个专用组件 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup> 执行的，它根据可用的内存数量和一些其他因素选择最合适的算法。</p>
 <p><strong>成本估算</strong>。让我们看看小表是如何排序的。在这种情况下，使用快排算法在内存中进行排序：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1135,11 +1135,7 @@
 
   
 </div>
-<p>已知对 n 个值进行排序的计算复杂度为
-$$
-O(n \log_{2} n)
-$$
-单次比较操作估算为 cpu_operator_cost 值的两倍。由于在检索结果之前必须对整个数据集进行扫描和排序，因此排序的启动成本包括子节点的总成本和比较操作所产生的所有成本。</p>
+<p>已知对 n 个值进行排序的计算复杂度为 $O(n \log_2 n)$。单次比较操作估算为 <span class="marginalia" data-note="0.0025"><em>cpu_operator_cost</em></span> 值的两倍。由于在检索结果之前必须对整个数据集进行扫描和排序，因此排序的启动成本包括子节点的总成本和比较操作所产生的所有成本。</p>
 <p>排序的总成本还包括返回每行的处理成本，按 cpu_operator_cost 进行估算 (而不是常规的 cpu_tuple_cost 值，因为 Sort 节点产生的开销微不足道)。<sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup></p>
 <p>对于这个例子，成本如下计算：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1205,14 +1201,7 @@ $$
 <blockquote>
 <p>这里的堆术语表示一种众所周知的数据结构，与经常被同名引用的数据库表没有任何关系。</p>
 </blockquote>
-<p><strong>成本估算</strong>。此算法的计算复杂度预估为
-$$
-O(n \log_{2} k)
-$$
-但与快排算法相比，每个特定操作的成本更高。因此，公式使用 <sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup>
-$$
-n \log_{2} 2k
-$$</p>
+<p><strong>成本估算</strong>。此算法的计算复杂度预估为 $O(n \log_2 k)$，但与快排算法相比，每个特定操作的成本更高。因此，公式使用 $n \log_2 2k$。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1246,9 +1235,11 @@ $$</p>
 <h3>23.2.3 外排<span class="hx-absolute -hx-mt-20" id="2323-外排"></span>
     <a href="#2323-%e5%a4%96%e6%8e%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果扫描显示数据集太大而无法在内存中排序，排序节点将切换到外部归并排序 (在计划中标记为 external merge)。</p>
 <p>已经扫描的行在内存中通过快排算法排序并写入一个临时文件中。</p>
-<p><img src="23-1.png" alt="" loading="lazy" /></p>
+<img src="23-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>然后后续的行被读入释放的内存中，这个过程重复进行，直到所有数据被写入几个预排序的文件中。</p>
-<p><img src="23-2.png" alt="" loading="lazy" /></p>
+<img src="23-2.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>接下来，这些文件被合并成一个。执行此操作的算法与归并连接大致相同；主要区别在于它可以同时处理两个以上的文件。</p>
 <p>合并操作不需要太多内存。实际上，每个文件有一行的空间就足够了。从每个文件中读取第一行，具有最小值 (或最大值，取决于排序顺序) 的行作为部分结果返回，释放的内存用从同一文件中获取的下一行进行填充。</p>
 <p>实际上，行是以 32 页的批次读取的，而不是逐个读取，这减少了 I/O 操作的次数。单次迭代中合并的文件数取决于可用内存，但不会少于 6 个。上限也有限制 (500)，因为当文件太多时，效率会下降。<sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup></p>
@@ -1256,9 +1247,11 @@ $$</p>
 <p>排序算法有着悠久的术语。外部排序最初是使用磁带执行的，而 PostgreSQL 为控制临时文件的组件保留了一个类似的名称。<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup> 部分排序的数据集称为 &ldquo;runs&rdquo; <sup id="fnref:18"><a href="#fn:18" class="footnote-ref" role="doc-noteref">18</a></sup>。参与合并的 &ldquo;runs&rdquo; 数称为 &ldquo;merge order&rdquo;。我没有使用这些术语，但如果你想了解 PostgreSQL 代码和注释，了解它们是值得的。</p>
 </blockquote>
 <p>如果排序后的临时文件不能一次性全部合并，则必须分多次处理，其部分结果被写入新的临时文件。每次迭代都会增加要读取和写入的数据量，因此可用的 RAM 越多，外部排序完成的速度就越快。</p>
-<p><img src="23-3.png" alt="" loading="lazy" /></p>
+<img src="23-3.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>下一次迭代会合并新创建的临时文件。</p>
-<p><img src="23-4.png" alt="" loading="lazy" /></p>
+<img src="23-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>最终的合并通常被推迟，并在上层节点拉取数据时即时执行。</p>
 <p>让我们运行 EXPLAIN ANALYZE 命令来查看外部排序使用了多少磁盘空间。BUFFERS 选项显示临时文件(temp read 和 written) 的缓冲区使用情况。写入的缓冲区数量将 (大致) 与读取的数量相同；转换为千字节，这个值在计划中显示为 Disk：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -1287,7 +1280,7 @@ $$</p>
 
   
 </div>
-<p>要在服务器日志中打印有关临时文件使用的更多详情，你可以启用 log_temp_files 参数。</p>
+<p>要在服务器日志中打印有关临时文件使用的更多详情，你可以启用 <em>log_temp_files</em> 参数。</p>
 <p><strong>成本估算</strong>。以使用外部排序的相同计划为例：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1349,8 +1342,8 @@ $$</p>
 
   
 </div>
-<h3>23.2.4 增量排序<span class="hx-absolute -hx-mt-20" id="2324-增量排序"></span>
-    <a href="#2324-%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一个数据集需要按照键 K1 … Km … Kn 排序，并且已知该数据集已经按照前 m 个键排序，那么就不需要从头重新排序。相反，可以根据相同的前几个键 K1 … Km 将数据集分成多个组（这些组内的值已经按定义的顺序排列)，然后再分别对这些组按照剩余的 Km+1 … Kn 键进行排序。这种方法称为增量排序。</p>
+<h3>23.2.4 <span class="marginalia" data-note="v. 13">增量排序</span><span class="hx-absolute -hx-mt-20" id="2324-span-classmarginalia-data-notev-13增量排序span"></span>
+    <a href="#2324-span-classmarginalia-data-notev-13%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一个数据集需要按照键 K1 … Km … Kn 排序，并且已知该数据集已经按照前 m 个键排序，那么就不需要从头重新排序。相反，可以根据相同的前几个键 K1 … Km 将数据集分成多个组（这些组内的值已经按定义的顺序排列)，然后再分别对这些组按照剩余的 Km+1 … Kn 键进行排序。这种方法称为增量排序。</p>
 <p>增量排序相较其他排序算法占用的内存更少，因为它将数据集分成了几个较小的组；此外，它允许执行器在处理完第一个分组后便开始返回结果，而无需等待整个数据集排序完成。</p>
 <p>在 PostgreSQL 中，实现更加微妙：<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup> 相对较大的组分别处理，较小的组则被合并在一起并完全排序。这减少了调用排序过程所产生的开销。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup></p>
 <p>执行计划中，增量排序通过 Incremental Sort 节点表示：</p>
@@ -1383,7 +1376,7 @@ $$</p>
   
 </div>
 <p>如计划所示，数据集按 total_amount 字段预排序，因为这是在该列 (Presorted Key) 上执行索引扫描的结果。EXPLIAN ANALYZE 命令还显示了运行时统计数据。Full-sort Groups 行与被合并起来进行完全排序的小的分组相关，而 Presorted Groups 行显示了具有部分有序数据的大的分组的数据，这些数据只需要按 book_date 列进行增量排序。在这两种情况下，都使用了内存中的快排方法。组大小的差异是由于预定成本的不均匀分布造成的。</p>
-<p>增量排序也可用于计算窗口函数：</p>
+<p>增量排序也可用于<span class="marginalia" data-note="v. 14">计算窗口函数</span>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1412,8 +1405,8 @@ $$</p>
 <p><strong>成本估算</strong>。增量排序的成本计算 <sup id="fnref:23"><a href="#fn:23" class="footnote-ref" role="doc-noteref">23</a></sup> 基于预期的组数量 <sup id="fnref:24"><a href="#fn:24" class="footnote-ref" role="doc-noteref">24</a></sup> 和对平均大小的组进行排序的预估成本 (我们已经回顾过了)。</p>
 <p>启动成本反映了对第一个分组进行排序的成本估算，这使得节点可以开始返回排序后的行；总成本包括所有组的排序成本。</p>
 <p>我们不打算在此处进一步探讨这些计算方式。</p>
-<h3>23.2.5 并行模式<span class="hx-absolute -hx-mt-20" id="2325-并行模式"></span>
-    <a href="#2325-%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>排序也可以并行进行。但是，尽管并行工作进程预先对它们的数据份额进行排序，但 Gather 节点对它们的排序顺序一无所知，只能按照先到先得的原则累积。为了保留排序顺序，执行器必须使用 Gather Merge 节点：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
+<h3>23.2.5 <span class="marginalia" data-note="v. 10">并行模式</span><span class="hx-absolute -hx-mt-20" id="2325-span-classmarginalia-data-notev-10并行模式span"></span>
+    <a href="#2325-span-classmarginalia-data-notev-10%e5%b9%b6%e8%a1%8c%e6%a8%a1%e5%bc%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>排序也可以并行进行。但是，尽管并行工作进程预先对它们的数据份额进行排序，但 Gather 节点对它们的排序顺序一无所知，只能按照先到先得的原则累积。为了保留排序顺序，执行器必须使用 Gather Merge 节点：<sup id="fnref:25"><a href="#fn:25" class="footnote-ref" role="doc-noteref">25</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1446,18 +1439,10 @@ $$</p>
   
 </div>
 <p>Gather Merge 节点使用二叉堆 <sup id="fnref:26"><a href="#fn:26" class="footnote-ref" role="doc-noteref">26</a></sup> 来调整由多个工作进程获取的行的顺序。它实际上合并了几个已排序的数据集，就像外部排序一样，但它用于不同的用例：Gather Merge 通常处理少量固定数量的数据源，并逐个而不是逐块地获取行。</p>
-<p><strong>成本估算</strong>。Gather Merge 节点的启动成本基于其子节点的启动成本。就像 Gather 节点一样，此值增加了启动并行进程的成本 (按 parallel_setup_cost 估算) 。</p>
-<p>然后，接收到的值进一步增加了构建二叉堆的成本，这需要对 n 个值进行排序，其中 n 是并行工作进程的数量，即
-$$
-n \log_{2} n
-$$
-单个比较操作的成本预估为 cpu_operator_cost 的两倍，这类操作的总份额通常可以忽略不计，因为 n 相当小。</p>
-<p>总成本包括通过若干个执行计划并行部分的进程获取所有数据的成本，以及将这些数据传输给领导者进程的成本。单行传输的代价预估为  parallel_tuple_cost 加 5%，以补偿可能在获取下一个值时的等待。</p>
-<p>在总成本计算中还必须考虑二叉堆更新所引起的成本：每个输入行需要
-$$
-\log_{2} n
-$$
-个比较操作和某些额外操作 (它们按 cpu_operator_cost 估算)。<sup id="fnref:27"><a href="#fn:27" class="footnote-ref" role="doc-noteref">27</a></sup></p>
+<p><strong>成本估算</strong>。Gather Merge 节点的启动成本基于其子节点的启动成本。就像 Gather 节点一样，此值增加了启动并行进程的成本 (按 <span class="marginalia" data-note="1000"><em>parallel_setup_cost</em></span> 估算) 。</p>
+<p>然后，接收到的值进一步增加了构建二叉堆的成本，这需要对 n 个值进行排序，其中 n 是并行工作进程的数量 (即 $n \log_2 n$)。单个比较操作的成本预估为 <span class="marginalia" data-note="0.0025"><em>cpu_operator_cost</em></span> 的两倍，这类操作的总份额通常可以忽略不计，因为 n 相当小。</p>
+<p>总成本包括通过若干个执行计划并行部分的进程获取所有数据的成本，以及将这些数据传输给领导者进程的成本。单行传输的代价预估为 <span class="marginalia" data-note="0.1"><em>parallel_tuple_cost</em></span> 加 5%，以补偿可能在获取下一个值时的等待。</p>
+<p>在总成本计算中还必须考虑二叉堆更新所引起的成本：每个输入行需要 $\log_2 n$ 个比较操作和某些额外操作 (它们按 <em>cpu_operator_cost</em> 估算)。<sup id="fnref:27"><a href="#fn:27" class="footnote-ref" role="doc-noteref">27</a></sup></p>
 <p>让我们看看另一个使用 Gather Merge 节点的计划。注意，这里的工作进程首先通过哈希执行部分聚合，然后 Sort 节点对接收到的结果进行排序 (成本很低，因为聚合后只剩下很少的行) ，进一步传递给领导者进程，领导者进程在 Gather Merge 节点中汇总完整的结果。至于最终的聚合，是在排序后的值列表上执行的：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
@@ -1577,7 +1562,7 @@ $$
   
 </div>
 <p>在并行计划中，这个节点称为 Partial GroupAggregate，而完成聚合的节点称为 Finalize GroupAggregate。</p>
-<p>如果分组是通过多个列集执行的 (在 GROUPING SETS、CUBE 或 ROLLUP 子句中指定)，那么哈希和排序策略可以在单个节点中结合使用。在不深入探讨此算法极其复杂的细节情况下，我将简单地提供一个示例，此示例在内存不足的情况下按三个不同的列执行分组：</p>
+<p>如果分组是通过多个列集执行的 (在 GROUPING SETS、CUBE 或 ROLLUP 子句中指定)，那么哈希和排序策略可以<span class="marginalia" data-note="v. 10">在单个节点中结合使用</span>。在不深入探讨此算法极其复杂的细节情况下，我将简单地提供一个示例，此示例在内存不足的情况下按三个不同的列执行分组：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
@@ -1620,21 +1605,18 @@ $$
 <p>哈希连接在大数据集上表现最佳。如果 RAM 足够，它只需要对两个数据集进行一次遍历，因此其复杂度是线性的。结合顺序表扫描，这种算法通常用于 OLAP 查询，这些查询基于大量数据计算结果。</p>
 <p>然而，如果响应时间比吞吐量更重要，哈希连接不是最佳选择：在整个哈希表构建完成之前，它不会返回结果。</p>
 <p>哈希连接算法仅适用于等值连接。另一个限制是连接键的数据类型必须支持哈希 (但几乎所有数据类型都支持)。</p>
-<p>嵌套循环连接有时可以利用 Memoize 节点 (也基于哈希表) 中的内层数据集的缓存，从而击败哈希连接。虽然哈希连接总是完全扫描内层数据集，嵌套循环算法不必这样做，这可能会降低一些成本。</p>
+<p>嵌套循环连接有时可以利用 <span class="marginalia" data-note="v. 14">Memoize 节点</span> (也基于哈希表) 中的内层数据集的缓存，从而击败哈希连接。虽然哈希连接总是完全扫描内层数据集，嵌套循环算法不必这样做，这可能会降低一些成本。</p>
 <p>归并连接可以完美处理短的 OLTP 查询和长的 OLAP 查询。它具有线性复杂度 (要连接的集合只需扫描一次)，不需要太多内存，并且无需任何预处理即可返回结果；但是，数据集必须已经有所需的排序顺序。</p>
 <p>最具成本效益的方式是通过索引扫描获取数据。如果行数较少，这是一个自然的选择；对于较大的数据集，索引扫描仍然是有效的，但前提是堆访问很少或根本不发生时。</p>
-<p>如果没有合适的索引可用，那么必须对数据集进行排序，但此操作是内存密集型的，其复杂度高于线性：
-$$
-O(n \log_{2} n)
-$$
-在这种情况下，哈希连接几乎总是比归并连接的代价更低——除非必须对结果进行排序。</p>
+<p>如果没有合适的索引可用，那么必须对数据集进行排序，但此操作是内存密集型的，其复杂度高于线性：$O(n \log_2 n)$。在这种情况下，哈希连接几乎总是比归并连接的代价更低——除非必须对结果进行排序。</p>
 <p>归并连接的一个额外好处是内层和外层数据集的等价性。嵌套循环和哈希连接的效率都高度依赖于规划器是否可以正确分配内层和外层数据集。</p>
 <p>归并连接仅限于等值联接。此外，数据类型必须具有 B 树操作符类。</p>
 <p>下图表示了各种连接方式的成本与要连接的行的比例之间的大致依赖关系。</p>
-<p><img src="23-5.png" alt="" loading="lazy" /></p>
+<img src="23-5.png" style="width:80%; float:left" />
+<div style="clear:both;"></div>
 <p>如果选择性高，嵌套循环连接对两个表都使用索引访问；然后，规划器切换到外表的完全扫描，这在图表的线性部分有所反映。</p>
 <p>这里的哈希连接对两个表都使用了完全扫描。图中的&quot;台阶&quot;对应于哈希表填满整个内存并且批次开始溢出到磁盘的时刻。</p>
-<p>如果使用索引扫描，归并连接的成本会呈小幅线性增长。如果 work_mem 大小足够大，哈希连接通常更有效，但当涉及到临时文件时，归并连接会胜过它。</p>
+<p>如果使用索引扫描，归并连接的成本会呈小幅线性增长。如果 <em>work_mem</em> 大小足够大，哈希连接通常更有效，但当涉及到临时文件时，归并连接会胜过它。</p>
 <p>sort-merge join 的上图显示，当索引不可用并且必须对数据进行排序时，成本上升。就像哈希连接的情况一样，图上的&quot;台阶&quot;是内存不足造成的，因为它会导致使用临时文件进行排序。</p>
 <p>这只是一个例子；在每个特定情况下，成本之间的比例将不同。</p>
 <div class="footnotes" role="doc-endnotes">

@@ -826,8 +826,8 @@ PostgreSQL 支持各种类型的锁 1。重锁 (在关系和其他对象上获�
 <h2>12.2 重锁<span class="hx-absolute -hx-mt-20" id="122-重锁"></span>
     <a href="#122-%e9%87%8d%e9%94%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>重锁是长锁。在对象级别获取，主要用于表，但也可应用于其他类型的对象。重锁通常用于保护对象不受并发更新的影响，或在重组期间禁止使用它们，但重锁也可以解决其他需求。这种模糊的定义是有意为之：这种类型的锁可以用于各种目的。唯一的共同点是它们的内部结构。</p>
 <p>除非另有明确说明，否则术语 lock 通常意味着重锁。</p>
-<p>重锁位于服务器的共享内存中 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>，可以在 pg_locks 视图中查看。重锁的总数受到 max_locks_per_transaction × max_connections 的限制。</p>
-<p>所有事务都使用一个共同的锁池，因此一个事务可以获取超过 max_locks_per_transaction 数量的锁。真正重要的是，系统中锁的总数不能超过所定义的限制。由于在服务器启动时会初始化锁池，因此更改这两个参数中的任何一个都需要重启服务器。</p>
+<p>重锁位于服务器的共享内存中 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup>，可以在 pg_locks 视图中查看。重锁的总数受到 <span class="marginalia" data-note="64"><em>max_locks_per_transaction</em></span> 乘以 <span class="marginalia" data-note="100"><em>max_connections</em></span> 的限制。</p>
+<p>所有事务都使用一个共同的锁池，因此一个事务可以获取超过 <em>max_locks_per_transaction</em> 数量的锁。真正重要的是，系统中锁的总数不能超过所定义的限制。由于在服务器启动时会初始化锁池，因此更改这两个参数中的任何一个都需要重启服务器。</p>
 <p>如果某个资源已经以一个不兼容的模式锁定，那么试图获取另一个锁的进程会加入到队列之中。等待的进程不会浪费 CPU 时间：它们会进入休眠状态，直到锁被释放并且操作系统将它们唤醒。</p>
 <p>如果第一个事务无法继续其操作，直到它获得另一个事务锁定的资源，而后者又需要第一个事务锁定的资源，那么这两个事务可能会陷入死锁。这种情况相对简单；死锁也可能涉及两个以上的事务。由于死锁会导致无限期等待，PostgreSQL 会自动检测它们，并中止其中一个受影响的事务，以确保可以继续正常操作。</p>
 <p>不同类型的重锁有不同的用途，保护不同的资源，并支持不同的模式，因此我们将分别考虑它们。</p>
@@ -843,7 +843,8 @@ PostgreSQL 支持各种类型的锁 1。重锁 (在关系和其他对象上获�
 <h2>12.3 事务 ID 上的锁<span class="hx-absolute -hx-mt-20" id="123-事务-id-上的锁"></span>
     <a href="#123-%e4%ba%8b%e5%8a%a1-id-%e4%b8%8a%e7%9a%84%e9%94%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>每个事务总是持有其自身事务 ID 的独占锁 (无论是虚拟的还是实际的，如果有的话)。</p>
 <p>PostgreSQL 为此提供了两种锁定模式，独占模式和共享模式。其兼容矩阵非常简单：共享模式与自身兼容，而独占模式不能与任何模式组合。</p>
-<p><img src="12-1.png" alt="" loading="lazy" /></p>
+<img src="12-1.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>为了跟踪特定事务的完成情况，进程可以在任何模式下请求对该事务 ID 的锁。由于事务本身已经持有对其自身 ID 的独占锁，因此无法获取其他的锁。请求该锁的进程会加入队列并进入休眠状态。一旦事务完成，锁就会被释放，排队的进程就会被唤醒。显然，由于相应的资源已经不存在了，它不会设法获取锁，但这个锁本来就不是真正需要的。</p>
 <p>在一个单独的会话中启动一个事务，并获取该后端进程的进程 ID (PID)：</p>
 <blockquote>
@@ -936,7 +937,8 @@ PostgreSQL 支持各种类型的锁 1。重锁 (在关系和其他对象上获�
 <h2>12.4 关系级锁<span class="hx-absolute -hx-mt-20" id="124-关系级锁"></span>
     <a href="#124-%e5%85%b3%e7%b3%bb%e7%ba%a7%e9%94%81" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 提供了多达八种模式的锁，用于锁定关系 (表、索引或任何其他对象) <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>。这样的多样性可以使一个关系上允许并发运行的命令数量最大化。</p>
 <p>下面显示了兼容性矩阵，并扩展了需要相应锁模式的命令示例。没有必要记住所有这些模式或试图找出它们命名背后的逻辑，但是翻阅这些数据，得出一些一般性的结论，并在需要时参考这个表肯定是有用的。</p>
-<p><img src="12-4.png" alt="" loading="lazy" /></p>
+<img src="12-4.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
 <p>Access Share 是最弱的模式；它可以与其他任何模式一起使用，除了 Access Exclusive，后者与所有模式都不兼容。因此，SELECT 命令几乎可以与任何操作并行执行，但不允许删除正在查询的表。</p>
 <p>前四种模式允许并发堆修改，而其他四种模式不允许。例如， CREATE INDEX 命令使用 Share 模式，此模式与自身兼容 (因此你可以在一个表上同时创建多个索引)，并且与只读操作使用的模式相兼容。因此，SELECT 命令可以与索引创建并行运行，而 INSERT，UPDATE 和 DELETE 命令将被阻塞。</p>
 <p>相反，未完成的修改堆数据的事务会阻塞 CREATE INDEX 命令。作为替代，你可以使用 CREATE INEDX CONCURRENTLY，它使用了更弱的 Share Update Exclusive 模式：创建索引需要的时间更长 (此操作甚至可能失败)，但作为回报，它允许并发数据修改。</p>
@@ -1178,8 +1180,9 @@ PostgreSQL 支持各种类型的锁 1。重锁 (在关系和其他对象上获�
 
   
 </div>
-<p><img src="12-8.png" alt="" loading="lazy" /></p>
-<p>pg_blocking_pids 函数提供了所有等待的高层次概览情况。它显示了排在指定进程前面的所有进程 ID，这些进程已经持有或想要获取一个不兼容的锁：</p>
+<img src="12-8.png" style="width:70%; float:left" />
+<div style="clear:both;"></div>
+<p><span class="marginalia" data-note="v. 9.6">pg_blocking_pids </span> 函数提供了所有等待的高层次概览情况。它显示了排在指定进程前面的所有进程 ID，这些进程已经持有或想要获取一个不兼容的锁：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
