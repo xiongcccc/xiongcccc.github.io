@@ -989,7 +989,7 @@ PostgreSQL 提供了多种连接方式：
 </span></span><span class="line"><span class="cl">FROM pg_stats t, pg_stats tf
 </span></span><span class="line"><span class="cl">WHERE t.tablename <span class="o">=</span> <span class="s1">&#39;tickets&#39;</span> AND t.attname <span class="o">=</span> <span class="s1">&#39;ticket_no&#39;</span>
 </span></span><span class="line"><span class="cl">  AND tf.tablename <span class="o">=</span> <span class="s1">&#39;ticket_flights&#39;</span> AND tf.attname <span class="o">=</span> <span class="s1">&#39;ticket_no&#39;</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"> n_distinct <span class="p">|</span> n_distinct
+</span></span><span class="line"><span class="cl"> <span class="err">n</span>_distinct <span class="p">|</span> n_distinct
 </span></span><span class="line"><span class="cl">−−−−−−−−−−−−+−−−−−−−−−−−−−
 </span></span><span class="line"><span class="cl">         −1 <span class="p">|</span> −0.30362356
 </span></span><span class="line"><span class="cl"><span class="o">(</span><span class="m">1</span> row<span class="o">)</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">

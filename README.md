@@ -27,5 +27,6 @@ Feel free to Connect with Me：
 - [GitHub](https://github.com/xiongcccc) | 微信公众号：PostgreSQL学徒
 - 📨 xiongcc\_1994@126.com / xiongcc\_1994@outlook.com
 
+## 声明
 
-
+本中文译文版版权归熊灿灿所有，未经许可不得转载或用于商业用途。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。
