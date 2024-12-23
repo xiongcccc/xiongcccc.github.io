@@ -30,3 +30,13 @@ Feel free to Connect with Me：
 ## 声明
 
 本中文译文版版权归熊灿灿所有，未经许可不得转载或用于商业用途。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。
+
+## 支持作者
+
+一分也是爱❤️
+
+<div style="overflow: hidden;">
+  <img src="buy me a coffee.jpeg" alt="Logo" width="500" height="500" style="float: left; margin-right: 10px;">
+  <div style="overflow: hidden; text-align: center;">
+  </div>
+</div>
