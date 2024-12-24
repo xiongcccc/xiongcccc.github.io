@@ -1,9 +1,10 @@
 .highlight .err {
   background-color: transparent !important;
-  #color: inherit !important;
+  /* 移除或确认注释是否需要 */
+  /* #color: inherit !important; */
 }
 
-/* 全局覆盖blockquote的默认斜体 */
+/* 全局覆盖 blockquote 的默认斜体 */
 blockquote {
   font-style: normal;
 }
@@ -13,7 +14,6 @@ blockquote p {
   font-style: normal;
 }
 
-
 blockquote {
   background-color: transparent !important;
 }
@@ -22,27 +22,25 @@ pre, code {
   background-color: transparent !important;
 }
 
-
 code, pre,
 blockquote code,
 blockquote pre {
   font-style: normal !important;
 }
 
-
-/* CSS变量定义 */
+/* CSS 变量定义 */
 :root {
   /* 浅色模式变量 */
-  --marginalia-bg-light: #f5f5f5;        /* 更淡的咖啡色背景 */
-  --marginalia-hover-bg-light: #f5f5f5;  /* 悬停时稍深的淡咖啡色 */
-  --marginalia-text-light: #333;         /* 深灰色文本 */
+  --marginalia-bg-light: none;               /* 移除背景色 */
+  --marginalia-hover-bg-light: none;         /* 悬停时移除背景色 */
+  --marginalia-text-light: #333;             /* 深灰色文本 */
 
   /* 深色模式变量 */
-  --marginalia-bg-dark: #f5f5f5;         /* 深色模式下的淡咖啡色 */
-  --marginalia-hover-bg-dark: #f5f5f5;   /* 悬停时稍深的淡咖啡色 */
-  --marginalia-text-dark: #f0f0f0;       /* 浅灰色文本 */
+  --marginalia-bg-dark: none;                /* 移除背景色 */
+  --marginalia-hover-bg-dark: none;          /* 悬停时移除背景色 */
+  --marginalia-text-dark: #333;              /* 浅灰色文本 */
 
-  /* Tooltip背景色 */
+  /* Tooltip 背景色 */
   --tooltip-bg-light: rgba(0, 0, 0, 0.8);
   --tooltip-text-light: #fff;
   --tooltip-bg-dark: rgba(255, 255, 255, 0.9);
@@ -59,21 +57,29 @@ blockquote pre {
   display: inline;
   color: var(--marginalia-text-light);
   cursor: pointer;
-  background-color: var(--marginalia-bg-light);
-  padding: 2px 4px;
-  border-radius: 3px;
-  text-decoration: none;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  font-weight: normal; /* 加粗文本 */
+  background-color: var(--marginalia-bg-light); /* 已设置为 none */
+  padding: 0; /* 移除内边距，避免占用额外空间 */
+  border-radius: 0; /* 移除圆角 */
+  text-decoration: underline; /* 添加下划线 */
+  text-underline-offset: 6px;
+  text-decoration: underline; /* 添加下划线 */
+  text-decoration-thickness: 1px; /* 下划线粗细 */
+  text-underline-offset: 7px; /* 下划线与文本的间距 */
+  
+  /* 新增属性 */
+  text-decoration-style: wavy; /* 下划线样式：solid, double, dotted, dashed, wavy */
+  text-decoration-color: #555; /* 下划线颜色 */
+  transition: color 0.3s ease; /* 移除背景色过渡，仅保留颜色过渡 */
+  font-weight: normal; /* 保持文本正常粗细 */
 }
 
-/* 悬停时背景色稍微加深 */
+/* 悬停时改变文本颜色以提供视觉反馈 */
 .marginalia:hover {
-  background-color: var(--marginalia-hover-bg-light);
-  color: var(--marginalia-text-light); /* 保持文本颜色不变 */
+  color: #555; /* 选择一个稍微深一点的颜色，与你的设计保持一致 */
+  /* 移除背景色变化 */
 }
 
-/* Tooltip样式 */
+/* Tooltip 样式 */
 .marginalia::after {
   content: attr(data-note);
   position: absolute;
@@ -121,12 +127,11 @@ blockquote pre {
 /* 浅色模式样式（默认） */
 @media (prefers-color-scheme: light) {
   .marginalia {
-    background-color: var(--marginalia-bg-light);
     color: var(--marginalia-text-light);
   }
 
   .marginalia:hover {
-    background-color: var(--marginalia-hover-bg-light);
+    color: #555; /* 与上面一致 */
   }
 
   .marginalia::after {
@@ -142,12 +147,11 @@ blockquote pre {
 /* 深色模式样式 */
 @media (prefers-color-scheme: dark) {
   .marginalia {
-    background-color: var(--marginalia-bg-dark);
     color: var(--marginalia-text-dark);
   }
 
   .marginalia:hover {
-    background-color: var(--marginalia-hover-bg-dark);
+    color: #ccc; /* 选择一个适合深色模式的颜色 */
   }
 
   .marginalia::after {
@@ -159,7 +163,6 @@ blockquote pre {
     border-color: var(--arrow-bg-dark) transparent transparent transparent;
   }
 }
-
 
 /* 默认（浅色模式）下的 iframe 样式 */
 .widgetstore-iframe {
