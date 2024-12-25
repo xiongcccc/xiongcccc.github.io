@@ -1272,7 +1272,7 @@
     <a href="#651-%e8%87%aa%e5%8a%a8%e6%b8%85%e7%90%86%e6%9c%ba%e5%88%b6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>启用自动清理时 (<span class="marginalia" data-note="on"><em>autovacuum</em></span> 配置参数为 on) ，系统中始终运行着自动清理守护进程。该进程定义了自动清理的周期，并根据统计信息维护着&quot;活跃&quot;数据库的列表。如果启用了 <span class="marginalia" data-note="on"><em>track_counts</em></span> 参数，则会收集此类统计信息。不要关闭这些参数，否则自动清理将无法工作。</p>
 <p>每隔 <span class="marginalia" data-note="1min"><em>autovacuum_naptime</em></span> 时间，自动清理守护进程就会为列表中的每个活跃数据库启动一个自动清理工作进程 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> (这些工作进程如往常一样由 postmaster 创建) 。因此，如果集簇中有 N 个活跃数据库，那么在 <em>autovacuum_naptime</em> 时间间隔内将生成 N 个工作进程。但是，并行运行的自动清理工作进程总数不能超过  <span class="marginalia" data-note="3"><em>autovacuum_max_workers</em></span> 参数定义的阈值。</p>
 <blockquote>
-<p>自动清理工作进程与常规的后台工作进程十分相似，但它们比这种通用的任务管理机制出现得早得多。自动清理的实现决定保持不变，因此自动清理工作进程不使用 max_worker_processes 槽。</p>
+<p>自动清理工作进程与常规的后台工作进程十分相似，但它们比这种通用的任务管理机制出现得早得多。自动清理的实现决定保持不变，因此自动清理工作进程不使用 <em>max_worker_processes</em> 槽。</p>
 </blockquote>
 <p>一旦启动，后台工作进程便会连接到指定的数据库，并构建两个列表：</p>
 <ul>
@@ -1672,7 +1672,7 @@
 </ul>
 <p>如果这些参数中的任何一个设置为 -1，那么便会回退到常规 VACUUM 相应的参数。 因此，默认情况下，<em>autovacuum_vacuum_cost_limit</em> 参数依赖于 <em>vacuum_cost_limit</em> 的值。</p>
 <blockquote>
-<p>在 12 版本之前，autovacuum_vacuum_cost_delay 的默认值为 20 ms，这会导致在现代硬件上的性能非常之差。</p>
+<p>在 12 版本之前，<em>autovacuum_vacuum_cost_delay</em> 的默认值为 20 ms，这会导致在现代硬件上的性能非常之差。</p>
 </blockquote>
 <p>每个周期内，Autovacuum 的工作单位限制在 <em>autovacuum_vacuum_cost_limit</em>，并且由于此限制在所有工作进程之间共享，因此对系统的总体影响大致相同，无论其数量如何。因此，如果你需要加快自动清理的速度，那么 <em>autovacuum_max_workers</em> 和 <em>autovacuum_vacuum_cost_limit</em> 的值都应该按比例增加。</p>
 <p>如果需要，你可以通过设置以下存储参数来覆盖特定表的这些设置：</p>

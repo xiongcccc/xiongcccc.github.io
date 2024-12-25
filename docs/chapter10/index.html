@@ -1452,7 +1452,7 @@
 <p>但是，可能 (甚至很可能) 负载有时会更高，因此在此时间间隔内生成的 WAL 文件的大小会很大。在这种情况下，必须更频繁地执行检查点。为了设置这样的触发器，我们通过 <span class="marginalia" data-note="1GB"><em>max_wal_size</em></span> 参数限制恢复所需的 WAL 文件的大小。当超过这个阈值时，服务器便会触发一个额外的检查点 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。</p>
 <p>用于恢复的 WAL 文件<span class="marginalia" data-note="v. 11">包含最新完成的检查点和当前尚未完成的检查点的所有条目</span>。因此，要估算它们的总大小，你应该将计算出的检查点之间的 WAL 大小乘以 1 + <em>checkpoint_completion_target</em>。</p>
 <blockquote>
-<p>在 11 版本之前，PostgreSQL 会为两个已完成的检查点保留 WAL 文件，因此乘数为 2 + checkpoint_completion_target。</p>
+<p>在 11 版本之前，PostgreSQL 会为两个已完成的检查点保留 WAL 文件，因此乘数为 2 + <em>checkpoint_completion_target</em>。</p>
 </blockquote>
 <p>按照这种方式，大多数检查点都将按计划执行，每隔 <em>checkpoint_timeout</em> 执行一次； 但是如果负载增加，当 WAL 的大小超过 <em>max_wal_size</em> 值时，便会触发检查点。</p>
 <p>实际进展会定期与预期数字进行对比 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup>：</p>

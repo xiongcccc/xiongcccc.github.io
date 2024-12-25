@@ -785,7 +785,7 @@ PostgreSQL 提供了多种连接方式：
 </ul>
 <h3>21.2.1 笛卡尔积<span class="hx-absolute -hx-mt-20" id="2121-笛卡尔积"></span>
     <a href="#2121-%e7%ac%9b%e5%8d%a1%e5%b0%94%e7%a7%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>无论集合中的行数如何，嵌套循环连接都是查找笛卡尔积最有效的方式：</p>
-<img src="21-1.png" style="width:80%; float:left" />
+<img src="21-1.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <p>嵌套循环节点使用上述算法进行连接。它总是有两个子节点：计划中显示较高的节点对应于外集合，而较低的节点代表内集合。</p>
 <p>在此例中，内集合由 Materialize 节点 <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 表示。此节点返回从其子节点接收到的行，并保存它们以备将来使用 (这些行在内存中累积，直到它们的总大小达到 <span class="marginalia" data-note="4MB"><em>work_mem</em></span>；然后 PostgreSQL 会将它们溢出到磁盘上的临时文件中)。如果再次访问，节点读取所累积的行而无需调用子节点。这样执行器就可以避免再次扫描全表，只读取满足条件的行即可。</p>
@@ -828,7 +828,7 @@ PostgreSQL 提供了多种连接方式：
 <li>处理要返回的每一行的成本</li>
 </ul>
 <p>此处是成本估算的依赖图：</p>
-<img src="21-2.png" style="width:80%; float:left" />
+<img src="21-2.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <p>连接的成本计算如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -892,7 +892,7 @@ PostgreSQL 提供了多种连接方式：
 <li>处理要返回的每一行的成本</li>
 </ul>
 <p>此处的依赖图如下：</p>
-<img src="21-3.png" style="width:80%; float:left" />
+<img src="21-3.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <p>在这个例子中，物化降低了重复获取数据的成本。计划中显示了第一次 Materialize 调用的成本，但没有列出所有后续的调用情况。我不会在此处提供任何计算说明，<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 但在此特例下，估算值是 0.0125。</p>
 <p>因此，这个例子中执行的连接成本计算如下：</p>

@@ -21,7 +21,7 @@ B 树具有以下重要属性：
 我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
 索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
 25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
-搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 $K_{i}$ ⩽ expression &lt; $K_{i&#43;1}$ 的 $K_{i}$ 键。
 根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。" />
 
   
@@ -46,9 +46,9 @@ B 树具有以下重要属性：
 我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
 索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
 25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
-搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 $K_{i}$ ⩽ expression &lt; $K_{i&#43;1}$ 的 $K_{i}$ 键。
 根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。">
-  <meta itemprop="wordCount" content="2098">
+  <meta itemprop="wordCount" content="2097">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 25 章：B-tree">
   <meta name="twitter:description" content="25.1 总览 B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。1 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。
@@ -60,7 +60,7 @@ B 树具有以下重要属性：
 我们不能绝对地说，这种结构名称中的字母 B 代表什么。平衡 (balanced) 和茂密 (bushy) 都同样适用。令人惊讶的是，你经常可以看到它被解释为二进制 (binary)，这显然是不正确的。
 索引中的数据要么按升序要么按降序排序，这种排序不仅适用于每个节点内部，也适用于同一层级的所有节点。同层节点被绑定成一个双向列表，因此通过简单地扫描列表的一个方向或另一个方向，就有可能得到一个有序的数据集，而不必每次都从根开始。
 25.2 检索和插入 25.2.1 等值检索 让我们看看如何通过 “indexed-column = expression” 的条件在树中搜索值。2 我们尝试找到 KJA 机场 (Krasnoyarsk)。
-搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ expression &lt; Ki&#43;1 的 Ki 键。
+搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 $K_{i}$ ⩽ expression &lt; $K_{i&#43;1}$ 的 $K_{i}$ 键。
 根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。">
 
     <link href="/css/compiled/main.css" rel="stylesheet" />
@@ -835,7 +835,7 @@ B 树具有以下重要属性：
 <h2>25.2 检索和插入<span class="hx-absolute -hx-mt-20" id="252-检索和插入"></span>
     <a href="#252-%e6%a3%80%e7%b4%a2%e5%92%8c%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>25.2.1 等值检索<span class="hx-absolute -hx-mt-20" id="2521-等值检索"></span>
     <a href="#2521-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看看如何通过 &ldquo;<em>indexed-column</em> = <em>expression</em>&rdquo; 的条件在树中搜索值。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 我们尝试找到 KJA 机场 (Krasnoyarsk)。</p>
-<p>搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 Ki ⩽ <em>expression</em> &lt; Ki+1 的 Ki 键。</p>
+<p>搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 $K_{i}$ ⩽ <em>expression</em> &lt; $K_{i+1}$ 的 $K_{i}$ 键。</p>
 <p>根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。</p>
 <img src="25-2.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
@@ -854,8 +854,7 @@ B 树具有以下重要属性：
 <div style="clear:both;"></div>
 <p>对于小于和大于操作符，过程是相同的，除了需要排除第一个找到的值。</p>
 <h3>25.2.3 范围检索<span class="hx-absolute -hx-mt-20" id="2523-范围检索"></span>
-    <a href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当通过范围 &ldquo;<em>expression</em>1 ⩽ <em>indexed-column</em> ⩽ <em>expression</em>2&rdquo; 进行检索时，我们必须
-先找到 <em>expression1</em>，然后向右遍历叶节点，直至找到 <em>expression2</em>。下图说明了在 LED (Saint Petersburg) 和 ROV (Rostov-on-Don) 之间搜索机场代码的过程，包括两端。</p>
+    <a href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当通过范围 &ldquo;<em>expression</em><sub>1</sub> ⩽ <em>indexed-column</em> ⩽ <em>expression</em><sub>2</sub>&rdquo; 进行检索时，我们必须先找到 <em>expression</em><sub>1</sub>，然后向右遍历叶节点，直至找到 <em>expression</em><sub>2</sub>。下图说明了在 LED (Saint Petersburg) 和 ROV (Rostov-on-Don) 之间搜索机场代码的过程，包括两端。</p>
  <img src="25-4.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <h3>25.2.4 插入<span class="hx-absolute -hx-mt-20" id="2524-插入"></span>
@@ -1645,11 +1644,11 @@ B 树具有以下重要属性：
 </div>
 <p>即使规划器选择执行索引扫描，也仍然需要遍历所有索引条目。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 不幸的是，计划并不会显示条件实际上仅用于过滤结果。</p>
 <blockquote>
-<p>如果第一列没有太多不同的值 <em>v1,v2, …, vn</em>，通过以下条件进行一系列搜索而不是使用单一条件 &ldquo;col2 = <em>value</em>&rdquo; 的搜索，可能会有益处，这样可以在对应的子树上进行多次遍历：</p>
-<p>col1 = <em>v1</em> and col2 = <em>value</em></p>
-<p>col1 = <em>v2</em> and col2 = <em>value</em></p>
+<p>如果第一列没有太多不同的值 <em>v<sub>1</sub>,v<sub>2</sub>, …, v<sub>n</sub></em>，通过以下条件进行一系列搜索而不是使用单一条件 &ldquo;col2 = <em>value</em>&rdquo; 的搜索，可能会有益处，这样可以在对应的子树上进行多次遍历：</p>
+<p>col1 = <em>v<sub>1</sub></em> and col2 = <em>value</em></p>
+<p>col1 = <em>v<sub>2</sub></em> and col2 = <em>value</em></p>
 <p>⋯</p>
-<p>col1 = <em>vn</em> and col2 = <em>value</em></p>
+<p>col1 = <em>v<sub>n</sub></em> and col2 = <em>value</em></p>
 <p>这种类型的索引访问被称之为 Skip Scan，但目前尚未实现。<sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup></p>
 </blockquote>
 <p>反之亦然，如果根据乘客姓名和预订号创建索引，那么它将更适合仅按乘客姓名，或者按乘客姓名和预订参考号两者进行查询：</p>

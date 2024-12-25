@@ -1923,7 +1923,7 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 <p>然而，这种检测需要一些代价，不应该在每次请求锁时都浪费 (毕竟，死锁并不会经常发生)。</p>
 <img src="13-7.png" style="width:80%; float:left" />
 <div style="clear:both;"></div>
-<p>因此，如果进程尝试获取锁失败，并在加入队列后进入休眠状态，PostgreSQL 会自动设置一个由 deadlock_timeout 参数 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 定义的超时时间。如果资源在此期间就变得可用，那么很好，这样就可以避免额外的检测成本。但是，如果在 <span class="marginalia" data-note="1s"><em>deadlock_timeout</em></span> 时间单位之后，仍然在等待，等待进程就会醒来并发起检测。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
+<p>因此，如果进程尝试获取锁失败，并在加入队列后进入休眠状态，PostgreSQL 会自动设置一个由 <em>deadlock_timeout</em> 参数 <sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 定义的超时时间。如果资源在此期间就变得可用，那么很好，这样就可以避免额外的检测成本。但是，如果在 <span class="marginalia" data-note="1s"><em>deadlock_timeout</em></span> 时间单位之后，仍然在等待，等待进程就会醒来并发起检测。<sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup></p>
 <p>这种检测实际上是构建一个等待图，并在其中搜索循环 <sup id="fnref:13"><a href="#fn:13" class="footnote-ref" role="doc-noteref">13</a></sup>。为了&quot;冻结&quot;图的当前状态，PostgreSQL 将在整个检测期间停止对所有重锁的处理。</p>
 <p>如果没有检测到死锁，进程将再次进入休眠状态；迟早会轮到它。</p>
 <p>如果检测到死锁，其中一个事务将被强制终止，从而释放这个事务的锁并使其他事务能够继续执行。在大多数情况下，是发起检测的事务被中断，但如果循环中包括一个 autovacuum 进程，并且当前没有在冻结元组以防止回卷，那么服务器会终止 autovacuum 进程，因为它的优先级较低。</p>

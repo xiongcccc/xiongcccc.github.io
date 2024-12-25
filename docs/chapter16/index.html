@@ -831,7 +831,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 <p>一个相当晦涩的 RTE 缩写代表 Range Table Entry。PostgreSQL 源代码中使用术语 range table 来表示表、子查询、关联结果，换句话说，指那些可以由 SQL 操作符处理的任何行集。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 <p><strong>语义分析</strong>。语义分析 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup> 的目的是确认数据库中是否包含查询根据名称引用的表或其他对象，以及用户是否具有访问这些对象的权限。所有语义分析需要的信息都存储在系统表中。</p>
 <p>获得语法分析树后，语义分析器执行进一步的重构，包括添加对特定数据库对象、数据类型和其他信息的引用。</p>
-<p>如果打开了 debug_print_parse 参数，你可以在服务器日志中看到完整的语法分析树，尽管这没有什么实际的意义。</p>
+<p>如果打开了 <em>debug_print_parse</em> 参数，你可以在服务器日志中看到完整的语法分析树，尽管这没有什么实际的意义。</p>
 <h3>16.2.2 转换<span class="hx-absolute -hx-mt-20" id="1622-转换"></span>
     <a href="#1622-%e8%bd%ac%e6%8d%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在下一阶段，查询会被转换(重写)。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
 <p>内核出于多种目的使用转换。其中之一是用视图的基本查询所对应的子树来替换语法树中的视图名称。</p>

@@ -854,7 +854,7 @@
 </li>
 <li>
 <p>它们不会导致死锁，所以不包含在等待图中。</p>
-<p>然而，如果扩展关系的过程超过了 deadlock_timeout，仍会执行死锁检测。这不是一种典型的情况，但如果大量进程同时执行多个插入操作，就可能会发生。在这种情况下，会多次调用死锁检测，这实际上会导致正常的系统操作瘫痪。</p>
+<p>然而，如果扩展关系的过程超过了 <em>deadlock_timeout</em>，仍会执行死锁检测。这不是一种典型的情况，但如果大量进程同时执行多个插入操作，就可能会发生。在这种情况下，会多次调用死锁检测，这实际上会导致正常的系统操作瘫痪。</p>
 <p>为了将此风险降至最低，<span class="marginalia" data-note="v. 9.6">堆文件会一次性扩展多个页面</span> (与等待锁的进程数成比例，但每次操作不超过 512 个页面) <sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup>。例外的是 B 树索引文件，一次只扩展一个页面 <sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup>。</p>
 </li>
 </ul>

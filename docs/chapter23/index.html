@@ -1343,7 +1343,7 @@
   
 </div>
 <h3>23.2.4 <span class="marginalia" data-note="v. 13"><strong>增量排序</strong></span><span class="hx-absolute -hx-mt-20" id="2324-span-classmarginalia-data-notev-13增量排序span"></span>
-    <a href="#2324-span-classmarginalia-data-notev-13%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一个数据集需要按照键 K1 … Km … Kn 排序，并且已知该数据集已经按照前 m 个键排序，那么就不需要从头重新排序。相反，可以根据相同的前几个键 K1 … Km 将数据集分成多个组（这些组内的值已经按定义的顺序排列)，然后再分别对这些组按照剩余的 Km+1 … Kn 键进行排序。这种方法称为增量排序。</p>
+    <a href="#2324-span-classmarginalia-data-notev-13%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8fspan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果一个数据集需要按照键 $K_1$ … $K_m$ … $K_n$ 排序，并且已知该数据集已经按照前 m 个键排序，那么就不需要从头重新排序。相反，可以根据相同的前几个键 $K_1$ &hellip; $K_m$ 将数据集分成多个组（这些组内的值已经按定义的顺序排列)，然后再分别对这些组按照剩余的 $K_{m+1}$ … $K_n$ 键进行排序。这种方法称为增量排序。</p>
 <p>增量排序相较其他排序算法占用的内存更少，因为它将数据集分成了几个较小的组；此外，它允许执行器在处理完第一个分组后便开始返回结果，而无需等待整个数据集排序完成。</p>
 <p>在 PostgreSQL 中，实现更加微妙：<sup id="fnref:21"><a href="#fn:21" class="footnote-ref" role="doc-noteref">21</a></sup> 相对较大的组分别处理，较小的组则被合并在一起并完全排序。这减少了调用排序过程所产生的开销。<sup id="fnref:22"><a href="#fn:22" class="footnote-ref" role="doc-noteref">22</a></sup></p>
 <p>执行计划中，增量排序通过 Incremental Sort 节点表示：</p>
