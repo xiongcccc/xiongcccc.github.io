@@ -1117,7 +1117,7 @@
   
 </div>
 <p>下一个节点 (Gather) 由领导者进程执行。该节点负责启动工作进程并收集他们返回的数据。</p>
-<p>在规划过程中，启动进程 (无论数量如何) 的成本估算由 <span class="marginalia" data-note="1000"><em>parallel_setup_cost</em></span> 参数定义，而进程之间每行数据传输的成本按 <span class="marginalia" data-note="0.1"><em>parallel_tutple_cos</em></span> 进行估算。</p>
+<p>在规划过程中，启动进程 (无论数量如何) 的成本估算由 <span class="marginalia" data-note="1000"><em>parallel_setup_cost</em></span> 参数定义，而进程之间每行数据传输的成本按 <span class="marginalia" data-note="0.1"><em>parallel_tuple_cost</em></span> 进行估算。</p>
 <p>在这个例子中，启动成本 (用于启动进程) 占大头；这个值被添加到 Partial Aggregate 节点的启动成本中。总成本还包括传输两行的成本；这个值被添加到 Partial Aggregate 节点 <sup id="fnref:12"><a href="#fn:12" class="footnote-ref" role="doc-noteref">12</a></sup> 的总成本中：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
