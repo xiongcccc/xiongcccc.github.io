@@ -814,7 +814,7 @@ B 树具有以下重要属性：
           <h2>25.1 总览<span class="hx-absolute -hx-mt-20" id="251-总览"></span>
     <a href="#251-%e6%80%bb%e8%a7%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树 (作为 btree 访问方法实现) 是一种数据结构，允许你从树的根节点开始向下搜索，在树的叶节点中快速找到所需元素。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 为了明确识别搜索路径，所有树元素必须是有序的。B 树专为可以比较和排序的数据类型 (ordinal) 而设计。</p>
 <p>下面是一个索引示意图，此索引基于机场代码构建，内部节点显示为水平矩形；叶节点垂直对齐。</p>
-<img src="25-1.png" style="width:70%; float:left" />
+<img src="25-1.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <p>每个树节点包含若干元素，这些元素由一个索引键和一个指针组成。内部节点元素引用下一级节点；叶节点元素引用堆元组 (图中未显示这些引用)。</p>
 <p>B 树具有以下重要属性：</p>
@@ -837,7 +837,7 @@ B 树具有以下重要属性：
     <a href="#2521-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>让我们看看如何通过 &ldquo;<em>indexed-column</em> = <em>expression</em>&rdquo; 的条件在树中搜索值。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 我们尝试找到 KJA 机场 (Krasnoyarsk)。</p>
 <p>搜索从根节点开始，访问方法必须确定要下降到哪个子节点。它选择了满足 $K_{i}$ ⩽ <em>expression</em> &lt; $K_{i+1}$ 的 $K_{i}$ 键。</p>
 <p>根节点包含键 AER 和 OVB。条件 AER ⩽ KJA &lt; OVB 成立，所以我们需要下降到带有 AER 键的元素所引用的子节点。</p>
-<img src="25-2.png" style="width:70%; float:left" />
+<img src="25-2.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <p>递归重复此过程，直到我们到达包含所需元组 ID 的叶节点。在此特例下，子节点满足条件 DME ⩽ KJA &lt; KZN，所以我们必须下降到含有 DME 键的元素所引用的叶节点。</p>
 <p>你可能已注意到，树的内部节点中最左边的键是冗余的：要选择根的子节点，满足条件 KJA &lt; OVB 就足够了。B 树不存储这样的键，因此在接下来的图中，我会将相应的元素留空。</p>
@@ -850,25 +850,25 @@ B 树具有以下重要属性：
 <h3>25.2.2 非等值检索<span class="hx-absolute -hx-mt-20" id="2522-非等值检索"></span>
     <a href="#2522-%e9%9d%9e%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果按照 &ldquo;<em>indexed-column</em> ⩽ <em>expression</em>&rdquo; (或 &ldquo;<em>indexed-column</em> ⩾ <em>expression</em>&rdquo;) 进行搜索，首先要在索引中查找满足相等条件的值，然后沿着需要的方向遍历其叶节点，直到到达树的末端。</p>
 <p>下图说明了搜索机场代码小于或等于 DME (Domodedovo) 的过程。</p>
-<img src="25-3.png" style="width:70%; float:left" />
+<img src="25-3.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <p>对于小于和大于操作符，过程是相同的，除了需要排除第一个找到的值。</p>
 <h3>25.2.3 范围检索<span class="hx-absolute -hx-mt-20" id="2523-范围检索"></span>
     <a href="#2523-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当通过范围 &ldquo;<em>expression</em><sub>1</sub> ⩽ <em>indexed-column</em> ⩽ <em>expression</em><sub>2</sub>&rdquo; 进行检索时，我们必须先找到 <em>expression</em><sub>1</sub>，然后向右遍历叶节点，直至找到 <em>expression</em><sub>2</sub>。下图说明了在 LED (Saint Petersburg) 和 ROV (Rostov-on-Don) 之间搜索机场代码的过程，包括两端。</p>
- <img src="25-4.png" style="width:70%; float:left" />
+ <img src="25-4.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <h3>25.2.4 插入<span class="hx-absolute -hx-mt-20" id="2524-插入"></span>
     <a href="#2524-%e6%8f%92%e5%85%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>新元素的插入位置由键的顺序明确定义。例如，如果将 RTW 机场代码 (Saratov) 插入到表中，新元素将出现在倒数第二个叶节点中，位于 ROV 和 SGC 之间。</p>
 <p>但如果叶节点没有足够的空间容纳新元素怎么办？例如 (假设一个节点最多可以容纳三个元素)，如果我们插入 TJM 机场代码 (Tyumen)，最后一个叶节点将溢出。在这种情况下，节点被分裂成两个，旧节点的一些元素被移动到新节点中，并在父节点中添加一个指向新子节点的指针。显然，父节点也可能溢出。然后它也分裂成两个节点，依次类推。如果涉及到根节点的分裂，则在目标节点之上再创建一个节点，成为树的新的根节点。在这种情况下，树的深度增加了一层。</p>
 <p>在此例中，插入 TJM 机场会导致两个节点分裂；由此产生的新节点在下图中高亮显示。为了确保任何节点都可以分裂，一个双向列表绑定了所有层级的节点，而不仅仅是最低层级的节点。</p>
-<img src="25-5.png" style="width:70%; float:left" />
+<img src="25-5.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <p>所描述的插入和分裂过程确保了树保持平衡，并且由于一个节点可以容纳的元素数量通常非常大，因此树的深度很少增加。</p>
 <p>问题是，一旦分裂，节点就永远不能合并在一起，即使在清理之后只包含很少的元素。这个限制不是 B 树数据结构本身的问题，而是其在 PostgreSQL 实现中的问题。因此，如果在尝试插入时节点满了，访问方法首先会尝试剪枝多余的数据以清理一些空间，避免额外的分裂。</p>
 <h2>25.3 页面布局<span class="hx-absolute -hx-mt-20" id="253-页面布局"></span>
     <a href="#253-%e9%a1%b5%e9%9d%a2%e5%b8%83%e5%b1%80" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树的每个节点占用一个页面。页面的大小定义了节点的容量。</p>
 <p>由于页面分裂，树根在不同时间可以由不同的页面表示。但是搜索算法必须始终从根节点开始扫描。它在零索引页面 (称为元页面) 中找到当前根页面的 ID。元页面还包含一些其他元数据。</p>
-<img src="25-6.png" style="width:70%; float:left" />
+<img src="25-6.png" style="width:70%; float:center" />
 <div style="clear:both;"></div>
 <p>索引页中的数据布局与我们迄今为止看到的有些不同。每一层除了最右边的页面外，所有页面都包含一个额外的&quot;高键&quot;，这个高键保证不小于此页面中的任何键。在上图中，高键被高亮显示。</p>
 <p>让我们使用 pageinspect 扩展来查看基于六位数预订参考号的实际索引页面。元页面列出了根页面 ID 和树的深度 (层级编号从叶节点开始，从零开始)：</p>
