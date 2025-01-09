@@ -1038,7 +1038,7 @@
 <img src="18-4.png" style="width:70%; float:left" />
 <div style="clear:both;"></div>
 <p>所有位于 Gather 节点下方的节点都属于计划的并行部分。这些节点由各个工作进程执行 (这里规划了两个工作进程) ，可能也由领导者进程执行 (除非通过 <em>parallel_leader_participation</em> 参数将此功能关闭)。Gather 节点自身以及所有它上方的节点构成了计划的顺序部分，并仅由领导者进程执行。</p>
-<p>Parallel Seq Scan 节点表示并行堆扫描。rows 字段显示了单个进程要处理的预估平均行数。总而言之，执行必须由三个进程 (一个领导者进程和两个工作进程) 来完成，但是领导者进程将处理较少的行：随着工作进程数量的增加，它工作比重会变小。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 在这个特定的例子中，因子是 2.4。</p>
+<p>Parallel Seq Scan 节点表示并行堆扫描。rows 字段显示了单个进程要处理的预估平均行数。总而言之，执行必须由三个进程 (一个领导者进程和两个工作进程) 来完成，但是领导者进程将处理较少的行：随着工作进程数量的增加，其工作比重会变小。<sup id="fnref:11"><a href="#fn:11" class="footnote-ref" role="doc-noteref">11</a></sup> 在这个特定的例子中，因子是 2.4。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
