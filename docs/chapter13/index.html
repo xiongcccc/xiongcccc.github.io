@@ -1163,7 +1163,7 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
   
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM locks_accounts WHERE <span class="nv">pid</span> <span class="o">=</span> 30734<span class="p">;</span>
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM locks_accounts WHERE <span class="nv">pid</span> <span class="o">=</span> 30723<span class="p">;</span>
 </span></span><span class="line"><span class="cl">  pid  <span class="p">|</span>   locktype    <span class="p">|</span>  lockid  <span class="p">|</span>       mode       <span class="p">|</span> granted
 </span></span><span class="line"><span class="cl">−−−−−−−+−−−−−−−−−−−−−−−+−−−−−−−−−−+−−−−−−−−−−−−−−−−−−+−−−−−−−−−
 </span></span><span class="line"><span class="cl"> <span class="m">30723</span> <span class="p">|</span> relation      <span class="p">|</span> accounts <span class="p">|</span> RowExclusiveLock <span class="p">|</span> t
