@@ -178,6 +178,43 @@ blockquote pre {
   }
 }
 
+.site-visit-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 0.9rem;
+  margin: 0.35rem auto 0;
+  color: #777;
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
+.site-visit-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  white-space: nowrap;
+}
+
+.site-visit-stat + .site-visit-stat::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  margin-right: 0.35rem;
+  background: #b8aa8a;
+  border-radius: 999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .site-visit-stats {
+    color: #999;
+  }
+
+  .site-visit-stat + .site-visit-stat::before {
+    background: #6f6653;
+  }
+}
+
 /* 旁注增强：JS 可用时使用独立浮层，避免移动端 hover 不稳定和屏幕边缘溢出 */
 body.marginalia-enhanced .marginalia::after {
   display: none !important;
