@@ -149,6 +149,11 @@ blockquote pre {
   font-style: normal !important;
 }
 
+.content > img[src*="-"],
+.content p:has(> img[src*="-"]:only-child) {
+  clear: both;
+}
+
 /* CSS 变量定义 */
 :root {
   /* 浅色模式变量 */
@@ -300,6 +305,24 @@ blockquote pre {
 }
 
 @media (max-width: 768px) {
+  .content p:has(> img[src*="-"]:only-child) {
+    clear: both;
+    margin: 1.7rem 0 2rem;
+    padding: 0;
+  }
+
+  .content > img[src*="-"],
+  .content p:has(> img[src*="-"]:only-child) > img {
+    display: block;
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto;
+    margin: 1.7rem auto 2rem;
+    background: #fff;
+    border-radius: 8px;
+  }
+
   .content blockquote {
     padding: 0.9rem 1rem;
   }
