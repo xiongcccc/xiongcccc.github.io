@@ -18,6 +18,49 @@ blockquote {
   background-color: transparent !important;
 }
 
+.content blockquote {
+  position: relative;
+  max-width: none;
+  margin: 1.75rem 0;
+  padding: 1rem 1.15rem 1rem 1.35rem;
+  color: #273142 !important;
+  background-color: #fffaf0 !important;
+  border: 1px solid #efe6d1 !important;
+  border-left: 4px solid #9c7a3e !important;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 1px 0 rgba(39, 49, 66, 0.03);
+  font-size: 0.96em;
+  line-height: 1.86;
+}
+
+.content blockquote p,
+.content blockquote li {
+  color: inherit !important;
+}
+
+.content blockquote p {
+  margin-top: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.content blockquote > :first-child {
+  margin-top: 0;
+}
+
+.content blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.content blockquote:has(pre) {
+  background-color: transparent !important;
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 2px solid #d8dde6 !important;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 pre, code {
   background-color: transparent !important;
 }
@@ -175,6 +218,26 @@ blockquote pre {
 @media (prefers-color-scheme: dark) {
   .widgetstore-iframe {
     background-color: transparent !important; /* 移除背景色 */
+  }
+}
+
+@media (max-width: 768px) {
+  .content blockquote {
+    padding: 0.9rem 1rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .content blockquote {
+    color: #e5e7eb !important;
+    background-color: #1f1b13 !important;
+    border-color: #3a3122 !important;
+    border-left-color: #d8bd7a !important;
+  }
+
+  .content blockquote:has(pre) {
+    background-color: transparent !important;
+    border-left-color: #4b5563 !important;
   }
 }
 
