@@ -41,14 +41,14 @@ blockquote pre {
   --marginalia-text-dark: #333;              /* 浅灰色文本 */
 
   /* Tooltip 背景色 */
-  --tooltip-bg-light: rgba(0, 0, 0, 0.8);
-  --tooltip-text-light: #fff;
-  --tooltip-bg-dark: rgba(255, 255, 255, 0.9);
-  --tooltip-text-dark: #000;
+  --tooltip-bg-light: #fffaf0;
+  --tooltip-text-light: #5f4b26;
+  --tooltip-bg-dark: #252015;
+  --tooltip-text-dark: #f4e6c3;
 
   /* 箭头颜色 */
-  --arrow-bg-light: rgba(0, 0, 0, 0.8);
-  --arrow-bg-dark: rgba(255, 255, 255, 0.9);
+  --arrow-bg-light: #fffaf0;
+  --arrow-bg-dark: #252015;
 }
 
 /* 基本旁注样式 */
@@ -67,8 +67,8 @@ blockquote pre {
   text-underline-offset: 7px; /* 下划线与文本的间距 */
   
   /* 新增属性 */
-  text-decoration-style: wavy; /* 下划线样式：solid, double, dotted, dashed, wavy */
-  text-decoration-color: #555; /* 下划线颜色 */
+  text-decoration-style: dotted; /* 比波浪线更接近电子书旁注标记 */
+  text-decoration-color: #8a6d3b; /* 低饱和棕金色，降低拼写检查感 */
   transition: color 0.3s ease; /* 移除背景色过渡，仅保留颜色过渡 */
   font-weight: normal; /* 保持文本正常粗细 */
 }
@@ -99,6 +99,8 @@ blockquote pre {
   max-width: 300px;
   font-size: 0.9em;
   line-height: 1.4;
+  border: 1px solid rgba(138, 109, 59, 0.28);
+  border-left: 3px solid #8a6d3b;
 }
 
 /* 箭头样式 */
@@ -176,3 +178,159 @@ blockquote pre {
   }
 }
 
+/* 旁注增强：JS 可用时使用独立浮层，避免移动端 hover 不稳定和屏幕边缘溢出 */
+body.marginalia-enhanced .marginalia::after {
+  display: none !important;
+}
+
+body.marginalia-enhanced .marginalia {
+  position: relative;
+  cursor: help;
+  outline: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+body.marginalia-enhanced .marginalia:focus-visible {
+  color: #555;
+  outline: 2px solid rgba(85, 85, 85, 0.28);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+body.marginalia-enhanced .marginalia.is-open {
+  color: #555;
+}
+
+body.marginalia-enhanced .marginalia::before {
+  content: "";
+  position: static;
+  visibility: visible;
+  display: inline-block;
+  width: 0.38em;
+  height: 0.38em;
+  border: 0;
+  margin-left: 0.12em;
+  margin-right: 0.02em;
+  vertical-align: super;
+  background: #8a6d3b;
+  border-radius: 999px;
+  opacity: 0.88;
+  z-index: auto;
+  transform: translateY(-0.02em);
+  transition: transform 0.16s ease, opacity 0.16s ease, background-color 0.16s ease;
+}
+
+body.marginalia-enhanced .marginalia:hover::before,
+body.marginalia-enhanced .marginalia:focus-visible::before,
+body.marginalia-enhanced .marginalia.is-open::before {
+  opacity: 1;
+  transform: translateY(-0.05em) scale(1.18);
+}
+
+.marginalia-popover {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  visibility: hidden;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 8px 12px 8px 13px;
+  color: var(--tooltip-text-light);
+  background: var(--tooltip-bg-light);
+  border: 1px solid rgba(138, 109, 59, 0.28);
+  border-left: 3px solid #8a6d3b;
+  border-radius: 4px;
+  box-shadow: 0 10px 26px rgba(52, 43, 28, 0.12);
+  font-family: Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+}
+
+.marginalia-popover.is-visible {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.marginalia-popover::before {
+  content: "";
+  position: absolute;
+  left: var(--marginalia-arrow-left, 50%);
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-style: solid;
+}
+
+.marginalia-popover[data-placement="right"]::before {
+  left: -7px;
+  top: var(--marginalia-arrow-top, 16px);
+  transform: translateY(-50%);
+  border-width: 6px 7px 6px 0;
+  border-color: transparent var(--tooltip-bg-light) transparent transparent;
+}
+
+.marginalia-popover[data-placement="left"]::before {
+  left: auto;
+  right: -7px;
+  top: var(--marginalia-arrow-top, 16px);
+  transform: translateY(-50%);
+  border-width: 6px 0 6px 7px;
+  border-color: transparent transparent transparent var(--tooltip-bg-light);
+}
+
+.marginalia-popover[data-placement="bottom"]::before {
+  top: -6px;
+  border-width: 0 6px 6px 6px;
+  border-color: transparent transparent var(--tooltip-bg-light) transparent;
+}
+
+.marginalia-popover[data-placement="top"]::before {
+  bottom: -6px;
+  border-width: 6px 6px 0 6px;
+  border-color: var(--tooltip-bg-light) transparent transparent transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  body.marginalia-enhanced .marginalia:focus-visible {
+    color: #ccc;
+    outline-color: rgba(204, 204, 204, 0.32);
+  }
+
+  body.marginalia-enhanced .marginalia.is-open {
+    color: #ccc;
+  }
+
+  body.marginalia-enhanced .marginalia::before {
+    background: #f1c56b;
+  }
+
+  .marginalia-popover {
+    color: var(--tooltip-text-dark);
+    background: var(--tooltip-bg-dark);
+    border-color: rgba(241, 197, 107, 0.26);
+    border-left-color: #f1c56b;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+  }
+
+  .marginalia-popover[data-placement="bottom"]::before {
+    border-color: transparent transparent var(--tooltip-bg-dark) transparent;
+  }
+
+  .marginalia-popover[data-placement="top"]::before {
+    border-color: var(--tooltip-bg-dark) transparent transparent transparent;
+  }
+
+  .marginalia-popover[data-placement="right"]::before {
+    border-color: transparent var(--tooltip-bg-dark) transparent transparent;
+  }
+
+  .marginalia-popover[data-placement="left"]::before {
+    border-color: transparent transparent transparent var(--tooltip-bg-dark);
+  }
+}
