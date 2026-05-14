@@ -594,6 +594,106 @@ blockquote pre {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
+.site-changelog {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.25rem 0 2.4rem;
+}
+
+.changelog-item {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 0.95rem 0;
+  border-top: 1px solid #f0ede5;
+}
+
+.changelog-item:last-child {
+  border-bottom: 1px solid #f0ede5;
+}
+
+.changelog-item time {
+  color: #8a6d3b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.changelog-content {
+  min-width: 0;
+  color: #273142;
+}
+
+.changelog-content ul {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.changelog-content li {
+  margin: 0.2rem 0;
+  line-height: 1.75;
+}
+
+.changelog-badge {
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  padding: 0.1rem 0.45rem;
+  color: #6f5425;
+  background: #fff4d6;
+  border: 1px solid #ead7a5;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.changelog-note {
+  margin: 0.55rem 0 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 768px) {
+  .changelog-item {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .changelog-item {
+    padding: 0.85rem 0;
+  }
+}
+
+.dark .changelog-item {
+  border-top-color: #2e2c27;
+}
+
+.dark .changelog-item:last-child {
+  border-bottom-color: #2e2c27;
+}
+
+.dark .changelog-item time {
+  color: #d8bd7a;
+}
+
+.dark .changelog-content {
+  color: #e5e7eb;
+}
+
+.dark .changelog-note {
+  color: #a7a7a7;
+}
+
+.dark .changelog-badge {
+  color: #f2dfb1;
+  background: #2d2515;
+  border-color: #594729;
+}
+
 .recommend-entry {
   margin: 3rem 0 0;
   padding-top: 2.4rem;
