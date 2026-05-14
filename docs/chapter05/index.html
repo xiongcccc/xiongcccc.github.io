@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -20,7 +20,7 @@
 =&gt; CREATE TABLE hot(id integer, s char(2000)) WITH (fillfactor = 75); =&gt; CREATE INDEX hot_id ON hot(id); =&gt; CREATE INDEX hot_s ON hot(s); 如果 s 列仅包含拉丁字母，那么每个堆元组将具有 2004 字节的固定大小，加上 24 个字节的元组头。fillfactor 存储参数设置为 75%。这意味着页面有足够的空间容纳四个元组，但我们只能插入三个。" />
 
   
-    <link rel="canonical" href="//localhost:1313/docs/chapter05/" itemprop="url" />
+    <link rel="canonical" href="/docs/chapter05/" itemprop="url" />
   
 
   
@@ -28,7 +28,7 @@
 <meta property="og:title" content="第 5 章：页剪枝与 HOT 更新" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/docs/chapter05/" />
+<meta property="og:url" content="/docs/chapter05/" />
 
   
   <meta itemprop="name" content="第 5 章：页剪枝与 HOT 更新">
@@ -48,11 +48,12 @@
 让我们看一下页剪枝实际是如何工作的。我们将创建一个含有两列的表，并在每一列上创建一个索引：
 =&gt; CREATE TABLE hot(id integer, s char(2000)) WITH (fillfactor = 75); =&gt; CREATE INDEX hot_id ON hot(id); =&gt; CREATE INDEX hot_s ON hot(s); 如果 s 列仅包含拉丁字母，那么每个堆元组将具有 2004 字节的固定大小，加上 24 个字节的元组头。fillfactor 存储参数设置为 75%。这意味着页面有足够的空间容纳四个元组，但我们只能插入三个。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.cad5def4aef8469f7c7a9af0dc47cad0085548d4a380ce58a158d7cb6d2c0d9e.css" rel="stylesheet" integrity="sha256-ytXe9K74Rp98eprw3EfK0AhVSNSjgM5YoVjXy20sDZ4=" />
 
 
 
@@ -1267,11 +1268,11 @@
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>

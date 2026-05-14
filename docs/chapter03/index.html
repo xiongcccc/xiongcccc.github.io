@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -18,7 +18,7 @@
 =&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) 3.1.2 特殊空间 特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。" />
 
   
-    <link rel="canonical" href="//localhost:1313/docs/chapter03/" itemprop="url" />
+    <link rel="canonical" href="/docs/chapter03/" itemprop="url" />
   
 
   
@@ -26,7 +26,7 @@
 <meta property="og:title" content="第 3 章：页与元组" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/docs/chapter03/" />
+<meta property="og:url" content="/docs/chapter03/" />
 
   
   <meta itemprop="name" content="第 3 章：页与元组">
@@ -42,11 +42,12 @@
 这些大小可以通过 pageinspect 扩展 2 查看。让我们看下表的第一个页面，页号从零开始：
 =&gt; CREATE EXTENSION pageinspect; =&gt; SELECT lower, upper, special, pagesize FROM page_header(get_raw_page(&#39;accounts&#39;,0)); lower | upper | special | pagesize −−−−−−−&#43;−−−−−−−&#43;−−−−−−−−−&#43;−−−−−−−−−− 152 | 6904 | 8192 | 8192 (1 row) 3.1.2 特殊空间 特殊空间位于页面的另一边，占据最高地址。它被某些索引用来存储辅助信息；在其他索引和表页面中，这个空间的大小为零。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.cad5def4aef8469f7c7a9af0dc47cad0085548d4a380ce58a158d7cb6d2c0d9e.css" rel="stylesheet" integrity="sha256-ytXe9K74Rp98eprw3EfK0AhVSNSjgM5YoVjXy20sDZ4=" />
 
 
 
@@ -1869,11 +1870,11 @@ SELECT pg_current_xact_id_if_assigned();
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -26,7 +26,7 @@
 如果启用了 track_commit_timestamp 参数，可以跟踪事务的提交时间 3，但它们不会以任何方式参与可见性检查 (尽管出于其他目的跟踪它们仍然是有用的，例如，应用于外部复制解决方案)。" />
 
   
-    <link rel="canonical" href="//localhost:1313/docs/chapter04/" itemprop="url" />
+    <link rel="canonical" href="/docs/chapter04/" itemprop="url" />
   
 
   
@@ -34,7 +34,7 @@
 <meta property="og:title" content="第 4 章：快照" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/docs/chapter04/" />
+<meta property="og:url" content="/docs/chapter04/" />
 
   
   <meta itemprop="name" content="第 4 章：快照">
@@ -66,11 +66,12 @@
 事务 2 在快照创建之前已提交，因此其更改是可见的。 事务 1 在快照创建时仍处于活跃状态，因此其更改不可见。 事务 3 是在快照创建后启动的，因此它的更改也不可见 (无论此事务完成与否都没有区别)。 4.3 快照结构 不幸的是，前面的示例与 PostgreSQL 实际看到的情况并不相符 2。问题在于，系统不知道事务何时提交。仅知道它们是何时开始的 (这一时刻由事务 ID 定义)，事务何时完成的未在任何地方记录。
 如果启用了 track_commit_timestamp 参数，可以跟踪事务的提交时间 3，但它们不会以任何方式参与可见性检查 (尽管出于其他目的跟踪它们仍然是有用的，例如，应用于外部复制解决方案)。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.cad5def4aef8469f7c7a9af0dc47cad0085548d4a380ce58a158d7cb6d2c0d9e.css" rel="stylesheet" integrity="sha256-ytXe9K74Rp98eprw3EfK0AhVSNSjgM5YoVjXy20sDZ4=" />
 
 
 
@@ -1470,11 +1471,11 @@
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>

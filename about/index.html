@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -12,70 +12,210 @@
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 
   <title>PostgreSQL 14 Internals</title>
-  <meta name="description" content="内容简介第 1 章主要对 PostgreSQL 进行了简单介绍。通过介绍 PostgreSQL 的基本数据组织、内存管理和前后端通信协议，奠定理解其内部机制的基础。
-第 2 章讲述了 PostgreSQL 中的隔离级别及其在并发处理中的作用，解释了如何通过快照隔离实现数据的一致性。
-第 3 章详细介绍了 PostgreSQL 中页面的结构和元组的操作方式，以及如何通过多版本控制机制处理事务 。
-第 4 章深入探讨了 PostgreSQL 快照机制的结构与规则，解释了其如何在高并发环境中确保数据一致性。
-第 5 章介绍了 PostgreSQL 中的页剪枝 (可以快速清理页面内元组) 和 HOT (Heap-Only Tuple update) 机制，以优化存储和性能。
-第 6 章详细讲解了 PostgreSQL 中 Vacuum 和 Autovacuum 机制，说明了它们如何通过清理死元组来优化存储空间和性能，此外，Vacuum 的各项状态指标也十分重要。
-第 7 章解释了 PostgreSQL 中事务 ID 回卷，为什么会回卷及其相应的解决方式，通过冻结旧事务，确保系统长时间运行中的数据一致性。
-第 8 章介绍了 PostgreSQL 中通过 VACUUM FULL 和索引重建优化存储空间和性能的机制，同时强调了重建操作的代价和最佳使用场景。
-第 9 章详细阐述了 PostgreSQL 缓冲区缓存的设计原理，以及其在减少磁盘 I/O、提升数据库性能中的关键作用。
-第 10 章详细介绍了 PostgreSQL 中的预写日志 (WAL)，介绍了 WAL 的逻辑与物理结构，其次还重点阐述了 WAL 如何在崩溃恢复和保证数据一致性中发挥关键作用。" />
+  <meta name="description" content="内容简介 《PostgreSQL 14 Internals》围绕 PostgreSQL 的运行原理展开，从数据组织、事务与 MVCC，到缓存、WAL、锁、查询执行和索引结构，逐步呈现数据库内部工作的完整链路。
+全书既适合 DBA 和运维人员建立系统性的底层认知，也适合内核开发者、应用开发者在性能诊断、查询优化和架构设计时作为参考。
+01-08 基础机制 从数据库结构、事务可见性到空间清理，建立理解 PostgreSQL 内核的基础。
+01 PostgreSQL 简介数据组织、内存管理和前后端通信协议。 02 隔离级别并发处理中的事务隔离，以及快照隔离如何保证一致性。 03 页面与元组页面结构、元组操作方式，以及多版本控制机制。 04 数据快照快照机制的结构与规则，以及高并发环境下的数据一致性。 05 页剪枝与 HOT页面内元组清理、HOT 更新机制，以及存储优化。 06 VacuumVacuum 与 Autovacuum 如何清理死元组并优化存储空间。 07 事务 ID 回卷事务 ID 回卷的原因、风险和冻结旧事务的解决方式。 08 完全清理与重建VACUUM FULL、索引重建及其代价和适用场景。 09-15 缓存、日志与锁 深入数据库运行时的核心设施：缓存、WAL、表级锁、行级锁和内存锁。
+09 缓冲区缓存缓冲区缓存的设计原理，以及减少磁盘 I/O 的关键作用。 10 预写日志WAL 的逻辑与物理结构，以及崩溃恢复中的作用。 11 WAL 模式同步与异步写入、WAL 压缩和日志级别的性能权衡。 12 关系级锁不同锁模式的使用场景，以及它们对并发性能的影响。 13 行级锁通过行级锁提升并发能力，并避免锁冲突和死锁。 14 特殊锁特殊锁与传统锁机制如何协同保证复杂操作的正确性。 15 内存锁自旋锁、轻量级锁及其在缓存和 WAL 管理中的作用。 16-23 查询执行与优化 围绕查询从解析、规划到执行的全过程，理解统计信息、扫描、连接和排序。
+16 查询执行解析、转换、规划和执行过程，以及两种查询协议。 17 统计信息基础统计、表达式统计和多元统计对查询优化的影响。 18 顺序扫描可插拔存储、堆表、顺序扫描与并行计划。 19 索引访问索引扩展性、操作符类、操作符族和索引引擎接口。 20 索引扫描常规索引扫描、仅索引扫描、位图扫描和并行索引扫描。 21 嵌套循环连接嵌套循环连接的工作原理、适用场景和变体。 22 哈希连接一阶段与两阶段哈希连接，以及并行环境下的优化。 23 排序与归并连接排序算法、外部排序、并行排序和归并连接。 24-29 索引结构 系统梳理 PostgreSQL 丰富的索引类型，理解不同数据模型下的搜索能力。
+24 哈希索引页面结构、操作符类和等值查询场景下的性能特性。 25 B 树索引B 树搜索与插入算法、页面布局、去重和多列索引。 26 GiST 索引GiST 的结构、R 树实现，以及空间搜索和相似度搜索。 27 SP-GiST 索引面向空间数据和非平衡数据集的定制化索引结构。 28 GIN 索引数组、JSON、全文搜索等多值字段的高效搜索机制。 29 BRIN 索引大规模顺序数据集中的空间效率和稀疏数据分布优化。 " />
 
   
-    <link rel="canonical" href="//localhost:1313/about/" itemprop="url" />
+    <link rel="canonical" href="/about/" itemprop="url" />
   
 
   
 
 <meta property="og:title" content="" />
-<meta property="og:description" content="内容简介第 1 章主要对 PostgreSQL 进行了简单介绍。通过介绍 PostgreSQL 的基本数据组织、内存管理和前后端通信协议，奠定理解其内部机制的基础。
-第 2 章讲述了 PostgreSQL 中的隔离级别及其在并发处理中的作用，解释了如何通过快照隔离实现数据的一致性。
-第 3 章详细介绍了 PostgreSQL 中页面的结构和元组的操作方式，以及如何通过多版本控制机制处理事务 。
-第 4 章深入探讨了 PostgreSQL 快照机制的结构与规则，解释了其如何在高并发环境中确保数据一致性。
-第 5 章介绍了 PostgreSQL 中的页剪枝 (可以快速清理页面内元组) 和 HOT (Heap-Only Tuple update) 机制，以优化存储和性能。
-第 6 章详细讲解了 PostgreSQL 中 Vacuum 和 Autovacuum 机制，说明了它们如何通过清理死元组来优化存储空间和性能，此外，Vacuum 的各项状态指标也十分重要。
-第 7 章解释了 PostgreSQL 中事务 ID 回卷，为什么会回卷及其相应的解决方式，通过冻结旧事务，确保系统长时间运行中的数据一致性。
-第 8 章介绍了 PostgreSQL 中通过 VACUUM FULL 和索引重建优化存储空间和性能的机制，同时强调了重建操作的代价和最佳使用场景。
-第 9 章详细阐述了 PostgreSQL 缓冲区缓存的设计原理，以及其在减少磁盘 I/O、提升数据库性能中的关键作用。
-第 10 章详细介绍了 PostgreSQL 中的预写日志 (WAL)，介绍了 WAL 的逻辑与物理结构，其次还重点阐述了 WAL 如何在崩溃恢复和保证数据一致性中发挥关键作用。" />
+<meta property="og:description" content="内容简介
+《PostgreSQL 14 Internals》围绕 PostgreSQL 的运行原理展开，从数据组织、事务与 MVCC，到缓存、WAL、锁、查询执行和索引结构，逐步呈现数据库内部工作的完整链路。
+全书既适合 DBA 和运维人员建立系统性的底层认知，也适合内核开发者、应用开发者在性能诊断、查询优化和架构设计时作为参考。
+
+
+
+
+01-08
+基础机制
+从数据库结构、事务可见性到空间清理，建立理解 PostgreSQL 内核的基础。
+
+
+
+01
+PostgreSQL 简介数据组织、内存管理和前后端通信协议。
+
+
+02
+隔离级别并发处理中的事务隔离，以及快照隔离如何保证一致性。
+
+
+03
+页面与元组页面结构、元组操作方式，以及多版本控制机制。
+
+
+04
+数据快照快照机制的结构与规则，以及高并发环境下的数据一致性。
+
+
+05
+页剪枝与 HOT页面内元组清理、HOT 更新机制，以及存储优化。
+
+
+06
+VacuumVacuum 与 Autovacuum 如何清理死元组并优化存储空间。
+
+
+07
+事务 ID 回卷事务 ID 回卷的原因、风险和冻结旧事务的解决方式。
+
+
+08
+完全清理与重建VACUUM FULL、索引重建及其代价和适用场景。
+
+
+
+
+
+09-15
+缓存、日志与锁
+深入数据库运行时的核心设施：缓存、WAL、表级锁、行级锁和内存锁。
+
+
+
+09
+缓冲区缓存缓冲区缓存的设计原理，以及减少磁盘 I/O 的关键作用。
+
+
+10
+预写日志WAL 的逻辑与物理结构，以及崩溃恢复中的作用。
+
+
+11
+WAL 模式同步与异步写入、WAL 压缩和日志级别的性能权衡。
+
+
+12
+关系级锁不同锁模式的使用场景，以及它们对并发性能的影响。
+
+
+13
+行级锁通过行级锁提升并发能力，并避免锁冲突和死锁。
+
+
+14
+特殊锁特殊锁与传统锁机制如何协同保证复杂操作的正确性。
+
+
+15
+内存锁自旋锁、轻量级锁及其在缓存和 WAL 管理中的作用。
+
+
+
+
+
+16-23
+查询执行与优化
+围绕查询从解析、规划到执行的全过程，理解统计信息、扫描、连接和排序。
+
+
+
+16
+查询执行解析、转换、规划和执行过程，以及两种查询协议。
+
+
+17
+统计信息基础统计、表达式统计和多元统计对查询优化的影响。
+
+
+18
+顺序扫描可插拔存储、堆表、顺序扫描与并行计划。
+
+
+19
+索引访问索引扩展性、操作符类、操作符族和索引引擎接口。
+
+
+20
+索引扫描常规索引扫描、仅索引扫描、位图扫描和并行索引扫描。
+
+
+21
+嵌套循环连接嵌套循环连接的工作原理、适用场景和变体。
+
+
+22
+哈希连接一阶段与两阶段哈希连接，以及并行环境下的优化。
+
+
+23
+排序与归并连接排序算法、外部排序、并行排序和归并连接。
+
+
+
+
+
+24-29
+索引结构
+系统梳理 PostgreSQL 丰富的索引类型，理解不同数据模型下的搜索能力。
+
+
+
+24
+哈希索引页面结构、操作符类和等值查询场景下的性能特性。
+
+
+25
+B 树索引B 树搜索与插入算法、页面布局、去重和多列索引。
+
+
+26
+GiST 索引GiST 的结构、R 树实现，以及空间搜索和相似度搜索。
+
+
+27
+SP-GiST 索引面向空间数据和非平衡数据集的定制化索引结构。
+
+
+28
+GIN 索引数组、JSON、全文搜索等多值字段的高效搜索机制。
+
+
+29
+BRIN 索引大规模顺序数据集中的空间效率和稀疏数据分布优化。
+
+
+
+" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="//localhost:1313/about/" /><meta property="article:section" content="" />
+<meta property="og:url" content="/about/" /><meta property="article:section" content="" />
 
 
 
   
   <meta itemprop="name" content="PostgreSQL 14 Internals">
-  <meta itemprop="description" content="内容简介第 1 章主要对 PostgreSQL 进行了简单介绍。通过介绍 PostgreSQL 的基本数据组织、内存管理和前后端通信协议，奠定理解其内部机制的基础。
-第 2 章讲述了 PostgreSQL 中的隔离级别及其在并发处理中的作用，解释了如何通过快照隔离实现数据的一致性。
-第 3 章详细介绍了 PostgreSQL 中页面的结构和元组的操作方式，以及如何通过多版本控制机制处理事务 。
-第 4 章深入探讨了 PostgreSQL 快照机制的结构与规则，解释了其如何在高并发环境中确保数据一致性。
-第 5 章介绍了 PostgreSQL 中的页剪枝 (可以快速清理页面内元组) 和 HOT (Heap-Only Tuple update) 机制，以优化存储和性能。
-第 6 章详细讲解了 PostgreSQL 中 Vacuum 和 Autovacuum 机制，说明了它们如何通过清理死元组来优化存储空间和性能，此外，Vacuum 的各项状态指标也十分重要。
-第 7 章解释了 PostgreSQL 中事务 ID 回卷，为什么会回卷及其相应的解决方式，通过冻结旧事务，确保系统长时间运行中的数据一致性。
-第 8 章介绍了 PostgreSQL 中通过 VACUUM FULL 和索引重建优化存储空间和性能的机制，同时强调了重建操作的代价和最佳使用场景。
-第 9 章详细阐述了 PostgreSQL 缓冲区缓存的设计原理，以及其在减少磁盘 I/O、提升数据库性能中的关键作用。
-第 10 章详细介绍了 PostgreSQL 中的预写日志 (WAL)，介绍了 WAL 的逻辑与物理结构，其次还重点阐述了 WAL 如何在崩溃恢复和保证数据一致性中发挥关键作用。">
-  <meta itemprop="wordCount" content="197">
+  <meta itemprop="description" content="内容简介 《PostgreSQL 14 Internals》围绕 PostgreSQL 的运行原理展开，从数据组织、事务与 MVCC，到缓存、WAL、锁、查询执行和索引结构，逐步呈现数据库内部工作的完整链路。
+全书既适合 DBA 和运维人员建立系统性的底层认知，也适合内核开发者、应用开发者在性能诊断、查询优化和架构设计时作为参考。
+01-08 基础机制 从数据库结构、事务可见性到空间清理，建立理解 PostgreSQL 内核的基础。
+01 PostgreSQL 简介数据组织、内存管理和前后端通信协议。 02 隔离级别并发处理中的事务隔离，以及快照隔离如何保证一致性。 03 页面与元组页面结构、元组操作方式，以及多版本控制机制。 04 数据快照快照机制的结构与规则，以及高并发环境下的数据一致性。 05 页剪枝与 HOT页面内元组清理、HOT 更新机制，以及存储优化。 06 VacuumVacuum 与 Autovacuum 如何清理死元组并优化存储空间。 07 事务 ID 回卷事务 ID 回卷的原因、风险和冻结旧事务的解决方式。 08 完全清理与重建VACUUM FULL、索引重建及其代价和适用场景。 09-15 缓存、日志与锁 深入数据库运行时的核心设施：缓存、WAL、表级锁、行级锁和内存锁。
+09 缓冲区缓存缓冲区缓存的设计原理，以及减少磁盘 I/O 的关键作用。 10 预写日志WAL 的逻辑与物理结构，以及崩溃恢复中的作用。 11 WAL 模式同步与异步写入、WAL 压缩和日志级别的性能权衡。 12 关系级锁不同锁模式的使用场景，以及它们对并发性能的影响。 13 行级锁通过行级锁提升并发能力，并避免锁冲突和死锁。 14 特殊锁特殊锁与传统锁机制如何协同保证复杂操作的正确性。 15 内存锁自旋锁、轻量级锁及其在缓存和 WAL 管理中的作用。 16-23 查询执行与优化 围绕查询从解析、规划到执行的全过程，理解统计信息、扫描、连接和排序。
+16 查询执行解析、转换、规划和执行过程，以及两种查询协议。 17 统计信息基础统计、表达式统计和多元统计对查询优化的影响。 18 顺序扫描可插拔存储、堆表、顺序扫描与并行计划。 19 索引访问索引扩展性、操作符类、操作符族和索引引擎接口。 20 索引扫描常规索引扫描、仅索引扫描、位图扫描和并行索引扫描。 21 嵌套循环连接嵌套循环连接的工作原理、适用场景和变体。 22 哈希连接一阶段与两阶段哈希连接，以及并行环境下的优化。 23 排序与归并连接排序算法、外部排序、并行排序和归并连接。 24-29 索引结构 系统梳理 PostgreSQL 丰富的索引类型，理解不同数据模型下的搜索能力。
+24 哈希索引页面结构、操作符类和等值查询场景下的性能特性。 25 B 树索引B 树搜索与插入算法、页面布局、去重和多列索引。 26 GiST 索引GiST 的结构、R 树实现，以及空间搜索和相似度搜索。 27 SP-GiST 索引面向空间数据和非平衡数据集的定制化索引结构。 28 GIN 索引数组、JSON、全文搜索等多值字段的高效搜索机制。 29 BRIN 索引大规模顺序数据集中的空间效率和稀疏数据分布优化。">
+  <meta itemprop="wordCount" content="110">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="PostgreSQL 14 Internals">
-  <meta name="twitter:description" content="内容简介第 1 章主要对 PostgreSQL 进行了简单介绍。通过介绍 PostgreSQL 的基本数据组织、内存管理和前后端通信协议，奠定理解其内部机制的基础。
-第 2 章讲述了 PostgreSQL 中的隔离级别及其在并发处理中的作用，解释了如何通过快照隔离实现数据的一致性。
-第 3 章详细介绍了 PostgreSQL 中页面的结构和元组的操作方式，以及如何通过多版本控制机制处理事务 。
-第 4 章深入探讨了 PostgreSQL 快照机制的结构与规则，解释了其如何在高并发环境中确保数据一致性。
-第 5 章介绍了 PostgreSQL 中的页剪枝 (可以快速清理页面内元组) 和 HOT (Heap-Only Tuple update) 机制，以优化存储和性能。
-第 6 章详细讲解了 PostgreSQL 中 Vacuum 和 Autovacuum 机制，说明了它们如何通过清理死元组来优化存储空间和性能，此外，Vacuum 的各项状态指标也十分重要。
-第 7 章解释了 PostgreSQL 中事务 ID 回卷，为什么会回卷及其相应的解决方式，通过冻结旧事务，确保系统长时间运行中的数据一致性。
-第 8 章介绍了 PostgreSQL 中通过 VACUUM FULL 和索引重建优化存储空间和性能的机制，同时强调了重建操作的代价和最佳使用场景。
-第 9 章详细阐述了 PostgreSQL 缓冲区缓存的设计原理，以及其在减少磁盘 I/O、提升数据库性能中的关键作用。
-第 10 章详细介绍了 PostgreSQL 中的预写日志 (WAL)，介绍了 WAL 的逻辑与物理结构，其次还重点阐述了 WAL 如何在崩溃恢复和保证数据一致性中发挥关键作用。">
+  <meta name="twitter:description" content="内容简介 《PostgreSQL 14 Internals》围绕 PostgreSQL 的运行原理展开，从数据组织、事务与 MVCC，到缓存、WAL、锁、查询执行和索引结构，逐步呈现数据库内部工作的完整链路。
+全书既适合 DBA 和运维人员建立系统性的底层认知，也适合内核开发者、应用开发者在性能诊断、查询优化和架构设计时作为参考。
+01-08 基础机制 从数据库结构、事务可见性到空间清理，建立理解 PostgreSQL 内核的基础。
+01 PostgreSQL 简介数据组织、内存管理和前后端通信协议。 02 隔离级别并发处理中的事务隔离，以及快照隔离如何保证一致性。 03 页面与元组页面结构、元组操作方式，以及多版本控制机制。 04 数据快照快照机制的结构与规则，以及高并发环境下的数据一致性。 05 页剪枝与 HOT页面内元组清理、HOT 更新机制，以及存储优化。 06 VacuumVacuum 与 Autovacuum 如何清理死元组并优化存储空间。 07 事务 ID 回卷事务 ID 回卷的原因、风险和冻结旧事务的解决方式。 08 完全清理与重建VACUUM FULL、索引重建及其代价和适用场景。 09-15 缓存、日志与锁 深入数据库运行时的核心设施：缓存、WAL、表级锁、行级锁和内存锁。
+09 缓冲区缓存缓冲区缓存的设计原理，以及减少磁盘 I/O 的关键作用。 10 预写日志WAL 的逻辑与物理结构，以及崩溃恢复中的作用。 11 WAL 模式同步与异步写入、WAL 压缩和日志级别的性能权衡。 12 关系级锁不同锁模式的使用场景，以及它们对并发性能的影响。 13 行级锁通过行级锁提升并发能力，并避免锁冲突和死锁。 14 特殊锁特殊锁与传统锁机制如何协同保证复杂操作的正确性。 15 内存锁自旋锁、轻量级锁及其在缓存和 WAL 管理中的作用。 16-23 查询执行与优化 围绕查询从解析、规划到执行的全过程，理解统计信息、扫描、连接和排序。
+16 查询执行解析、转换、规划和执行过程，以及两种查询协议。 17 统计信息基础统计、表达式统计和多元统计对查询优化的影响。 18 顺序扫描可插拔存储、堆表、顺序扫描与并行计划。 19 索引访问索引扩展性、操作符类、操作符族和索引引擎接口。 20 索引扫描常规索引扫描、仅索引扫描、位图扫描和并行索引扫描。 21 嵌套循环连接嵌套循环连接的工作原理、适用场景和变体。 22 哈希连接一阶段与两阶段哈希连接，以及并行环境下的优化。 23 排序与归并连接排序算法、外部排序、并行排序和归并连接。 24-29 索引结构 系统梳理 PostgreSQL 丰富的索引类型，理解不同数据模型下的搜索能力。
+24 哈希索引页面结构、操作符类和等值查询场景下的性能特性。 25 B 树索引B 树搜索与插入算法、页面布局、去重和多列索引。 26 GiST 索引GiST 的结构、R 树实现，以及空间搜索和相似度搜索。 27 SP-GiST 索引面向空间数据和非平衡数据集的定制化索引结构。 28 GIN 索引数组、JSON、全文搜索等多值字段的高效搜索机制。 29 BRIN 索引大规模顺序数据集中的空间效率和稀疏数据分布优化。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.cad5def4aef8469f7c7a9af0dc47cad0085548d4a380ce58a158d7cb6d2c0d9e.css" rel="stylesheet" integrity="sha256-ytXe9K74Rp98eprw3EfK0AhVSNSjgM5YoVjXy20sDZ4=" />
 
 
 
@@ -508,35 +648,164 @@
         
         <div class="hx-mb-16"></div>
         <div class="content">
-          <h1>内容简介</h1><p>第 1 章主要对 PostgreSQL 进行了简单介绍。通过介绍 PostgreSQL 的基本数据组织、内存管理和前后端通信协议，奠定理解其内部机制的基础。</p>
-<p>第 2 章讲述了 PostgreSQL 中的隔离级别及其在并发处理中的作用，解释了如何通过快照隔离实现数据的一致性。</p>
-<p>第 3 章详细介绍了 PostgreSQL 中页面的结构和元组的操作方式，以及如何通过多版本控制机制处理事务 。</p>
-<p>第 4 章深入探讨了 PostgreSQL 快照机制的结构与规则，解释了其如何在高并发环境中确保数据一致性。</p>
-<p>第 5 章介绍了 PostgreSQL 中的页剪枝 (可以快速清理页面内元组) 和 HOT (Heap-Only Tuple update) 机制，以优化存储和性能。</p>
-<p>第 6 章详细讲解了 PostgreSQL 中 Vacuum 和 Autovacuum 机制，说明了它们如何通过清理死元组来优化存储空间和性能，此外，Vacuum 的各项状态指标也十分重要。</p>
-<p>第 7 章解释了 PostgreSQL 中事务 ID 回卷，为什么会回卷及其相应的解决方式，通过冻结旧事务，确保系统长时间运行中的数据一致性。</p>
-<p>第 8 章介绍了 PostgreSQL 中通过 VACUUM FULL 和索引重建优化存储空间和性能的机制，同时强调了重建操作的代价和最佳使用场景。</p>
-<p>第 9 章详细阐述了 PostgreSQL 缓冲区缓存的设计原理，以及其在减少磁盘 I/O、提升数据库性能中的关键作用。</p>
-<p>第 10 章详细介绍了 PostgreSQL 中的预写日志 (WAL)，介绍了 WAL 的逻辑与物理结构，其次还重点阐述了 WAL 如何在崩溃恢复和保证数据一致性中发挥关键作用。</p>
-<p>第 11 章介绍了 PostgreSQL 中不同的 WAL 模式，讨论了同步与异步写入的性能与安全性权衡，以及如何通过 WAL 压缩和日志级别优化系统性能。</p>
-<p>第 12 章深入探讨了 PostgreSQL 中用于管理并发的关系级锁机制，强调了不同锁模式的使用场景及其对并发性能的影响。</p>
-<p>第 13 章重点讲解了 PostgreSQL 中的行级锁机制，解释了如何通过行级锁提高并发性能，并避免锁冲突和死锁。</p>
-<p>第 14 章介绍了 PostgreSQL 中各种特殊锁的功能与使用场景，这些锁与传统的行级锁和表级锁相辅相成，确保复杂操作的并发正确性。</p>
-<p>第 15 章解释了 PostgreSQL 中内存结构上的锁，重点讲述了自旋锁、轻量级锁及其在缓冲区缓存和 WAL 管理中的作用。</p>
-<p>第 16 章介绍了 PostgreSQL 中查询的执行过程，包括解析、转换、规划和执行，其次还介绍了两种查询协议的区别和各自使用场景。</p>
-<p>第 17 章介绍了 PostgreSQL 中的基础统计信息、表达式统计信息以及多元统计信息，统计信息是查询优化中不可或缺的一环，对于查询优化至关重要。</p>
-<p>第 18 章解释了 PostgreSQL 的可插拔存储引擎概念，默认情况下 PostgreSQL 使用的是堆表存储，但也可以实现其他存储引擎。该章节还介绍了顺序扫描、并行计划、并行执行的局限性等内容。</p>
-<p>第 19 章解释了 PostgreSQL 中的索引类型、扩展性和内部接口的实现，并解释了如何通过操作符类和家族来为不同数据类型定制索引。该章节还详细描述了索引引擎接口的工作原理以及索引级和列级属性的配置。</p>
-<p>第 20 章讲解了 PostgreSQL 中索引扫描的不同类型，包括常规索引扫描、仅索引扫描和位图扫描等。还讨论了不同场景下使用这些扫描方法的性能表现，并且介绍了并行索引扫描及其在查询执行中的应用。</p>
-<p>第 21 章介绍了 PostgreSQL 中嵌套循环连接的工作原理和适用场景。该章节详细讨论了嵌套循环的几种变体，另外还分析了何时应该使用嵌套循环以及如何与其他连接方法 (哈希连接、归并连接) 进行比较。</p>
-<p>第 22 章详细描述了 PostgreSQL 中的哈希连接算法，探讨了一阶段哈希连接和两阶段哈希连接的区别，以及如何在并行环境中优化哈希连接的性能。</p>
-<p>第 23 章讨论了 PostgreSQL 中多样的排序算法及在归并连接中的应用。该章节介绍了快排和堆排序等算法，并探讨了外部排序的实现方式。还讲解了并行模式下的排序与合并，以及如何处理大规模数据集的排序。</p>
-<p>第 24 章深入介绍了 PostgreSQL 中的哈希索引，包括其页面结构、操作符类及性能特性，哈希索引仅适用于等值查询场景。</p>
-<p>第 25 章深入介绍了 PostgreSQL 中 B 树索引的结构与工作原理。该章节介绍了 B 树的搜索和插入算法，解释了如何处理相等、范围和不等查询。此外，还讲解了页面布局、去重技术以及多列索引的使用。</p>
-<p>第 26 章解释了 GiST 索引的结构及其适应多种数据类型的能力，重点介绍了如何实现 R 树等特殊索引结构。还讨论了 GiST 索引在空间搜索和相似度搜索中的应用。</p>
-<p>第 27 章深入探讨了 SP-GiST 的灵活性及其在处理空间数据和非平衡数据集方面的优势，介绍了多种定制化索引结构的实现。</p>
-<p>第 28 章详细描述了 GIN 索引如何处理多值字段 (如数组和 JSON 数据) 的高效搜索，讨论了其页面布局、操作符类以及针对频繁和罕见词汇的优化策略。还重点介绍了 GIN 索引在全文搜索和复杂数据类型中的应用。</p>
-<p>第 29 章详细解释了 BRIN 索引的工作原理及其在处理大规模数据集、顺序访问模式中的性能优化，强调了其空间效率。还详细描述了 BRIN 索引的页面布局、操作符类以及如何在数据分布稀疏的情况下使用。</p>
+          <h1>内容简介</h1><section class="book-intro">
+<p>《PostgreSQL 14 Internals》围绕 PostgreSQL 的运行原理展开，从数据组织、事务与 MVCC，到缓存、WAL、锁、查询执行和索引结构，逐步呈现数据库内部工作的完整链路。</p>
+<p>全书既适合 DBA 和运维人员建立系统性的底层认知，也适合内核开发者、应用开发者在性能诊断、查询优化和架构设计时作为参考。</p>
+</section>
+<div class="chapter-overview">
+<section class="chapter-group">
+<header class="chapter-group-heading">
+<span>01-08</span>
+<h2>基础机制</h2>
+<p>从数据库结构、事务可见性到空间清理，建立理解 PostgreSQL 内核的基础。</p>
+</header>
+<div class="chapter-list">
+<a class="chapter-item" href="/docs/chapter01/">
+<span class="chapter-no">01</span>
+<span class="chapter-main"><strong>PostgreSQL 简介</strong><small>数据组织、内存管理和前后端通信协议。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter02/">
+<span class="chapter-no">02</span>
+<span class="chapter-main"><strong>隔离级别</strong><small>并发处理中的事务隔离，以及快照隔离如何保证一致性。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter03/">
+<span class="chapter-no">03</span>
+<span class="chapter-main"><strong>页面与元组</strong><small>页面结构、元组操作方式，以及多版本控制机制。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter04/">
+<span class="chapter-no">04</span>
+<span class="chapter-main"><strong>数据快照</strong><small>快照机制的结构与规则，以及高并发环境下的数据一致性。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter05/">
+<span class="chapter-no">05</span>
+<span class="chapter-main"><strong>页剪枝与 HOT</strong><small>页面内元组清理、HOT 更新机制，以及存储优化。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter06/">
+<span class="chapter-no">06</span>
+<span class="chapter-main"><strong>Vacuum</strong><small>Vacuum 与 Autovacuum 如何清理死元组并优化存储空间。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter07/">
+<span class="chapter-no">07</span>
+<span class="chapter-main"><strong>事务 ID 回卷</strong><small>事务 ID 回卷的原因、风险和冻结旧事务的解决方式。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter08/">
+<span class="chapter-no">08</span>
+<span class="chapter-main"><strong>完全清理与重建</strong><small>VACUUM FULL、索引重建及其代价和适用场景。</small></span>
+</a>
+</div>
+</section>
+<section class="chapter-group">
+<header class="chapter-group-heading">
+<span>09-15</span>
+<h2>缓存、日志与锁</h2>
+<p>深入数据库运行时的核心设施：缓存、WAL、表级锁、行级锁和内存锁。</p>
+</header>
+<div class="chapter-list">
+<a class="chapter-item" href="/docs/chapter09/">
+<span class="chapter-no">09</span>
+<span class="chapter-main"><strong>缓冲区缓存</strong><small>缓冲区缓存的设计原理，以及减少磁盘 I/O 的关键作用。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter10/">
+<span class="chapter-no">10</span>
+<span class="chapter-main"><strong>预写日志</strong><small>WAL 的逻辑与物理结构，以及崩溃恢复中的作用。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter11/">
+<span class="chapter-no">11</span>
+<span class="chapter-main"><strong>WAL 模式</strong><small>同步与异步写入、WAL 压缩和日志级别的性能权衡。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter12/">
+<span class="chapter-no">12</span>
+<span class="chapter-main"><strong>关系级锁</strong><small>不同锁模式的使用场景，以及它们对并发性能的影响。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter13/">
+<span class="chapter-no">13</span>
+<span class="chapter-main"><strong>行级锁</strong><small>通过行级锁提升并发能力，并避免锁冲突和死锁。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter14/">
+<span class="chapter-no">14</span>
+<span class="chapter-main"><strong>特殊锁</strong><small>特殊锁与传统锁机制如何协同保证复杂操作的正确性。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter15/">
+<span class="chapter-no">15</span>
+<span class="chapter-main"><strong>内存锁</strong><small>自旋锁、轻量级锁及其在缓存和 WAL 管理中的作用。</small></span>
+</a>
+</div>
+</section>
+<section class="chapter-group">
+<header class="chapter-group-heading">
+<span>16-23</span>
+<h2>查询执行与优化</h2>
+<p>围绕查询从解析、规划到执行的全过程，理解统计信息、扫描、连接和排序。</p>
+</header>
+<div class="chapter-list">
+<a class="chapter-item" href="/docs/chapter16/">
+<span class="chapter-no">16</span>
+<span class="chapter-main"><strong>查询执行</strong><small>解析、转换、规划和执行过程，以及两种查询协议。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter17/">
+<span class="chapter-no">17</span>
+<span class="chapter-main"><strong>统计信息</strong><small>基础统计、表达式统计和多元统计对查询优化的影响。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter18/">
+<span class="chapter-no">18</span>
+<span class="chapter-main"><strong>顺序扫描</strong><small>可插拔存储、堆表、顺序扫描与并行计划。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter19/">
+<span class="chapter-no">19</span>
+<span class="chapter-main"><strong>索引访问</strong><small>索引扩展性、操作符类、操作符族和索引引擎接口。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter20/">
+<span class="chapter-no">20</span>
+<span class="chapter-main"><strong>索引扫描</strong><small>常规索引扫描、仅索引扫描、位图扫描和并行索引扫描。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter21/">
+<span class="chapter-no">21</span>
+<span class="chapter-main"><strong>嵌套循环连接</strong><small>嵌套循环连接的工作原理、适用场景和变体。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter22/">
+<span class="chapter-no">22</span>
+<span class="chapter-main"><strong>哈希连接</strong><small>一阶段与两阶段哈希连接，以及并行环境下的优化。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter23/">
+<span class="chapter-no">23</span>
+<span class="chapter-main"><strong>排序与归并连接</strong><small>排序算法、外部排序、并行排序和归并连接。</small></span>
+</a>
+</div>
+</section>
+<section class="chapter-group">
+<header class="chapter-group-heading">
+<span>24-29</span>
+<h2>索引结构</h2>
+<p>系统梳理 PostgreSQL 丰富的索引类型，理解不同数据模型下的搜索能力。</p>
+</header>
+<div class="chapter-list">
+<a class="chapter-item" href="/docs/chapter24/">
+<span class="chapter-no">24</span>
+<span class="chapter-main"><strong>哈希索引</strong><small>页面结构、操作符类和等值查询场景下的性能特性。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter25/">
+<span class="chapter-no">25</span>
+<span class="chapter-main"><strong>B 树索引</strong><small>B 树搜索与插入算法、页面布局、去重和多列索引。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter26/">
+<span class="chapter-no">26</span>
+<span class="chapter-main"><strong>GiST 索引</strong><small>GiST 的结构、R 树实现，以及空间搜索和相似度搜索。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter27/">
+<span class="chapter-no">27</span>
+<span class="chapter-main"><strong>SP-GiST 索引</strong><small>面向空间数据和非平衡数据集的定制化索引结构。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter28/">
+<span class="chapter-no">28</span>
+<span class="chapter-main"><strong>GIN 索引</strong><small>数组、JSON、全文搜索等多值字段的高效搜索机制。</small></span>
+</a>
+<a class="chapter-item" href="/docs/chapter29/">
+<span class="chapter-no">29</span>
+<span class="chapter-main"><strong>BRIN 索引</strong><small>大规模顺序数据集中的空间效率和稀疏数据分布优化。</small></span>
+</a>
+</div>
+</section>
+</div>
 
         </div>
         <div class="hx-mt-16"></div>
@@ -562,11 +831,11 @@
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>
