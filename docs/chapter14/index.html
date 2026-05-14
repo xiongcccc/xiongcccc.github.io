@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="noindex, nofollow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -18,7 +18,7 @@
 =&gt; SELECT database, ( SELECT datname FROM pg_database WHERE oid = database ) AS dbname, classid, ( SELECT relname FROM pg_class WHERE oid = classid ) AS classname, objid, mode, granted FROM pg_locks WHERE locktype = &#39;object&#39; AND pid = pg_backend_pid() \gx −[ RECORD 1 ]−−−−−−−−−−−−−− database | 16391 dbname | internals classid | 2615 classname | pg_namespace objid | 2200 mode | AccessShareLock granted | t 此处锁定的资源由三个值定义：" />
 
   
-    <link rel="canonical" href="/docs/chapter14/" itemprop="url" />
+    <link rel="canonical" href="//localhost:1313/docs/chapter14/" itemprop="url" />
   
 
   
@@ -26,7 +26,7 @@
 <meta property="og:title" content="第 14 章：多样的锁" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/docs/chapter14/" />
+<meta property="og:url" content="//localhost:1313/docs/chapter14/" />
 
   
   <meta itemprop="name" content="第 14 章：多样的锁">
@@ -42,12 +42,11 @@
 =&gt; BEGIN; =&gt; CREATE TABLE example(n integer); 现在让我们看看 pg_locks 表中的非关系锁：
 =&gt; SELECT database, ( SELECT datname FROM pg_database WHERE oid = database ) AS dbname, classid, ( SELECT relname FROM pg_class WHERE oid = classid ) AS classname, objid, mode, granted FROM pg_locks WHERE locktype = &#39;object&#39; AND pid = pg_backend_pid() \gx −[ RECORD 1 ]−−−−−−−−−−−−−− database | 16391 dbname | internals classid | 2615 classname | pg_namespace objid | 2200 mode | AccessShareLock granted | t 此处锁定的资源由三个值定义：">
 
-    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
-    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.css" rel="stylesheet" />
 
 
 
-  <link href="/css/custom.min.cad5def4aef8469f7c7a9af0dc47cad0085548d4a380ce58a158d7cb6d2c0d9e.css" rel="stylesheet" integrity="sha256-ytXe9K74Rp98eprw3EfK0AhVSNSjgM5YoVjXy20sDZ4=" />
+  <link href="/css/custom.css" rel="stylesheet" />
 
 
 
@@ -1262,11 +1261,11 @@
   </div>
 </footer>
     
-    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
+    <script defer src="/js/main.js" integrity=""></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
+    <script defer src="/en.search.js" integrity=""></script>
 
 
   </body>
