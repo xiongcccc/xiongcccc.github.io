@@ -404,28 +404,10 @@ blockquote pre {
   }
 }
 
-.book-intro {
-  margin: 0.5rem 0 2.4rem;
-  padding: 1.2rem 1.35rem;
-  color: #273142;
-  background: #fffaf0;
-  border-left: 4px solid #9c7a3e;
-  border-radius: 0 6px 6px 0;
-}
-
-.book-intro p {
-  margin: 0;
-  line-height: 1.9;
-}
-
-.book-intro p + p {
-  margin-top: 0.55rem;
-}
-
 .chapter-overview {
   display: grid;
   gap: 2.35rem;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
 }
 
 .chapter-group {
@@ -520,14 +502,9 @@ blockquote pre {
 }
 
 @media (max-width: 768px) {
-  .book-intro {
-    margin-top: 0.25rem;
-    padding: 1rem 1.05rem;
-  }
-
   .chapter-overview {
     gap: 2rem;
-    margin-top: 1.7rem;
+    margin-top: 1.25rem;
   }
 
   .chapter-group {
@@ -557,12 +534,6 @@ blockquote pre {
     min-height: auto;
     padding: 0.82rem 0.9rem;
   }
-}
-
-.dark .book-intro {
-  color: #eadfca;
-  background: #1f1b13;
-  border-left-color: #d8bd7a;
 }
 
 .dark .chapter-group {
