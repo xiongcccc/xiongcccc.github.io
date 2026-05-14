@@ -488,32 +488,30 @@ blockquote pre {
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .recommend-entry {
-    border-top-color: #2e2c27;
-  }
+.dark .recommend-entry {
+  border-top-color: #2e2c27;
+}
 
-  .recommend-entry-featured {
-    background: #1f1b13;
-    border-left-color: #d8bd7a;
-  }
+.dark .recommend-entry-featured {
+  background: #1f1b13;
+  border-left-color: #d8bd7a;
+}
 
-  .recommend-heading h2,
-  .recommend-author strong {
-    color: #f4f4f5;
-  }
+.dark .recommend-heading h2,
+.dark .recommend-author strong {
+  color: #f4f4f5;
+}
 
-  .recommend-heading p {
-    color: #a7a7a7;
-  }
+.dark .recommend-heading p {
+  color: #a7a7a7;
+}
 
-  .recommend-entry-featured .recommend-body {
-    color: #eadfca;
-  }
+.dark .recommend-entry-featured .recommend-body {
+  color: #eadfca;
+}
 
-  .recommend-author span {
-    color: #d8bd7a;
-  }
+.dark .recommend-author span {
+  color: #d8bd7a;
 }
 
 /* 旁注增强：JS 可用时使用独立浮层，避免移动端 hover 不稳定和屏幕边缘溢出 */
