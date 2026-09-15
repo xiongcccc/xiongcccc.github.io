@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -24,7 +24,7 @@ PostgreSQL 社区已经开始了这项重大工程 2，但实际结果仍需要�
 页面的物理位置 (文件 ID、分支和分支中的块号) 用于显示页面中的数据已被修改，并且需要回写到磁盘的属性 (这样的页面被称为脏页) 缓冲区使用计数 锁定计数 (或者引用计数) 要访问表的数据页，进程会向缓冲区管理器 4 请求它，并接收包含该页的缓冲区 ID。然后，读取缓存数据并在需要时直接在缓存中修改它。当页面正在使用时，其缓冲区被锁定。锁定过程会禁止逐出缓存页面，并且可以与其他锁一起使用。每次锁定也会增加使用计数。" />
 
   
-    <link rel="canonical" href="//localhost:1313/docs/chapter09/" itemprop="url" />
+    <link rel="canonical" href="/docs/chapter09/" itemprop="url" />
   
 
   
@@ -32,7 +32,7 @@ PostgreSQL 社区已经开始了这项重大工程 2，但实际结果仍需要�
 <meta property="og:title" content="第 9 章：缓冲区缓存" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/docs/chapter09/" />
+<meta property="og:url" content="/docs/chapter09/" />
 
   
   <meta itemprop="name" content="第 9 章：缓冲区缓存">
@@ -60,11 +60,12 @@ PostgreSQL 社区已经开始了这项重大工程 2，但实际结果仍需要�
 页头包含了一些关于缓冲区和其中页面的信息，比如：
 页面的物理位置 (文件 ID、分支和分支中的块号) 用于显示页面中的数据已被修改，并且需要回写到磁盘的属性 (这样的页面被称为脏页) 缓冲区使用计数 锁定计数 (或者引用计数) 要访问表的数据页，进程会向缓冲区管理器 4 请求它，并接收包含该页的缓冲区 ID。然后，读取缓存数据并在需要时直接在缓存中修改它。当页面正在使用时，其缓冲区被锁定。锁定过程会禁止逐出缓存页面，并且可以与其他锁一起使用。每次锁定也会增加使用计数。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
 
 
 
@@ -1706,11 +1707,11 @@ PostgreSQL 社区已经开始了这项重大工程 2，但实际结果仍需要�
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>

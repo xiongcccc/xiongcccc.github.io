@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-	<meta name="generator" content="Hugo 0.138.0"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+	<meta name="generator" content="Hugo 0.138.0">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -16,7 +16,7 @@
   <meta name="description" content="" />
 
   
-    <link rel="canonical" href="//localhost:1313/" itemprop="url" />
+    <link rel="canonical" href="/" itemprop="url" />
   
 
   
@@ -24,21 +24,22 @@
 <meta property="og:title" content="《PostgreSQL 内参：深入解析运行原理》" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/" />
+<meta property="og:url" content="/" />
 
   
   <meta itemprop="name" content="《PostgreSQL 内参：深入解析运行原理》">
   <meta itemprop="description" content="内容导航 文章导航 内容简介 推荐序 关于此书 PostgreSQL 的发展势头蒸蒸日上，正在经历一场慢热的崛起。PostgreSQL 是世界上最先进的开源数据库，不仅功能强大丰富，而且一专多长，除了内置的多种高级数据类型之外，还提供了丰富的扩展，融汇百家之所长，使其成为满足多样化数据处理需求的理想选择，市面上关于 PostgreSQL 人才的需求迫在眉睫。">
-  <meta itemprop="wordCount" content="150">
+  <meta itemprop="wordCount" content="177">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="《PostgreSQL 内参：深入解析运行原理》">
   <meta name="twitter:description" content="内容导航 文章导航 内容简介 推荐序 关于此书 PostgreSQL 的发展势头蒸蒸日上，正在经历一场慢热的崛起。PostgreSQL 是世界上最先进的开源数据库，不仅功能强大丰富，而且一专多长，除了内置的多种高级数据类型之外，还提供了丰富的扩展，融汇百家之所长，使其成为满足多样化数据处理需求的理想选择，市面上关于 PostgreSQL 人才的需求迫在眉睫。">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
 
 
 
@@ -480,25 +481,76 @@
 <p>该书由浅入深地介绍了体系架构、MVCC、锁和查询执行等，是市面上不可多得的优质书籍，不仅是广大的运维管理人员，内核开发人员也可以从中受益良多，相信这本书的问世可以极大地推动 PostgreSQL 在中国的发展。
 笔者历经两年有余，将这本书翻译成为了中文，由于笔者能力有限，翻译过程中难免会有错误疏漏之处，敬请谅解。如果你发现有任何错误的地方，请随时联系我进行更正，读者的反馈至关重要，也欢迎大家提出改进建议。读者可以通过邮件方式与我联系：xiongcc_1994@126.com / xiongcc_1994@outlook.com。</p>
 <h2>关于译者<span class="hx-absolute -hx-mt-20" id="关于译者"></span>
-    <a href="#%e5%85%b3%e4%ba%8e%e8%af%91%e8%80%85" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>大家好，我是熊灿灿，各位可以喊我 CC，我是 PostgreSQL ACE/MVP，杰出新人，CSDN 社区之星，PostgreSQL 学徒公众号主理人，亲身保障过第七次人口普查等重大项目，精通 PostgreSQL 体系架构与运行原理，实战经验丰富，目前正在从事 PostgreSQL 与 Greenplum 相关工作。</p>
-<div style="overflow: hidden;">
-  <img src="contactme.png" alt="Logo" width="500" height="300" style="float: left; margin-right: 10px;">
-  <div style="overflow: hidden; text-align: center;">
+    <a href="#%e5%85%b3%e4%ba%8e%e8%af%91%e8%80%85" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><section class="translator-profile" aria-label="关于译者">
+  <aside class="translator-profile-card">
+    <img class="translator-avatar" src="https://github.com/xiongcccc.png?size=180" alt="熊灿灿的 GitHub 头像">
+    <div class="translator-identity">
+      <strong>熊灿灿</strong>
+      <span>xiongcc · xiongcccc</span>
+    </div>
+    <p class="translator-status">Working from home</p>
+    <dl class="translator-meta">
+      <div>
+        <dt>Location</dt>
+        <dd>四川省成都市</dd>
+      </div>
+      <div>
+        <dt>Focus</dt>
+        <dd>PostgreSQL · Greenplum</dd>
+      </div>
+      <div>
+        <dt>Homepage</dt>
+        <dd><a href="https://xiongcc.cn/">xiongcc.cn</a></dd>
+      </div>
+    </dl>
+  </aside>
+  <div class="translator-profile-main">
+    <p class="translator-bio">PostgreSQL · Database Internals · AI Infrastructure</p>
+    <p>大家好，我是熊灿灿，也可以喊我 CC。我是 PostgreSQL / Greenplum 工程师、开源爱好者和技术写作者，长期关注数据库内核、生产实践，以及 AI 时代的数据基础设施。</p>
+    <div class="translator-tags" aria-label="译者身份">
+      <span>PostgreSQL ACE / MVP</span>
+      <span>PostgreSQL 学徒</span>
+      <span>100+ 技术文章</span>
+      <span>PostgreSQL DBA Daily</span>
+    </div>
+    <div class="translator-highlights" aria-label="个人项目与身份">
+      <a href="https://postgres-internals.cn/">
+        <strong>《PostgreSQL 内参》</strong>
+        <span>《PostgreSQL 14 Internals》中文版，系统梳理 PostgreSQL 内部工作机制</span>
+      </a>
+      <a href="https://github.com/xiongcccc/pg-mastery">
+        <strong>pg-mastery</strong>
+        <span>PostgreSQL internals、DBA 实践与调优知识库</span>
+      </a>
+      <a href="https://github.com/xiongcccc/pgcheck">
+        <strong>pgcheck</strong>
+        <span>面向 DBA / SRE 的 PostgreSQL 健康检查工具</span>
+      </a>
+      <a href="https://postgres-howto.cn/#/">
+        <strong>PostgreSQL 中文 HowTo</strong>
+        <span>面向真实使用场景的 PostgreSQL 中文实践手册</span>
+      </a>
+      <a href="https://coding.imooc.com/class/1009.html">
+        <strong>PostgreSQL 入门到进阶实战</strong>
+        <span>面向 AI 时代数据基础设施的 PostgreSQL 系统课程</span>
+      </a>
+      <a href="https://github.com/xiongcccc/pg-slide-harvester">
+        <strong>pg-slide-harvester</strong>
+        <span>自动收集 PostgreSQL 大会演讲资料，建立本地可搜索技术档案</span>
+      </a>
+    </div>
+    <div class="translator-latest" aria-label="最近写了">
+      <strong>最近写了</strong>
+      <a href="https://xiongcc.cn/2026/09/07/PostgreSQL%20%E7%9A%84%202026%20%E4%B8%8E%E4%B8%8B%E4%B8%80%E4%B8%AA%E5%8D%81%E5%B9%B4/">PostgreSQL 的 2026 与下一个十年</a>
+      <a href="https://xiongcc.cn/2026/08/14/%E5%BD%93%E7%AD%94%E6%A1%88%E4%B8%8D%E5%86%8D%E7%A8%80%E7%BC%BA%EF%BC%8CDBA%20%E7%9C%9F%E6%AD%A3%E7%A8%80%E7%BC%BA%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F/">当答案不再稀缺，DBA 真正稀缺的是什么？</a>
+    </div>
+    <p class="translator-contact">
+      GitHub：<a href="https://github.com/xiongcccc">xiongcccc</a>
+      <span>微信公众号：PostgreSQL学徒</span>
+      <span>邮箱：<a href="mailto:xiongcc_1994@126.com">xiongcc_1994@126.com</a> / <a href="mailto:xiongcc19950101@gmail.com">xiongcc19950101@gmail.com</a></span>
+    </p>
   </div>
-</div>
-PostgreSQL expert, open-source enthusiast, and software engineer. 
-<ul>
-<li>🛠 Founder of <a href="https://postgres-howto.cn/#/" target="_blank" rel="noopener">PostgreSQL-howto in chinese</a> project</li>
-<li>📚 Translator of <a href="https://postgrespro.com/community/books/internals" target="_blank" rel="noopener">PostgreSQL 14 Internals</a></li>
-<li>📝 PostgreSQL 14 Internals in chinese: <a href="https://postgres-internals.cn/" target="_blank" rel="noopener">https://postgres-internals.cn/</a></li>
-<li>🧑‍💻 Personal Homepage: <a href="https://xiongcc.cn/" target="_blank" rel="noopener">https://xiongcc.cn</a></li>
-<li>🧘🏻‍♂️ PostgreSQL DBA Daily 5.0 Author</li>
-</ul>
-<p>Feel free to Connect with Me：</p>
-<ul>
-<li><a href="https://github.com/xiongcccc" target="_blank" rel="noopener">GitHub</a> | 微信公众号：PostgreSQL学徒</li>
-<li>📨 <a href="mailto:xiongcc_1994@126.com" >xiongcc_1994@126.com</a> / <a href="mailto:xiongcc19950101@gmail.com" >xiongcc19950101@gmail.com</a></li>
-</ul>
+</section>
 <h2>变更历史<span class="hx-absolute -hx-mt-20" id="变更历史"></span>
     <a href="#%e5%8f%98%e6%9b%b4%e5%8e%86%e5%8f%b2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><section class="site-changelog" aria-label="变更历史">
 <article class="changelog-item changelog-item-current">
@@ -587,11 +639,11 @@ PostgreSQL expert, open-source enthusiast, and software engineer.
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>

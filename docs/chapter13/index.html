@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<html lang="en"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="index, follow" />
   <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
@@ -26,7 +26,7 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 =&gt; CREATE FUNCTION row_locks(relname text, pageno integer) RETURNS TABLE( ctid tid, xmax text, lock_only text, is_multi text, keys_upd text, keyshr text, shr text ) AS $$ SELECT (pageno,lp)::text::tid, t_xmax, CASE WHEN t_infomask &amp; 128 = 128 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 4096 = 4096 THEN &#39;t&#39; END, CASE WHEN t_infomask2 &amp; 8192 = 8192 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 16 = 16 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 16&#43;64 = 16&#43;64 THEN &#39;t&#39; END FROM heap_page_items(get_raw_page(relname,pageno)) ORDER BY lp; $$ LANGUAGE sql; 现在在 accounts 表上开启一个事务，以更新第一个帐户的余额 (键保持不变) 和第二个帐户的 ID (键更新了)：" />
 
   
-    <link rel="canonical" href="//localhost:1313/docs/chapter13/" itemprop="url" />
+    <link rel="canonical" href="/docs/chapter13/" itemprop="url" />
   
 
   
@@ -34,7 +34,7 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 <meta property="og:title" content="第 13 章：行级锁" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="//localhost:1313/docs/chapter13/" />
+<meta property="og:url" content="/docs/chapter13/" />
 
   
   <meta itemprop="name" content="第 13 章：行级锁">
@@ -66,11 +66,12 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
 让我们创建一个函数，使用 pageinspect 显示我们感兴趣的一些元组元数据，即 xmax 字段和若干提示位：
 =&gt; CREATE FUNCTION row_locks(relname text, pageno integer) RETURNS TABLE( ctid tid, xmax text, lock_only text, is_multi text, keys_upd text, keyshr text, shr text ) AS $$ SELECT (pageno,lp)::text::tid, t_xmax, CASE WHEN t_infomask &amp; 128 = 128 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 4096 = 4096 THEN &#39;t&#39; END, CASE WHEN t_infomask2 &amp; 8192 = 8192 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 16 = 16 THEN &#39;t&#39; END, CASE WHEN t_infomask &amp; 16&#43;64 = 16&#43;64 THEN &#39;t&#39; END FROM heap_page_items(get_raw_page(relname,pageno)) ORDER BY lp; $$ LANGUAGE sql; 现在在 accounts 表上开启一个事务，以更新第一个帐户的余额 (键保持不变) 和第二个帐户的 ID (键更新了)：">
 
-    <link href="/css/compiled/main.css" rel="stylesheet" />
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.css" rel="stylesheet" />
+  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
 
 
 
@@ -2408,11 +2409,11 @@ UPDATE 命令会自动选择可能最弱的锁定模式；键通常保持不变�
   </div>
 </footer>
     
-    <script defer src="/js/main.js" integrity=""></script>
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
 <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
-    <script defer src="/en.search.js" integrity=""></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
 
 
   </body>
