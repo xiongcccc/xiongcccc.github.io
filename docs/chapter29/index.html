@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow" />
@@ -23,7 +23,7 @@ BRIN 更像是顺序堆扫描的加速器，而不是传统意义上的索引。
 CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport coordinates airport_utc_offset interval, -- timezone flight_no char(6), flight_type text, -- departure or arrival scheduled_time timestamptz, actual_time timestamptz, aircraft_code char(3), seat_no varchar(4), fare_conditions varchar(10), -- travel class passenger_id varchar(20), passenger_name text ); 数据加载可以通过嵌套循环来模拟：2 外循环对应于天数 (示例数据库中存储的是年度数据)，内循环则基于时区。因此，即使在循环中数据没有显式地进行排序，加载后的数据在时间和机场方面或多或少是有序的。" />
 
   
-    <link rel="canonical" href="/docs/chapter29/" itemprop="url" />
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter29/" itemprop="url" />
   
 
   
@@ -31,7 +31,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 <meta property="og:title" content="第 29 章：BRIN" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/docs/chapter29/" />
+<meta property="og:url" content="https://postgres-internals.cn/docs/chapter29/" />
 
   
   <meta itemprop="name" content="第 29 章：BRIN">
@@ -62,7 +62,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 
 
 
-  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
 
 
 
@@ -94,7 +94,24 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
   <script defer src="/js/marginalia.js"></script>
 <script defer src="/js/site-stats.js"></script>
 
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+  
+  <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
 </head>
+
 <body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
   <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
 
@@ -157,6 +174,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
           </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
+
 
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
@@ -742,6 +760,39 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
   <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
 </button>
 </div></div></aside>
+
+
+
+  <template data-reading-toc>
+    <details class="reading-navigation-toc">
+      <summary>本章目录</summary>
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#291-总览">29.1 总览</a></li>
+    <li><a href="#292-样例">29.2 样例</a></li>
+    <li><a href="#293-页面布局">29.3 页面布局</a></li>
+    <li><a href="#294-搜索">29.4 搜索</a></li>
+    <li><a href="#295-摘要信息更新">29.5 摘要信息更新</a>
+      <ul>
+        <li><a href="#2951-插入值">29.5.1 插入值</a></li>
+        <li><a href="#2952-范围提要">29.5.2 范围提要</a></li>
+      </ul>
+    </li>
+    <li><a href="#296-minmax-类">29.6 Minmax 类</a>
+      <ul>
+        <li><a href="#2961-选择要索引的列">29.6.1 选择要索引的列</a></li>
+        <li><a href="#2962-范围大小与搜索效率">29.6.2 范围大小与搜索效率</a></li>
+        <li><a href="#2963-属性">29.6.3 属性</a></li>
+      </ul>
+    </li>
+    <li><a href="#297-span-classmarginalia-data-notev-14minmax-multi-类span">29.7 <span class="marginalia" data-note="v. 14"><strong>Minmax-Multi 类</strong></span></a></li>
+    <li><a href="#298-inclusion-类">29.8 Inclusion 类</a></li>
+    <li><a href="#299-span-classmarginalia-data-notev-14bloom-类span">29.9 <span class="marginalia" data-note="v. 14"><strong>Bloom 类</strong></span></a></li>
+  </ul>
+</nav>
+    </details>
+  </template>
+
     
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
@@ -1954,7 +2005,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 <hr>
 <ol>
 <li id="fn:1">
-<p>postgresql.org/docs/14/brin.html<br>backend/access/brin/README&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/brin.html">postgresql.org/docs/14/brin.html</a><br>backend/access/brin/README&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:2">
 <p>edu.postgrespro.ru/internals-14/flights_bi.sql&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1990,7 +2041,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
 <p>backend/access/brin/brin_bloom.c&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:13">
-<p>postgresql.org/docs/14/bloom.html&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/bloom.html">postgresql.org/docs/14/bloom.html</a>&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 </ol>
 </div>
@@ -2010,6 +2061,7 @@ CREATE TABLE flights_bi( airport_code char(3), airport_coord point, -- airport c
     </div>
   </div>
 </footer>
+    
     
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 

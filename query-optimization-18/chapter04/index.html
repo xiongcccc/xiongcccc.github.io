@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 4 章：排序与分组 – PostgreSQL 18 查询优化</title>
+  <meta name="description" content="PostgreSQL 18 查询优化中文审阅版：第 4 章：排序与分组。对应原书第 69–84 页。" />
+
+  
+    <link rel="canonical" href="https://postgres-internals.cn/query-optimization-18/chapter04/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 4 章：排序与分组" />
+<meta property="og:description" content="PostgreSQL 18 查询优化中文审阅版：第 4 章：排序与分组。对应原书第 69–84 页。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://postgres-internals.cn/query-optimization-18/chapter04/" /><meta property="article:section" content="query-optimization-18" />
+
+
+
+  
+  <meta itemprop="name" content="第 4 章：排序与分组">
+  <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 4 章：排序与分组。对应原书第 69–84 页。">
+  <meta itemprop="wordCount" content="992">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 4 章：排序与分组">
+  <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 4 章：排序与分组。对应原书第 69–84 页。">
+
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+
+
+
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'light';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  <script defer src="/js/marginalia.js"></script>
+<script defer src="/js/site-stats.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
+</head>
+
+<body dir="ltr" class="query-book-page"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 18 查询优化">PostgreSQL 18 <span class="query-book-brand">查询优化</span></span>
+    </a><a
+            title="目录"
+            href="/query-optimization-18/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">目录</span>
+          </a><a
+            title="书库"
+            href="/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">书库</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#41-%e6%8e%92%e5%ba%8f"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >4.1 排序</a>
+            </li>
+          <li>
+              <a
+                href="#42-%e5%88%86%e7%bb%84"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >4.2 分组</a>
+            </li>
+          </ul>
+  </li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+
+
+
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#41-%e6%8e%92%e5%ba%8f">4.1 排序
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#411-%e5%86%85%e5%ad%98%e6%8e%92%e5%ba%8f">4.1.1 内存排序
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#412-%e5%a4%96%e6%8e%92">4.1.2 外排
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#413-%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8f">4.1.3 增量排序
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#414-%e6%9e%84%e5%bb%ba-b-%e6%a0%91">4.1.4 构建 B 树
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#42-%e5%88%86%e7%bb%84">4.2 分组
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#421-%e5%88%86%e7%bb%84%e7%9a%84%e5%ba%94%e7%94%a8%e5%9c%ba%e6%99%af">4.2.1 分组的应用场景
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#422-%e5%93%88%e5%b8%8c%e8%81%9a%e5%90%88">4.2.2 哈希聚合
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#423-%e5%af%b9%e6%9c%89%e5%ba%8f%e6%95%b0%e6%8d%ae%e5%88%86%e7%bb%84">4.2.3 对有序数据分组
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#424-%e7%aa%97%e5%8f%a3%e5%87%bd%e6%95%b0">4.2.4 窗口函数
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        <nav class="query-book-context" aria-label="书籍导航">
+          <a href="/">首页</a>
+          <a href="/query-optimization-18/">PostgreSQL 18 查询优化</a>
+        </nav>
+        
+          <details class="query-book-toc">
+            <summary>本章目录</summary>
+            <nav id="TableOfContents">
+  <ul>
+    <li><a href="#41-排序">4.1 排序</a>
+      <ul>
+        <li><a href="#411-内存排序">4.1.1 内存排序</a></li>
+        <li><a href="#412-外排">4.1.2 外排</a></li>
+        <li><a href="#413-增量排序">4.1.3 增量排序</a></li>
+        <li><a href="#414-构建-b-树">4.1.4 构建 B 树</a></li>
+      </ul>
+    </li>
+    <li><a href="#42-分组">4.2 分组</a>
+      <ul>
+        <li><a href="#421-分组的应用场景">4.2.1 分组的应用场景</a></li>
+        <li><a href="#422-哈希聚合">4.2.2 哈希聚合</a></li>
+        <li><a href="#423-对有序数据分组">4.2.3 对有序数据分组</a></li>
+        <li><a href="#424-窗口函数">4.2.4 窗口函数</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+          </details>
+        
+        <div class="content query-book-content">
+          <h1>第 4 章：排序与分组</h1>
+          <h2>4.1 排序<span class="hx-absolute -hx-mt-20" id="41-排序"></span>
+    <a href="#41-%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树索引可以按索引顺序返回行。当这一顺序与查询的 ORDER BY 要求一致时，PostgreSQL 有时可以省去显式排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM flights
+</span></span><span class="line"><span class="cl">ORDER BY flight_id;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using flights_pkey on flights
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>如果访问路径无法提供所需的顺序，PostgreSQL 就需要分两步完成：先获取行，再对它们排序。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM flights
+</span></span><span class="line"><span class="cl">ORDER BY status;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        QUERY PLAN
+</span></span><span class="line"><span class="cl">--------------------------
+</span></span><span class="line"><span class="cl"> Sort
+</span></span><span class="line"><span class="cl">   Sort Key: status
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on flights
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>4.1.1 内存排序<span class="hx-absolute -hx-mt-20" id="411-内存排序"></span>
+    <a href="#411-%e5%86%85%e5%ad%98%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>最简单的情况是，待排序数据能够放入 <em>work_mem</em> 为排序操作限定的可用内存中。此时，PostgreSQL 可以在内存中完成排序。EXPLAIN ANALYZE 会显示所使用的排序方法和内存用量：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *
+</span></span><span class="line"><span class="cl">FROM seats
+</span></span><span class="line"><span class="cl">ORDER BY seat_no;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Sort  (cost=121.13..125.48 rows=1741 width=15) (actual ...
+</span></span><span class="line"><span class="cl">   Sort Key: seat_no
+</span></span><span class="line"><span class="cl">   Sort Method: quicksort  Memory: 103kB
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741 wid...
+</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>常规的 Sort 节点必须读取全部输入并完成排序，才能返回第一行。因此，它的启动成本包含读取全部输入的成本。对于基于比较的排序，工作量通常按 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>M</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log M)</annotation></semantics></math> 的量级增长，其中 M 为输入行数。</p>
+<p>如果查询只需要排序结果中的前 N 行，例如使用了 LIMIT，PostgreSQL 就可以使用只保留前 N 行的 Top-N 排序，而不必对所有行进行完整排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *
+</span></span><span class="line"><span class="cl">FROM seats
+</span></span><span class="line"><span class="cl">ORDER BY seat_no
+</span></span><span class="line"><span class="cl">LIMIT 100;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Limit  (cost=93.95..94.20 rows=100 width=15) (actual ro...
+</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=93.95..98.30 rows=1741 width=15) (actu...
+</span></span><span class="line"><span class="cl">       Sort Key: seat_no
+</span></span><span class="line"><span class="cl">       Sort Method: top-N heapsort  Memory: 30kB
+</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>查询的估算成本降低了，排序使用的内存也更少。Top-N 堆排序的工作量为 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>N</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log N)</annotation></semantics></math>，无须对全部 M 行进行完整排序。</p>
+<h3>4.1.2 外排<span class="hx-absolute -hx-mt-20" id="412-外排"></span>
+    <a href="#412-%e5%a4%96%e6%8e%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果数据集过大，无法在可用内存中完成排序，PostgreSQL 就会使用外排。</p>
+<p>排序器先读取内存能够容纳的一部分输入，对其排序，然后将得到的有序数据段 (run) 写入临时文件。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-external-runs.png" target="_blank" rel="noopener" aria-label="打开原图：外排生成有序 run：内存中的数据经快排后写入临时文件；work_mem 与 temp_file_limit 分别约束内存和临时文件空间。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-external-runs.png" width="863" height="559" alt="外排生成有序 run：内存中的数据经快排后写入临时文件；work_mem 与 temp_file_limit 分别约束内存和临时文件空间。" loading="lazy">
+  </a>
+  <figcaption>外排生成有序 run：内存中的数据经快排后写入临时文件；work_mem 与 temp_file_limit 分别约束内存和临时文件空间。</figcaption>
+</figure>
+</p>
+<p>这一过程不断重复，直到全部输入都转换成各自有序的 run。</p>
+<p><em>temp_file_limit</em> 限制的是单个 PostgreSQL 进程在任一时刻使用的临时文件总空间。显式创建的临时表不计入这一限制。</p>
+<p>接下来，对这些有序的 run 进行归并。从概念上看，归并过程会跟踪每个输入 run 的下一个候选行，从中选择最小或最大的一行并返回，再将该 run 向前推进一行。实际实现会以带缓冲的块为单位读取数据，而不是逐行读取，以保持较高的 I/O 效率。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-external-merge.png" target="_blank" rel="noopener" aria-label="打开原图：外排的归并阶段：从各个有序 run 读取候选行并归并输出，内存缓冲受 work_mem 约束。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-external-merge.png" width="584" height="563" alt="外排的归并阶段：从各个有序 run 读取候选行并归并输出，内存缓冲受 work_mem 约束。" loading="lazy">
+  </a>
+  <figcaption>外排的归并阶段：从各个有序 run 读取候选行并归并输出，内存缓冲受 work_mem 约束。</figcaption>
+</figure>
+</p>
+<p>如果内存不足以在一轮中归并所有 run，PostgreSQL 就会执行多轮归并：先将若干 run 归并成更大的 run，再继续归并，直到能够生成最终的有序数据流。对于较大的排序操作，EXPLAIN ANALYZE 会显示临时存储的使用情况：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
+</span></span><span class="line"><span class="cl">SELECT *
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">ORDER BY total_amount;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Sort  (cost=406880.90..413097.68 rows=2486710 width=21)...
+</span></span><span class="line"><span class="cl">   Sort Key: total_amount
+</span></span><span class="line"><span class="cl">   Sort Method: external merge  Disk: 78176kB
+</span></span><span class="line"><span class="cl">   Buffers: shared read=15856, temp read=19539
+</span></span><span class="line"><span class="cl">   written=19578
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on bookings  (cost=0.00..40723.10 rows=24...
+</span></span><span class="line"><span class="cl">       Buffers: shared read=15856
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=34 read=2 dirtied=1
+</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Sort Method: external merge 表明排序已溢出到磁盘，使用了外部归并排序。Disk 给出该排序使用的临时磁盘空间，temp 缓冲区计数则反映临时 I/O。</p>
+<h3>4.1.3 增量排序<span class="hx-absolute -hx-mt-20" id="413-增量排序"></span>
+    <a href="#413-%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>假设查询需要按 <math><semantics><mrow><msub><mi>K</mi><mn>1</mn></msub><mo>…</mo><msub><mi>K</mi><mi>m</mi></msub><mo>…</mo><msub><mi>K</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">K_1 \ldots K_m \ldots K_n</annotation></semantics></math> 排序，而输入已经按前 m 个键排好序，就没有必要重新对整个数据集排序。PostgreSQL 可以按照预排序前缀 <math><semantics><mrow><msub><mi>K</mi><mn>1</mn></msub><mo>…</mo><msub><mi>K</mi><mi>m</mi></msub></mrow><annotation encoding="application/x-tex">K_1 \ldots K_m</annotation></semantics></math> 的值，将输入划分成一组组连续的行；每组内这些键的值都相同，只需再按剩余的键 <math><semantics><mrow><msub><mi>K</mi><mrow><mi>m</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>…</mo><msub><mi>K</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">K_{m+1} \ldots K_n</annotation></semantics></math> 排序。这就是增量排序。</p>
+<p>由于每次只对较小的一部分输入排序，增量排序可以降低内存需求，减少溢出到磁盘的可能性。它还可以缩短返回首批结果的等待时间：第一组排好序后，PostgreSQL 就能开始返回行，无须等待全部输入排序完成。代价是识别和处理大量分组会带来额外开销。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-incremental-sort.png" target="_blank" rel="noopener" aria-label="打开原图：增量排序：输入已按 album_id 排序，较大分组只按 name 进一步排序；较小分组合并后按全部字段排序。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-incremental-sort.png" width="880" height="513" alt="增量排序：输入已按 album_id 排序，较大分组只按 name 进一步排序；较小分组合并后按全部字段排序。" loading="lazy">
+  </a>
+  <figcaption>增量排序：输入已按 album_id 排序，较大分组只按 name 进一步排序；较小分组合并后按全部字段排序。</figcaption>
+</figure>
+</p>
+<p>PostgreSQL 内部采用两种策略。对于预排序前缀相同的较大分组，可以逐组单独排序；对于较小的分组，则可以先累积起来，再一起进行完整排序，以免逐组处理带来过多开销。</p>
+<p>可以通过 <em>enable_incremental_sort</em> 禁用增量排序。</p>
+<p>在 bookings.total_amount 上创建索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON bookings(total_amount);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>然后增大 <em>work_mem</em>，并按 total_amount 和 book_date 排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;8 MB&#39;;
+</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">ORDER BY total_amount, book_date;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Incremental Sort (actual rows=2486710.00 loops=1)
+</span></span><span class="line"><span class="cl">   Sort Key: total_amount, book_date
+</span></span><span class="line"><span class="cl">   Presorted Key: total_amount
+</span></span><span class="line"><span class="cl">   Full-sort Groups: 3132  Sort Method: quicksort
+</span></span><span class="line"><span class="cl">   Average Memory: 27kB  Peak Memory: 27kB
+</span></span><span class="line"><span class="cl">   Pre-sorted Groups: 2449  Sort Method: quicksort
+</span></span><span class="line"><span class="cl">   Average Memory: 6442kB  Peak Memory: 6464kB
+</span></span><span class="line"><span class="cl">   -&gt; Index Scan using bookings_total_amount_idx on book...
+</span></span><span class="line"><span class="cl">       Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.128 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 934.215 ms
+</span></span><span class="line"><span class="cl">(11 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>索引扫描返回的行已经按 total_amount 排序，这就是 Presorted Key 所显示的内容。Incremental Sort 只需进一步按 book_date 排序。</p>
+<p>Pre-sorted Groups 对应较大的分组：处理这些分组时，利用了已有的 total_amount 顺序，只需再按 book_date 排序。Full-sort Groups 对应那些合并起来、按全部排序键进行完整排序的小分组。</p>
+<p>本例中，两类分组都能完全放入内存，均使用快排。</p>
+<p>现在减小 <em>work_mem</em>：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;128 kB&#39;;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>再次运行查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">ORDER BY total_amount, book_date;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Incremental Sort (actual rows=2486710.00 loops=1)
+</span></span><span class="line"><span class="cl">   Sort Key: total_amount, book_date
+</span></span><span class="line"><span class="cl">   Presorted Key: total_amount
+</span></span><span class="line"><span class="cl">   Full-sort Groups: 3132  Sort Method: quicksort
+</span></span><span class="line"><span class="cl">   Average Memory: 27kB  Peak Memory: 27kB
+</span></span><span class="line"><span class="cl">   Pre-sorted Groups: 2449  Sort Method: external merge
+</span></span><span class="line"><span class="cl">   Average Disk: 2662kB  Peak Disk: 2672kB
+</span></span><span class="line"><span class="cl">   -&gt; Index Scan using bookings_total_amount_idx on book...
+</span></span><span class="line"><span class="cl">       Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.044 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 912.199 ms
+</span></span><span class="line"><span class="cl">(11 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>可用内存减少后，较大的预排序分组改用外部归并排序，EXPLAIN 也明确显示了它们使用的临时磁盘空间。</p>
+<p>恢复参数设置，并删除演示用的索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">RESET work_mem;
+</span></span><span class="line"><span class="cl">DROP INDEX bookings_total_amount_idx;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>4.1.4 构建 B 树<span class="hx-absolute -hx-mt-20" id="414-构建-b-树"></span>
+    <a href="#414-%e6%9e%84%e5%bb%ba-b-%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>原则上，PostgreSQL 可以从一棵空的 B 树开始，在扫描表的过程中逐条插入索引项，以此构建索引。但对于批量构建索引来说，这种方式效率很低。</p>
+<p>实际采用的方式是：先生成索引项，按索引键排序，然后依次填充叶子层，再逐层构建上层节点，直到只剩下根节点。这里使用的排序机制与前面讨论的排序密切相关，但创建索引使用的是 <em>maintenance_work_mem</em>，而不是常规的 <em>work_mem</em>。维护操作相对不频繁，因此为它们分配更大的内存额度通常是合理的。</p>
+<p>B 树索引也可以并行构建。工作进程数量的选择方式与并行查询相同，取决于表的大小，但受 <em>max_parallel_maintenance_workers</em> 限制。</p>
+<p>并行构建索引时，<em>maintenance_work_mem</em> 适用于整个构建过程，而不是每个工作进程各自拥有一份。</p>
+<h2>4.2 分组<span class="hx-absolute -hx-mt-20" id="42-分组"></span>
+    <a href="#42-%e5%88%86%e7%bb%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>4.2.1 分组的应用场景<span class="hx-absolute -hx-mt-20" id="421-分组的应用场景"></span>
+    <a href="#421-%e5%88%86%e7%bb%84%e7%9a%84%e5%ba%94%e7%94%a8%e5%9c%ba%e6%99%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>SQL 可以通过 GROUP BY 将行划分为多个组。通常会结合聚合函数，为每个组计算一个结果。窗口函数中的 PARTITION BY 与此有相近之处，但与普通分组不同，窗口函数不会将一个分区中的多行合并成一行结果。</p>
+<p>需要消除重复项时，也会隐式涉及分组，例如：DISTINCT、不带 ALL 的 UNION、不带 ALL 的 INTERSECT，以及不带 ALL 的 EXCEPT。PostgreSQL 可以使用不同的物理执行策略来完成分组和去重。</p>
+<p>其中两种重要的策略是哈希，以及按分组键的顺序处理数据。规划器会根据估算成本、内存、下层计划节点已经提供的顺序，以及查询的其他特征，在可用方案中进行选择。</p>
+<h3>4.2.2 哈希聚合<span class="hx-absolute -hx-mt-20" id="422-哈希聚合"></span>
+    <a href="#422-%e5%93%88%e5%b8%8c%e8%81%9a%e5%90%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>哈希表通过哈希函数，将值映射到数量有限的桶中。查找时需要：</p>
+<ol>
+<li>计算哈希值。</li>
+<li>使用哈希值的一部分选择一个桶。</li>
+<li>检查桶中的条目，通过相等性比较，区分哈希值相同或映射到同一桶的不同值。</li>
+</ol>
+<p>如果 load factor 合理，且数据分布均匀，查找的预期耗时近似为常数。分布不均匀或哈希表负载过高，都会增加处理冲突的工作量。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-hash-aggregate.png" target="_blank" rel="noopener" aria-label="打开原图：哈希聚合：按 year 的哈希值选择桶，通过相等性比较定位分组，并累加各组的计数。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-hash-aggregate.png" width="830" height="517" alt="哈希聚合：按 year 的哈希值选择桶，通过相等性比较定位分组，并累加各组的计数。" loading="lazy">
+  </a>
+  <figcaption>哈希聚合：按 year 的哈希值选择桶，通过相等性比较定位分组，并累加各组的计数。</figcaption>
+</figure>
+</p>
+<p>基于哈希的聚合在执行计划中对应 HashAggregate 节点：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN
+</span></span><span class="line"><span class="cl">SELECT airplane_code, count(*)
+</span></span><span class="line"><span class="cl">FROM seats
+</span></span><span class="line"><span class="cl">GROUP BY airplane_code;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> HashAggregate  (cost=36.12..36.20 rows=8 width=12)
+</span></span><span class="line"><span class="cl">   Group Key: airplane_code
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741 wid...
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>启动成本较高，是因为 HashAggregate 必须先读取输入并建立聚合状态，才能返回最终的分组结果。</p>
+<p>EXPLAIN ANALYZE 会显示内存用量：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, costs off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT airplane_code, count(*)
+</span></span><span class="line"><span class="cl">FROM seats
+</span></span><span class="line"><span class="cl">GROUP BY airplane_code;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                      QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------
+</span></span><span class="line"><span class="cl"> HashAggregate (actual rows=8.00 loops=1)
+</span></span><span class="line"><span class="cl">   Group Key: airplane_code
+</span></span><span class="line"><span class="cl">   Batches: 1  Memory Usage: 32kB
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats (actual rows=1741.00 loops=1)
+</span></span><span class="line"><span class="cl"> Planning Time: 0.021 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 0.424 ms
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>4.2.3 对有序数据分组<span class="hx-absolute -hx-mt-20" id="423-对有序数据分组"></span>
+    <a href="#423-%e5%af%b9%e6%9c%89%e5%ba%8f%e6%95%b0%e6%8d%ae%e5%88%86%e7%bb%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果输入行已按分组键排序，去重和分组也可以利用这一顺序。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-sorted-grouping.png" target="_blank" rel="noopener" aria-label="打开原图：对有序数据去重和分组：Unique 返回 year 的非重复值，GroupAggregate 返回各个 year 及其出现次数。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-sorted-grouping.png" width="838" height="505" alt="对有序数据去重和分组：Unique 返回 year 的非重复值，GroupAggregate 返回各个 year 及其出现次数。" loading="lazy">
+  </a>
+  <figcaption>对有序数据去重和分组：Unique 返回 year 的非重复值，GroupAggregate 返回各个 year 及其出现次数。</figcaption>
+</figure>
+</p>
+<p>Unique 去除相邻的重复项。由于相同的键彼此相邻，它只需将当前值与前一个值比较。</p>
+<p>GroupAggregate 节点返回聚合后的数据。图中的例子里，该节点列出 year 字段的非重复值，并统计每个值在数据集中出现的次数。</p>
+<p>如果输入已经具有所需的顺序，Unique 或 GroupAggregate 就可能是合适的选择：它们需要的工作内存相对较少，而且可以逐步处理数据流。如果必须先对全部输入排序，哈希聚合的成本往往更低。不过，规划器依据的是实际估算，而不是固定规则。</p>
+<p>这些节点会保留分组键的顺序，有时可以直接满足后续 ORDER BY 的要求，无须再次排序。</p>
+<p>下面这个 GroupAggregate 的输入顺序直接来自索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT ticket_no, count(ticket_no)
+</span></span><span class="line"><span class="cl">FROM segments
+</span></span><span class="line"><span class="cl">GROUP BY ticket_no;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                      QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------
+</span></span><span class="line"><span class="cl"> GroupAggregate
+</span></span><span class="line"><span class="cl">   Group Key: ticket_no
+</span></span><span class="line"><span class="cl">   -&gt; Index Only Scan using segments_pkey on segments
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>DISTINCT 查询可以使用 Unique：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT DISTINCT ticket_no
+</span></span><span class="line"><span class="cl">FROM segments
+</span></span><span class="line"><span class="cl">ORDER BY ticket_no;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                      QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Unique
+</span></span><span class="line"><span class="cl">   -&gt; Index Only Scan using segments_pkey on segments
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>索引已经按 ORDER BY 要求的顺序返回 ticket_no，而 Unique 保留了这一顺序，因此不需要额外的 Sort 节点。</p>
+<h3>4.2.4 窗口函数<span class="hx-absolute -hx-mt-20" id="424-窗口函数"></span>
+    <a href="#424-%e7%aa%97%e5%8f%a3%e5%87%bd%e6%95%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>与普通聚合函数不同，窗口函数为每一行输出计算一个值，而不是将整个组缩减为一行。函数名后面的 OVER 子句定义了一个窗口：它规定对于每一行结果，窗口函数应处理哪一组行。这样的一组行称为 frame。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-window-frame.png" target="_blank" rel="noopener" aria-label="打开原图：窗口与 frame：OVER () 的默认 frame 包含整个分区；带 ORDER BY 时，图中 frame 随当前行向后扩展。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-window-frame.png" width="713" height="450" alt="窗口与 frame：OVER () 的默认 frame 包含整个分区；带 ORDER BY 时，图中 frame 随当前行向后扩展。" loading="lazy">
+  </a>
+  <figcaption>窗口与 frame：OVER () 的默认 frame 包含整个分区；带 ORDER BY 时，图中 frame 随当前行向后扩展。</figcaption>
+</figure>
+</p>
+<p>OVER () 既没有 PARTITION BY，也没有 ORDER BY。因此，所有行构成一个分区，默认 frame 就是整个分区。</p>
+<p>如果窗口定义包含用于指定行顺序的 ORDER BY 子句，默认 frame 会覆盖从第一行到当前行的所有行。</p>
+<p>来看一个计算预订金额累计和的例子：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN
+</span></span><span class="line"><span class="cl">SELECT *, sum(total_amount) OVER (ORDER BY book_date)
+</span></span><span class="line"><span class="cl">FROM bookings;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> WindowAgg  (cost=406880.92..450398.33 rows=2486710 widt...
+</span></span><span class="line"><span class="cl">   Window: w1 AS (ORDER BY book_date)
+</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=406880.90..413097.68 rows=2486710 widt...
+</span></span><span class="line"><span class="cl">       Sort Key: book_date
+</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings  (cost=0.00..40723.10 row...
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>窗口函数由 WindowAgg 计算。这里，其子节点 Sort 提供窗口所需的顺序。该排序可以使用任何适用的排序策略。输入较小时，可以在内存中完成：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *, count(*) OVER (ORDER BY seat_no)
+</span></span><span class="line"><span class="cl">FROM seats;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> WindowAgg  (cost=121.18..151.59 rows=1741 width=23) (ac...
+</span></span><span class="line"><span class="cl">   Window: w1 AS (ORDER BY seat_no)
+</span></span><span class="line"><span class="cl">   Storage: Memory  Maximum Storage: 17kB
+</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=121.13..125.48 rows=1741 width=15) (ac...
+</span></span><span class="line"><span class="cl">       Sort Key: seat_no
+</span></span><span class="line"><span class="cl">       Sort Method: quicksort  Memory: 103kB
+</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>输入较大时，可能需要外排：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT *, sum(total_amount) OVER (ORDER BY book_date)
+</span></span><span class="line"><span class="cl">FROM bookings;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> WindowAgg  (cost=406880.92..450398.33 rows=2486710 widt...
+</span></span><span class="line"><span class="cl">   Window: w1 AS (ORDER BY book_date)
+</span></span><span class="line"><span class="cl">   Storage: Memory  Maximum Storage: 17kB
+</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=406880.90..413097.68 rows=2486710 widt...
+</span></span><span class="line"><span class="cl">       Sort Key: book_date
+</span></span><span class="line"><span class="cl">       Sort Method: external merge  Disk: 75760kB
+</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings  (cost=0.00..40723.10 row...
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>对于内部需要存储行的节点，例如 WindowAgg、CTE Scan 或 Recursive Union，Storage 行会显示所使用的存储类型及最大用量。数据能放入内存时，类型为 Memory；使用临时文件时，则为 Disk。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-partition-frame.png" target="_blank" rel="noopener" aria-label="打开原图：PARTITION BY 将输入划分为独立分区；左侧各 frame 包含整个分区，右侧带 ORDER BY 的 frame 只在所属分区内扩展。">
+    <img src="/query-optimization-18/chapter04/images/chapter04-partition-frame.png" width="859" height="446" alt="PARTITION BY 将输入划分为独立分区；左侧各 frame 包含整个分区，右侧带 ORDER BY 的 frame 只在所属分区内扩展。" loading="lazy">
+  </a>
+  <figcaption>PARTITION BY 将输入划分为独立分区；左侧各 frame 包含整个分区，右侧带 ORDER BY 的 frame 只在所属分区内扩展。</figcaption>
+</figure>
+</p>
+<p>PARTITION BY 将输入划分成相互独立的行组。对每个组来说，frame 的边界只在该组内部变化。没有另外指定时，frame 占据整个组。</p>
+<p>如果窗口定义还包含 ORDER BY，就会按相应的顺序处理行。此时，frame 覆盖从组内第一行到当前行的所有行。</p>
+<p>与常规的 GROUP BY 不同，PARTITION BY 始终采用排序方式：所选择的执行计划会让 WindowAgg 接收先按 PARTITION BY 键、再按 ORDER BY 键排好序的行集。即使没有 ORDER BY 子句，也不会使用哈希。</p>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+
+<nav class="query-book-pager" aria-label="前后篇">
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+      <div>
+        
+          <a rel="prev" href="/query-optimization-18/chapter03/"><small>上一篇</small>第 3 章：访问方法</a>
+        
+      </div>
+      <div>
+        
+          <a rel="next" href="/query-optimization-18/chapter05/"><small>下一篇</small>第 5 章：连接方法</a>
+        
+      </div>
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+</nav>
+
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
+
+
+  </body>
+</html>

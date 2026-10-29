@@ -15,29 +15,68 @@
   popover.setAttribute("role", "tooltip");
   document.body.appendChild(popover);
 
-  function placePopover(note) {
-    if (!note) return;
+  function readingArea() {
+    const viewport = window.visualViewport;
+    const area = {
+      top: viewport ? viewport.offsetTop : 0,
+      left: viewport ? viewport.offsetLeft : 0,
+      right: viewport ? viewport.offsetLeft + viewport.width : window.innerWidth,
+      bottom: viewport ? viewport.offsetTop + viewport.height : window.innerHeight,
+    };
+    const header = document.querySelector(".nav-container");
+    if (header && ["sticky", "fixed"].includes(getComputedStyle(header).position)) {
+      const rect = header.getBoundingClientRect();
+      if (rect.top <= area.top && rect.bottom > area.top) area.top = rect.bottom;
+    }
+    return area;
+  }
 
+  function describeNote(note, open) {
+    const ids = (note.getAttribute("aria-describedby") || "").split(/\s+/)
+      .filter((id) => id && id !== popover.id);
+    if (open) ids.push(popover.id);
+    if (ids.length) note.setAttribute("aria-describedby", ids.join(" "));
+    else note.removeAttribute("aria-describedby");
+  }
+
+  function placePopover(note) {
+    if (!note) return false;
+
+    const area = readingArea();
+    // Inline notes can wrap: at least one text fragment must remain readable.
+    const visible = Array.from(note.getClientRects()).some((rect) =>
+      rect.width > 0 && rect.height > 0 && rect.bottom > area.top &&
+      rect.top < area.bottom && rect.right > area.left && rect.left < area.right);
+    if (!visible) {
+      hidePopover();
+      return false;
+    }
     const viewportGap = 12;
     const arrowGap = 10;
     const sideGap = 14;
     const noteRect = note.getBoundingClientRect();
     const popoverRect = popover.getBoundingClientRect();
+    const minTop = area.top + viewportGap;
+    const maxTop = area.bottom - popoverRect.height - viewportGap;
+    if (maxTop < minTop) {
+      hidePopover();
+      return false;
+    }
     const preferSideNote = !coarsePointer && window.innerWidth >= 1100;
 
     if (preferSideNote) {
-      const rightSpace = window.innerWidth - noteRect.right - viewportGap;
-      const leftSpace = noteRect.left - viewportGap;
+      const rightSpace = area.right - noteRect.right - viewportGap;
+      const leftSpace = noteRect.left - area.left - viewportGap;
       const placeRight = rightSpace >= popoverRect.width + sideGap || rightSpace >= leftSpace;
       const placement = placeRight ? "right" : "left";
       let left = placeRight
         ? noteRect.right + sideGap
         : noteRect.left - popoverRect.width - sideGap;
 
-      left = Math.max(viewportGap, Math.min(left, window.innerWidth - popoverRect.width - viewportGap));
+      left = Math.max(area.left + viewportGap, Math.min(left, area.right - popoverRect.width - viewportGap));
 
       let top = noteRect.top + noteRect.height / 2 - 20;
-      top = Math.max(viewportGap, Math.min(top, window.innerHeight - popoverRect.height - viewportGap));
+      top = Math.max(minTop, Math.min(top, maxTop));
 
       const arrowTop = noteRect.top + noteRect.height / 2 - top;
 
@@ -46,15 +85,15 @@
       popover.style.top = `${Math.round(top)}px`;
       popover.style.removeProperty("--marginalia-arrow-left");
       popover.style.setProperty("--marginalia-arrow-top", `${Math.round(arrowTop)}px`);
-      return;
+      return true;
     }
 
-    const canPlaceBelow = window.innerHeight - noteRect.bottom >= popoverRect.height + arrowGap + viewportGap;
-    const placeBelow = canPlaceBelow || noteRect.top < popoverRect.height + arrowGap + viewportGap;
+    const canPlaceBelow = area.bottom - noteRect.bottom >= popoverRect.height + arrowGap + viewportGap;
+    const placeBelow = canPlaceBelow || noteRect.top - area.top < popoverRect.height + arrowGap + viewportGap;
     const placement = placeBelow ? "bottom" : "top";
 
     let left = noteRect.left + noteRect.width / 2 - popoverRect.width / 2;
-    left = Math.max(viewportGap, Math.min(left, window.innerWidth - popoverRect.width - viewportGap));
+    left = Math.max(area.left + viewportGap, Math.min(left, area.right - popoverRect.width - viewportGap));
 
     const top = placeBelow
       ? noteRect.bottom + arrowGap
@@ -63,9 +102,10 @@
 
     popover.dataset.placement = placement;
     popover.style.left = `${Math.round(left)}px`;
-    popover.style.top = `${Math.round(Math.max(viewportGap, top))}px`;
+    popover.style.top = `${Math.round(Math.max(minTop, Math.min(top, maxTop)))}px`;
     popover.style.setProperty("--marginalia-arrow-left", `${Math.round(arrowLeft)}px`);
     popover.style.removeProperty("--marginalia-arrow-top");
+    return true;
   }
 
   function showPopover(note) {
@@ -74,16 +114,15 @@
     if (activeNote && activeNote !== note) {
       activeNote.classList.remove("is-open");
       activeNote.setAttribute("aria-expanded", "false");
-      activeNote.removeAttribute("aria-describedby");
+      describeNote(activeNote, false);
     }
 
     activeNote = note;
     popover.textContent = note.dataset.note || "";
     note.classList.add("is-open");
     note.setAttribute("aria-expanded", "true");
-    note.setAttribute("aria-describedby", popover.id);
-    placePopover(note);
-    popover.classList.add("is-visible");
+    describeNote(note, true);
+    if (placePopover(note)) popover.classList.add("is-visible");
   }
 
   function hidePopover() {
@@ -91,7 +130,7 @@
 
     activeNote.classList.remove("is-open");
     activeNote.setAttribute("aria-expanded", "false");
-    activeNote.removeAttribute("aria-describedby");
+    describeNote(activeNote, false);
     activeNote = null;
     popover.classList.remove("is-visible");
   }
@@ -100,7 +139,6 @@
     note.tabIndex = 0;
     note.setAttribute("role", "button");
     note.setAttribute("aria-expanded", "false");
-    note.setAttribute("aria-label", `旁注：${note.dataset.note || ""}`);
     note.dataset.marginaliaId = String(index + 1);
 
     note.addEventListener("mouseenter", () => {
@@ -108,7 +146,7 @@
     });
 
     note.addEventListener("mouseleave", () => {
-      if (!coarsePointer) hidePopover();
+      if (!coarsePointer && document.activeElement !== note) hidePopover();
     });
 
     note.addEventListener("focus", () => {
@@ -116,7 +154,7 @@
     });
 
     note.addEventListener("blur", () => {
-      if (!coarsePointer) hidePopover();
+      if (activeNote === note) hidePopover();
     });
 
     note.addEventListener("click", (event) => {
@@ -135,7 +173,6 @@
     note.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         hidePopover();
-        note.blur();
         return;
       }
 
@@ -156,6 +193,10 @@
     hidePopover();
   });
 
-  window.addEventListener("scroll", () => placePopover(activeNote), { passive: true });
+  window.addEventListener("scroll", () => placePopover(activeNote), { passive: true, capture: true });
   window.addEventListener("resize", () => placePopover(activeNote));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("scroll", () => placePopover(activeNote), { passive: true });
+    window.visualViewport.addEventListener("resize", () => placePopover(activeNote));
+  }
 })();

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow" />
@@ -27,7 +27,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 16.2 简单查询协议 一个简单版本的 client-server 协议 3 支持执行 SQL 查询：它将查询文本发送至服务器，并获得完整的执行结果，无论其中包含多少行数据 4。发送到服务器的查询历经几个阶段：解析、转换、规划，然后执行。" />
 
   
-    <link rel="canonical" href="/docs/chapter16/" itemprop="url" />
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter16/" itemprop="url" />
   
 
   
@@ -35,7 +35,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 <meta property="og:title" content="第 16 章：查询执行阶段" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/docs/chapter16/" />
+<meta property="og:url" content="https://postgres-internals.cn/docs/chapter16/" />
 
   
   <meta itemprop="name" content="第 16 章：查询执行阶段">
@@ -74,7 +74,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
 
 
 
-  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
 
 
 
@@ -106,7 +106,24 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   <script defer src="/js/marginalia.js"></script>
 <script defer src="/js/site-stats.js"></script>
 
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+  
+  <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
 </head>
+
 <body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
   <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
 
@@ -169,6 +186,7 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
           </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
+
 
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
@@ -718,6 +736,36 @@ routes 视图基于 flights 表；它显示了与特定航班日期无关的航�
   <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
 </button>
 </div></div></aside>
+
+
+
+  <template data-reading-toc>
+    <details class="reading-navigation-toc">
+      <summary>本章目录</summary>
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#161-示例数据库">16.1 示例数据库</a></li>
+    <li><a href="#162-简单查询协议">16.2 简单查询协议</a>
+      <ul>
+        <li><a href="#1621-解析">16.2.1 解析</a></li>
+        <li><a href="#1622-转换">16.2.2 转换</a></li>
+        <li><a href="#1623-规划">16.2.3 规划</a></li>
+        <li><a href="#1624-执行">16.2.4 执行</a></li>
+      </ul>
+    </li>
+    <li><a href="#163-扩展查询协议">16.3 扩展查询协议</a>
+      <ul>
+        <li><a href="#1631-预备">16.3.1 预备</a></li>
+        <li><a href="#1632-参数绑定">16.3.2 参数绑定</a></li>
+        <li><a href="#1633-规划和执行">16.3.3 规划和执行</a></li>
+        <li><a href="#1634-获取结果">16.3.4 获取结果</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </details>
+  </template>
+
     
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
@@ -1367,13 +1415,13 @@ $$</p>
 <p>edu.postgrespro.com/demo-big-en-20170815.zip&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:3">
-<p>postgresql.org/docs/14/protocol.html&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/protocol.html">postgresql.org/docs/14/protocol.html</a>&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:4">
 <p>backend/tcop/postgres.c, exec_simple_query function&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:5">
-<p><span>postgresql.org/docs/14/parser-stage.html</span><br><span>backend/parser/README</span>&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><span><a href="https://www.postgresql.org/docs/14/parser-stage.html">postgresql.org/docs/14/parser-stage.html</a></span><br><span>backend/parser/README</span>&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:6">
 <p>backend/parser/scan.l&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1388,7 +1436,7 @@ $$</p>
 <p>backend/parser/analyze.c&#160;<a href="#fnref:9" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:10">
-<p>postgresql.org/docs/14/rule-system.html&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/rule-system.html">postgresql.org/docs/14/rule-system.html</a>&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:11">
 <p>backend/rewrite/rowsecurity.c&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1397,37 +1445,37 @@ $$</p>
 <p>backend/rewrite/rewriteSearchCycle.c&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:13">
-<p>postgresql.org/docs/14/rules.html&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/rules.html">postgresql.org/docs/14/rules.html</a>&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:14">
 <p><em>M. Stonebraker, L. A. Rowe</em>. The Design of Postgres&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:15">
-<p>postgresql.org/docs/14/planner-optimizer.html&#160;<a href="#fnref:15" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/planner-optimizer.html">postgresql.org/docs/14/planner-optimizer.html</a>&#160;<a href="#fnref:15" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:16">
-<p>postgresql.org/docs/14/using-explain.html&#160;<a href="#fnref:16" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/using-explain.html">postgresql.org/docs/14/using-explain.html</a>&#160;<a href="#fnref:16" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:17">
 <p>backend/optimizer/README&#160;<a href="#fnref:17" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:18">
-<p>postgresql.org/docs/14/queries-with.html&#160;<a href="#fnref:18" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/queries-with.html">postgresql.org/docs/14/queries-with.html</a>&#160;<a href="#fnref:18" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:19">
-<p>wiki.postgresql.org/wiki/Inlining_of_SQL_functions&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://wiki.postgresql.org/wiki/Inlining_of_SQL_functions">wiki.postgresql.org/wiki/Inlining_of_SQL_functions</a>&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:20">
-<p>postgresql.org/docs/14/explicit-joins.html&#160;<a href="#fnref:20" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/explicit-joins.html">postgresql.org/docs/14/explicit-joins.html</a>&#160;<a href="#fnref:20" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:21">
 <p>backend/optimizer/plan/initsplan.c, deconstruct_jointree function&#160;<a href="#fnref:21" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:22">
-<p><span>postgresql.org/docs/14/geqo.html</span><br><span>backend/optimizer/geqo/geqo_main.c</span>&#160;<a href="#fnref:22" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><span><a href="https://www.postgresql.org/docs/14/geqo.html">postgresql.org/docs/14/geqo.html</a></span><br><span>backend/optimizer/geqo/geqo_main.c</span>&#160;<a href="#fnref:22" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:23">
-<p>postgresql.org/docs/14/runtime-config-query#RUNTIME-CONFIG-QUERY-GEQO.html&#160;<a href="#fnref:23" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/runtime-config-query.html#RUNTIME-CONFIG-QUERY-GEQO">postgresql.org/docs/14/runtime-config-query#RUNTIME-CONFIG-QUERY-GEQO.html</a>&#160;<a href="#fnref:23" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:24">
 <p>backend/optimizer/plan/planner.c, standard_planner function&#160;<a href="#fnref:24" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1439,7 +1487,7 @@ $$</p>
 <p>backend/optimizer/path/clausesel.c, clauselist_selectivity_ext &amp; clauselist_selectivity_or functions&#160;<a href="#fnref:26" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:27">
-<p><span>postgresql.org/docs/14/executor.html</span><br><span>backend/executor/README</span>&#160;<a href="#fnref:27" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><span><a href="https://www.postgresql.org/docs/14/executor.html">postgresql.org/docs/14/executor.html</a></span><br><span>backend/executor/README</span>&#160;<a href="#fnref:27" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:28">
 <p>backend/utils/mmgr/portalmem.c&#160;<a href="#fnref:28" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1471,6 +1519,7 @@ $$</p>
     </div>
   </div>
 </footer>
+    
     
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 

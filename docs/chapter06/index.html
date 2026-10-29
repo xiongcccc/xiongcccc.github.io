@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow" />
@@ -21,7 +21,7 @@
 =&gt; CREATE TABLE vac( id integer, s char(100) ) WITH (autovacuum_enabled = off); =&gt; CREATE INDEX vac_s ON vac(s); autovacuum_enabled 存储参数用于关闭自动清理；此处，我们仅出于实验的目的而关闭它，以精确控制清理的启动时间。" />
 
   
-    <link rel="canonical" href="/docs/chapter06/" itemprop="url" />
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter06/" itemprop="url" />
   
 
   
@@ -29,7 +29,7 @@
 <meta property="og:title" content="第 6 章：Vacuum 与 Autovacuum" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/docs/chapter06/" />
+<meta property="og:url" content="https://postgres-internals.cn/docs/chapter06/" />
 
   
   <meta itemprop="name" content="第 6 章：Vacuum 与 Autovacuum">
@@ -56,7 +56,7 @@
 
 
 
-  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
 
 
 
@@ -88,7 +88,24 @@
   <script defer src="/js/marginalia.js"></script>
 <script defer src="/js/site-stats.js"></script>
 
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+  
+  <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
 </head>
+
 <body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
   <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
 
@@ -151,6 +168,7 @@
           </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
+
 
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
@@ -724,6 +742,50 @@
   <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
 </button>
 </div></div></aside>
+
+
+
+  <template data-reading-toc>
+    <details class="reading-navigation-toc">
+      <summary>本章目录</summary>
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#61-vacuum">6.1 Vacuum</a></li>
+    <li><a href="#62-再次审视数据库视界">6.2 再次审视数据库视界</a></li>
+    <li><a href="#63-清理阶段">6.3 清理阶段</a>
+      <ul>
+        <li><a href="#631-堆扫描">6.3.1 堆扫描</a></li>
+        <li><a href="#632-索引清理">6.3.2 索引清理</a></li>
+        <li><a href="#633-堆清理">6.3.3 堆清理</a></li>
+        <li><a href="#634-堆截断">6.3.4 堆截断</a></li>
+      </ul>
+    </li>
+    <li><a href="#64-分析">6.4 分析</a></li>
+    <li><a href="#65-自动清理和分析">6.5 自动清理和分析</a>
+      <ul>
+        <li><a href="#651-自动清理机制">6.5.1 自动清理机制</a></li>
+        <li><a href="#652-哪些表需要被清理">6.5.2 哪些表需要被清理？</a></li>
+        <li><a href="#653-哪些表需要被分析">6.5.3 哪些表需要被分析？</a></li>
+        <li><a href="#654-自动清理实践">6.5.4 自动清理实践</a></li>
+      </ul>
+    </li>
+    <li><a href="#66-管理负载">6.6 管理负载</a>
+      <ul>
+        <li><a href="#661-vacuum-限流">6.6.1 Vacuum 限流</a></li>
+        <li><a href="#662-autovacuum-限流">6.6.2 Autovacuum 限流</a></li>
+      </ul>
+    </li>
+    <li><a href="#67-监控">6.7 监控</a>
+      <ul>
+        <li><a href="#671-监控-vacuum">6.7.1 监控 Vacuum</a></li>
+        <li><a href="#672-监控-autovacuum">6.7.2 监控 Autovacuum</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </details>
+  </template>
+
     
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
@@ -1860,10 +1922,10 @@
 <hr>
 <ol>
 <li id="fn:1">
-<p>postgresql.org/docs/14/routine-vacuuming.html&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/routine-vacuuming.html">postgresql.org/docs/14/routine-vacuuming.html</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:2">
-<p><span>postgresql.org/docs/14/sql-vacuum.htmll</span><br><span>backend/commands/vacuum.c</span>&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><span><a href="https://www.postgresql.org/docs/14/sql-vacuum.html">postgresql.org/docs/14/sql-vacuum.htmll</a></span><br><span>backend/commands/vacuum.c</span>&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:3">
 <p>backend/access/heap/vacuumlazy.c, heap_vacuum_rel function&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1875,10 +1937,10 @@
 <p>backend/access/heap/vacuumlazy.c, lazy_vacuum_all_indexes function&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:6">
-<p>commitfest.postgresql.org/21/1802&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://commitfest.postgresql.org/21/1802">commitfest.postgresql.org/21/1802</a>&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:7">
-<p>postgresql.org/docs/14/bgworker.html&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/bgworker.html">postgresql.org/docs/14/bgworker.html</a>&#160;<a href="#fnref:7" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:8">
 <p><span>backend/access/heap/vacuumlazy.c, lazy_cleanup_all_indexes function</span><br><span>backend/access/nbtree/nbtree.c, btvacuumcleanup function</span>&#160;<a href="#fnref:8" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1890,13 +1952,13 @@
 <p>backend/access/heap/vacuumlazy.c, lazy_truncate_heap function&#160;<a href="#fnref:10" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:11">
-<p>postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-STATISTICS&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-STATISTICS">postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-STATISTICS</a>&#160;<a href="#fnref:11" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:12">
 <p>backend/commands/analyze.c&#160;<a href="#fnref:12" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:13">
-<p>postgresql.org/docs/14/routine-vacuuming.html#AUTOVACUUM&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/routine-vacuuming.html#AUTOVACUUM">postgresql.org/docs/14/routine-vacuuming.html#AUTOVACUUM</a>&#160;<a href="#fnref:13" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:14">
 <p>backend/postmaster/autovacuum.c&#160;<a href="#fnref:14" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1914,7 +1976,7 @@
 <p>backend/postmaster/autovacuum.c, autovac_balance_cost function&#160;<a href="#fnref:18" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:19">
-<p>postgresql.org/docs/14/progress-reporting.html#VACUUM-PHASES&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/progress-reporting.html#VACUUM-PHASES">postgresql.org/docs/14/progress-reporting.html#VACUUM-PHASES</a>&#160;<a href="#fnref:19" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 </ol>
 </div>
@@ -1934,6 +1996,7 @@
     </div>
   </div>
 </footer>
+    
     
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 

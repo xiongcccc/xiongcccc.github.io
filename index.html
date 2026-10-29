@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="zh-CN"><head>
 	<meta name="generator" content="Hugo 0.138.0">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,34 +12,33 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
 <link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
 
-  <title>PostgreSQL 14 Internals</title>
-  <meta name="description" content="" />
+  <title>PostgreSQL 中文译著 · xiongcc 翻译与维护</title>
+  <meta name="description" content="PostgreSQL 内参与 PostgreSQL 18 查询优化中文版，xiongcc 翻译、整理、校对与长期维护，免费开放在线阅读。" />
 
   
-    <link rel="canonical" href="/" itemprop="url" />
+    <link rel="canonical" href="https://postgres-internals.cn/" itemprop="url" />
   
 
   
 
-<meta property="og:title" content="《PostgreSQL 内参：深入解析运行原理》" />
-<meta property="og:description" content="" />
+<meta property="og:title" content="PostgreSQL 中文译著 · xiongcc 翻译与维护" />
+<meta property="og:description" content="PostgreSQL 内参与 PostgreSQL 18 查询优化中文版，xiongcc 翻译、整理、校对与长期维护，免费开放在线阅读。" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/" />
+<meta property="og:url" content="https://postgres-internals.cn/" />
 
   
-  <meta itemprop="name" content="《PostgreSQL 内参：深入解析运行原理》">
-  <meta itemprop="description" content="内容导航 文章导航 内容简介 推荐序 关于此书 PostgreSQL 的发展势头蒸蒸日上，正在经历一场慢热的崛起。PostgreSQL 是世界上最先进的开源数据库，不仅功能强大丰富，而且一专多长，除了内置的多种高级数据类型之外，还提供了丰富的扩展，融汇百家之所长，使其成为满足多样化数据处理需求的理想选择，市面上关于 PostgreSQL 人才的需求迫在眉睫。">
-  <meta itemprop="wordCount" content="177">
+  <meta itemprop="name" content="PostgreSQL 中文译著 · xiongcc 翻译与维护">
+  <meta itemprop="description" content="PostgreSQL 内参与 PostgreSQL 18 查询优化中文版，xiongcc 翻译、整理、校对与长期维护，免费开放在线阅读。">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="《PostgreSQL 内参：深入解析运行原理》">
-  <meta name="twitter:description" content="内容导航 文章导航 内容简介 推荐序 关于此书 PostgreSQL 的发展势头蒸蒸日上，正在经历一场慢热的崛起。PostgreSQL 是世界上最先进的开源数据库，不仅功能强大丰富，而且一专多长，除了内置的多种高级数据类型之外，还提供了丰富的扩展，融汇百家之所长，使其成为满足多样化数据处理需求的理想选择，市面上关于 PostgreSQL 人才的需求迫在眉睫。">
+  <meta name="twitter:title" content="PostgreSQL 中文译著 · xiongcc 翻译与维护">
+  <meta name="twitter:description" content="PostgreSQL 内参与 PostgreSQL 18 查询优化中文版，xiongcc 翻译、整理、校对与长期维护，免费开放在线阅读。">
 
     <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
     <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
 
 
 
-  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
 
 
 
@@ -71,579 +70,349 @@
   <script defer src="/js/marginalia.js"></script>
 <script defer src="/js/site-stats.js"></script>
 
+  
+  <link rel="stylesheet" href="/home-v2.min.d315999a4e7487ae1f990bcc4587aac78d503425e873eca8a98d8ed482ac16fc.css">
+  
+  <link rel="stylesheet" href="/walking-elephant.min.5094b549b56f1db98485f0bee599e8616fe5dc17b958efaad4e75ed72b1fc6eb.css">
+
+
+
+
+
+
 </head>
-<body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
-  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
 
-  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
-    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
-        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
-        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 14 Internals" height="30" width="45" />
-        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 14 Internals">PostgreSQL 14 Internals</span>
-    </a><a
-            title="Docs"
-            href="/docs"
-            
-            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
-          >
-            <span class="hx-text-center">Docs</span>
-          </a><a
-            title="About"
-            href="/about"
-            
-            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
-          >
-            <span class="hx-text-center">About</span>
-          </a><a
-            title="Contact ↗"
-            href="https://github.com/xiongcccc"
-            target="_blank" rel="noreferer"
-            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
-          >
-            <span class="hx-text-center">Contact ↗</span>
-          </a><div class="search-wrapper hx-relative md:hx-w-64">
-  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
-    <input
-      placeholder="Search..."
-      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
-      type="search"
-      value=""
-      spellcheck="false"
-    />
-    <kbd
-      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
-    >
-      CTRL K
-    </kbd>
+<body dir="ltr" class="homepage-v2" id="top"><a class="v2-skip" href="#main">跳到正文</a>
+      <header class="v2-header">
+  <div class="v2-container v2-header-inner">
+    <a class="v2-brand" href="#top" aria-label="PostgreSQL 中文译著，返回首页顶部">
+      <img class="v2-brandmark" src="/images/postgresql-elephant-in-potential.svg" width="44" height="44" alt="PostgreSQL 大象标志">
+      <span class="v2-brandcopy"><span class="v2-brandname">PostgreSQL 中文译著</span><span class="v2-brandby">xiongcc · 翻译与维护</span></span>
+    </a>
+    <div class="v2-header-right">
+      <nav class="v2-nav" aria-label="主导航">
+        <a href="#books" aria-current="location">书籍</a>
+        <a href="#about">关于译者</a>
+        <a href="#support">参与维护</a>
+      </nav>
+      <div class="v2-tools">
+        <button class="v2-tool" type="button" data-open-search aria-label="搜索全站" aria-haspopup="dialog" aria-controls="home-search" title="搜索全站（Ctrl / ⌘ + K）"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
+</button>
+        <button class="v2-tool theme-toggle" type="button" aria-label="切换深色模式" title="切换深色模式" aria-pressed="false">
+          <span class="v2-moon"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg></span>
+</span>
+          <span class="v2-sun"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></span>
+</span>
+        </button>
+      </div>
+    </div>
   </div>
+</header>
 
-  <div>
-    <ul
-      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
-      style="transition: max-height 0.2s ease 0s;"
-    ></ul>
+  <main id="main" tabindex="-1">
+    <section class="v2-container v2-hero" aria-labelledby="home-heading">
+  <div class="v2-hero-title">
+    <p class="v2-eyebrow">PostgreSQL · 中文技术译著</p>
+    <h1 id="home-heading">从内部原理，<br>到查询优化。</h1>
   </div>
+  
+<div class="walking-elephant" aria-hidden="true" data-walking-elephant>
+  <svg viewBox="65 55 455 315" xmlns="http://www.w3.org/2000/svg" focusable="false">
+    <g data-layer="assembly">
+      <g data-layer="rear-far-leg" class="we-far" data-flex="rear-far">
+        <path class="we-skin" d="M152 214 C174 218 184 238 185 261 C185 285 188 309 200 328 C204 332 214 332 215 338 C213 344 194 347 180 343 C172 339 169 330 167 318 C161 292 151 275 144 251 Z"/>
+        <path class="we-fold" d="M163 247 C176 267 170 287 179 309 M177 319 Q185 324 193 322 M178 324 Q186 330 196 327 M184 335 Q185 330 190 332 L194 341 M199 333 Q203 331 207 336"/>
+        <path class="we-hatch" d="M157 251 L165 265 M159 261 L167 274 M163 275 L170 287 M168 291 L174 303 M174 306 L179 315 M178 314 L182 320"/>
+      </g>
+      <g data-layer="front-far-leg" class="we-far" data-flex="front-far">
+        <path class="we-skin" d="M354 197 C377 199 389 215 389 236 C387 261 386 284 395 305 C400 318 401 321 410 325 C416 328 418 334 414 337 C405 342 386 342 377 336 C373 330 374 320 372 313 C360 294 354 274 354 254 L345 221 Z"/>
+        <path class="we-fold" d="M368 245 Q364 270 377 292 M377 307 Q383 312 393 309 M378 313 Q386 319 397 315 M385 329 Q385 324 390 325 L394 336 M400 328 Q404 324 409 330 L410 335"/>
+        <path class="we-hatch" d="M359 238 L365 249 M359 249 L365 261 M361 263 L367 274 M366 279 L372 288 M373 297 L378 304 M379 319 L385 323"/>
+      </g>
+      <g data-layer="tail">
+        <path class="we-contour" d="M109 135 C93 164 100 197 89 230 C86 239 81 246 79 257 M112 143 C99 170 106 200 94 232 C90 245 87 248 86 258"/>
+        <path class="we-ink" d="M80 248 C77 255 74 267 78 274 L81 265 L82 277 L86 267 L87 272 C91 263 89 257 86 250 Z"/>
+      </g>
+      <g data-layer="body" data-flex="silhouette">
+        <path class="we-skin" d="M107 140 C111 111 132 91 160 91 C193 89 220 103 249 103 C278 104 309 84 338 90 C352 73 370 68 385 77 C400 76 416 89 422 105 C428 119 428 134 437 147 C447 164 453 184 455 207 C458 239 454 269 465 298 C471 315 482 329 492 322 C498 317 499 308 500 305 C507 309 505 323 498 331 C481 347 460 330 450 312 C435 283 435 253 432 229 C429 214 423 204 415 196 C407 207 398 214 386 217 C380 233 377 249 377 266 C378 290 382 317 378 339 C382 347 377 351 367 352 L342 353 C330 353 328 349 332 340 C338 322 336 299 332 278 L328 257 C305 268 276 273 250 269 C223 266 202 256 185 247 C177 271 170 291 167 311 L164 338 C169 347 163 351 154 352 L129 352 C117 352 117 347 121 339 C128 322 130 304 130 286 C131 269 125 252 116 237 C104 215 100 187 107 140 Z"/>
+        <path class="we-contour" d="M131 192 C147 198 155 212 153 229 C151 245 143 260 144 278 M338 174 C327 194 322 217 325 239 C325 247 327 252 328 257 M386 217 Q391 195 390 183"/>
+        <path class="we-fold" d="M116 135 C125 111 145 102 164 104 M174 103 C197 104 219 114 240 114 M253 114 C278 115 305 99 326 101 M113 147 C108 169 112 191 119 207 M128 155 C120 175 124 194 133 208 M147 136 C135 153 134 175 140 188 M168 153 C157 176 166 199 178 216 M192 223 C210 239 237 247 263 248 M198 236 C218 250 240 256 265 257 M276 257 Q302 256 319 248 M315 132 C301 158 303 183 309 205 M307 142 C298 166 300 185 302 192 M312 212 Q310 228 316 240"/>
+        <path class="we-fold" d="M133 282 Q141 289 152 286 M137 291 Q145 295 151 292 M130 322 Q139 328 153 325 M127 329 Q139 334 160 330 M339 285 Q348 290 362 286 M342 293 Q354 297 370 292 M343 301 Q354 304 362 301 M340 328 Q350 334 370 329 M336 335 Q349 339 360 336"/>
+        <path class="we-nail" d="M125 345 Q124 337 131 338 Q137 339 137 349 M141 350 Q139 339 146 339 Q153 340 153 350 M157 348 Q155 340 161 341 M335 346 Q335 338 342 340 Q347 340 348 351 M352 351 Q351 340 358 340 Q364 340 364 350 M368 348 Q366 339 373 340 L376 345"/>
+        <path class="we-hatch" d="M116 122 Q124 108 139 104 M118 130 Q125 117 132 114 M120 139 L127 126 M124 146 L130 135 M142 101 L153 98 M157 98 L168 99 M173 98 L184 100 M189 101 L201 104 M206 105 L216 108 M222 108 L232 111 M265 108 L276 105 M279 104 L290 100 M294 99 L304 96 M309 95 L319 94 M323 96 L331 97"/>
+        <path class="we-hatch" d="M109 183 Q111 198 115 206 M112 202 L120 218 M116 215 L126 230 M120 228 L130 244 M127 240 L135 255 M134 238 L140 249 M138 228 L143 237 M145 250 L150 242 M146 260 L151 253 M134 267 L138 276 M148 270 L151 264 M134 301 L138 311 M135 309 L138 317 M154 301 L151 312 M153 313 L151 321"/>
+        <path class="we-hatch" d="M181 229 L189 239 M190 236 L199 246 M200 242 L209 251 M211 247 L222 255 M224 251 L236 258 M238 255 L251 261 M254 258 L266 263 M271 260 L281 263 M286 258 L296 260 M300 254 L309 256 M313 245 L319 250 M311 219 L316 232 M314 211 L320 221 M317 199 L321 207"/>
+        <path class="we-hatch" d="M332 213 L329 229 M336 215 L333 230 M338 229 L335 242 M340 242 L337 253 M341 255 L339 266 M341 268 L341 276 M369 236 L366 250 M368 253 L365 264 M369 265 L367 276 M342 307 L345 316 M347 310 L349 319 M369 304 L367 316 M371 315 L368 323"/>
+        <path class="we-fold" d="M340 100 C353 85 365 82 378 88 M363 92 Q378 86 389 94 M390 93 Q405 99 412 113 M394 104 Q405 108 411 120 M390 126 Q400 120 410 128 M396 132 Q403 127 410 132 M396 147 Q401 150 406 149 M401 157 L410 163 M396 171 C399 183 407 190 415 196 M385 193 Q395 205 406 200"/>
+        <path class="we-ink" d="M399 135 Q404 132 408 135 Q404 140 400 137 Z"/>
+        <path class="we-hatch" d="M347 95 L355 89 M353 99 L362 93 M360 101 L369 95 M368 103 L376 98 M378 106 L385 101 M385 110 L392 107 M388 115 L396 113 M414 123 L418 131 M414 136 L420 141 M407 159 L412 162 M402 167 L409 173 M399 178 L404 183 M394 187 L399 192"/>
+        <g data-layer="trunk">
+          <path class="we-fold" d="M435 155 Q441 158 445 165 M437 166 Q445 168 448 174 M439 178 Q447 179 450 184 M440 190 Q449 192 452 197 M440 204 Q448 207 453 208 M441 217 Q448 220 454 220 M442 232 Q449 234 454 233 M443 247 Q448 249 455 246 M445 261 Q450 262 456 258 M448 275 Q453 276 459 272 M451 288 Q456 289 462 285 M456 302 Q461 301 465 298 M462 314 Q467 312 470 309 M470 324 Q474 320 476 317 M480 329 L483 324"/>
+          <path class="we-hatch" d="M431 163 L435 168 M433 173 L438 177 M435 186 L439 190 M436 199 L440 202 M437 210 L441 214 M439 224 L443 227 M440 237 L444 240 M441 251 L446 254 M444 267 L448 270 M448 281 L451 284 M451 295 L456 296 M457 308 L461 307 M465 321 L468 318 M476 331 L479 327 M489 332 L488 328 M497 326 L493 324"/>
+        </g>
+        <path class="we-skin we-tusk" d="M412 184 C424 193 443 201 465 192 C454 211 431 212 410 195"/>
+        <path class="we-fold" d="M417 193 Q438 204 454 199"/>
+        <path class="we-fold" d="M174 127 C162 144 160 163 164 181 M184 134 C176 151 177 170 183 183 M195 153 Q193 177 207 196 M212 172 Q214 192 226 204 M229 190 Q243 215 264 219 M259 149 Q262 166 258 183 M279 129 C288 147 282 171 281 188 M294 135 C299 156 292 181 295 202 M293 217 Q295 232 285 241"/>
+        <path class="we-hatch" d="M173 206 Q180 222 195 229 M177 204 Q186 220 201 227 M181 203 Q191 217 206 225 M190 213 Q201 224 215 230 M202 220 Q214 231 229 235 M215 228 Q230 239 244 241 M231 234 Q247 245 262 245 M247 240 Q267 249 280 245 M267 248 Q284 249 296 242 M284 247 Q298 244 306 236 M300 237 Q305 225 301 214 M305 228 Q307 218 305 210"/>
+        <path class="we-shade" d="M108 160 C105 180 109 202 117 214 C111 192 111 176 108 160 Z M127 166 C121 184 126 199 134 210 C128 193 128 180 127 166 Z M149 206 C153 222 148 237 143 248 C152 238 159 221 149 206 Z M188 242 C210 257 230 262 248 264 C223 257 206 251 188 242 Z M281 264 Q308 260 322 250 Q311 265 281 264 Z M320 172 C311 193 313 215 317 228 C317 205 316 192 320 172 Z M333 240 Q334 260 340 273 Q333 265 330 252 Z M370 244 Q368 265 373 279 Q375 263 370 244 Z M134 305 L132 319 L135 315 Z M370 307 L368 322 L372 317 Z"/>
+      </g>
+      <g data-layer="ear">
+        <path class="we-skin" d="M364 110 C350 101 333 106 326 120 C321 130 324 144 330 155 C335 165 341 172 342 182 C343 192 342 200 349 203 C353 207 358 203 362 197 C365 191 371 185 377 183 C386 180 395 173 393 164 C391 157 387 151 385 143 C383 129 378 117 364 110 Z"/>
+        <path class="we-contour" d="M361 113 C349 110 336 116 333 126 C329 139 336 152 342 163 C349 174 350 188 349 197"/>
+        <path class="we-fold" d="M364 119 C374 127 378 140 378 149 C378 160 385 166 386 170 M359 126 C366 135 367 148 369 158 M343 122 Q335 134 341 147 M344 134 Q343 147 351 155 M352 161 Q359 176 356 190 M362 182 Q367 173 376 174 M366 186 L375 179"/>
+        <path class="we-hatch" d="M327 124 Q324 138 332 151 M329 124 Q327 136 334 146 M334 146 L340 159 M336 155 L342 167 M340 167 L346 179 M343 180 L347 191 M355 115 Q367 118 372 130 M357 119 Q368 124 371 138 M360 128 Q368 136 370 145 M373 153 Q378 164 383 168 M370 157 Q374 165 378 169 M369 162 L374 169 M359 192 L364 185 M358 197 L366 190"/>
+        <path class="we-shade" d="M335 126 C328 143 341 157 346 169 C340 153 335 140 335 126 Z M350 171 Q356 190 349 199 Q358 198 350 171 Z M365 112 Q381 125 383 145 Q380 120 365 112 Z"/>
+      </g>
+    </g>
+  </svg>
 </div>
 
-          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <div class="v2-hero-copy">
+    <p>两部来自 Postgres Professional 的技术著作，从数据库内部机制到查询优化。由 <a href="#about" data-home-scroll><strong>xiongcc</strong></a> 利用业余时间翻译、校订与维护，帮助中文读者跨越语言门槛，深入理解数据库的工作原理。</p>
+    <div class="v2-hero-notes"><span>免费开放阅读</span><span>持续校对维护</span><a href="#about" data-home-scroll>了解译者</a></div>
+  </div>
+</section>
+
+    <section id="books" class="v2-container" aria-labelledby="books-heading">
+      <span id="内容导航" class="v2-anchor" aria-hidden="true"></span>
+      <div class="v2-section-top">
+        <h2 id="books-heading">选择一本书，开始阅读</h2>
+        <span class="v2-section-quiet" lang="en">02 · BOOKS</span>
+      </div>
+      <div class="v2-books">
+        
+          
+<article class="v2-book" id="internals-14" aria-labelledby="internals-14-title">
+  <a class="v2-book-stage" href="/internals/" aria-label="PostgreSQL 内参：内容介绍" id="关于此书" data-legacy-hash="关于此书">
+    <img class="v2-cover" src="/book-library/images/internals-14.png" width="703" height="1000" alt="PostgreSQL 14 Internals 原版书籍封面" decoding="async">
+  </a>
+  <div class="v2-book-content">
+    <p class="v2-category">数据库内核</p>
+    <h3 class="v2-book-title" id="internals-14-title"><a href="/internals/">PostgreSQL 内参</a></h3>
+    <p class="v2-original-title" lang="en">PostgreSQL 14 Internals</p>
+    <p class="v2-book-description">从存储与 MVCC，到缓冲区、WAL、锁与索引，理解 PostgreSQL 的内部工作机制。</p>
+    <div class="v2-book-bottom">
+      <span class="v2-author">原著 <strong lang="en">Egor Rogov</strong></span>
+      <nav class="v2-book-actions" aria-label="PostgreSQL 内参阅读入口">
+        <a class="v2-text-link" href="/docs/">章节目录</a>
+        <a class="v2-read" href="/docs/chapter01/">开始阅读</a>
+      </nav>
+    </div>
+  </div>
+</article>
+
+        
+          
+<article class="v2-book" id="query-optimization-18" aria-labelledby="query-optimization-18-title">
+  <a class="v2-book-stage" href="/query-optimization-18/introduction/" aria-label="PostgreSQL 18 查询优化：内容介绍">
+    <img class="v2-cover" src="/book-library/images/query-optimization-18.png" width="710" height="1000" alt="PostgreSQL 18: Query Optimization 原版书籍封面" decoding="async">
+  </a>
+  <div class="v2-book-content">
+    <p class="v2-category">查询优化</p>
+    <h3 class="v2-book-title" id="query-optimization-18-title"><a href="/query-optimization-18/introduction/">PostgreSQL 18 查询优化</a></h3>
+    <p class="v2-original-title" lang="en">PostgreSQL 18: Query Optimization</p>
+    <p class="v2-book-description">理解规划与执行、访问与连接方法，结合统计信息和性能剖析，掌握查询调优的思路。</p>
+    <div class="v2-book-bottom">
+      <span class="v2-author">原著 <strong lang="en">Pavel Tolmachev</strong></span>
+      <nav class="v2-book-actions" aria-label="PostgreSQL 18 查询优化阅读入口">
+        <a class="v2-text-link" href="/query-optimization-18/">章节目录</a>
+        <a class="v2-read" href="/query-optimization-18/chapter01/">开始阅读</a>
+      </nav>
+    </div>
+  </div>
+</article>
+
+        
+      </div>
+    </section>
+    
+<section id="about" class="v2-container v2-about" aria-labelledby="about-heading">
+  <span id="关于译者" class="v2-anchor" aria-hidden="true"></span>
+  <div class="v2-about-top">
+    <div><p class="v2-index" lang="en">THE TRANSLATOR</p><h2 id="about-heading">关于译者</h2></div>
+    <p class="v2-description">一个人发起、免费开放、持续维护的翻译项目</p>
+  </div>
+  <div class="v2-about-panel">
+    <div class="v2-identity">
+      <img class="v2-id-mark" src="/images/xiongcc-avatar.jpg" width="54" height="54" alt="xiongcc 的头像" loading="lazy" decoding="async">
+      <h3><a href="/translator/" title="个人作品与更多介绍">xiongcc</a></h3>
+      <p class="v2-alias">你好，我是 xiongcc，也可以叫我 CC。</p>
+      <ul class="v2-roles" aria-label="译者身份">
+        <li>PostgreSQL / Greenplum 工程师</li><li>PostgreSQL ACE / MVP</li><li>PostgreSQL 学徒公众号主理人</li>
+      </ul>
+    </div>
+    <div class="v2-about-body">
+      <p class="v2-lead">我是一名 PostgreSQL / Greenplum 数据库工程师，也是「PostgreSQL 学徒」公众号的主理人。长期关注数据库内核、查询优化与生产实践，喜欢研究技术背后的原理，并把工作和学习中的经验整理成可以反复查阅的技术内容。</p>
+      <p>这个网站收录了我翻译与整理的 PostgreSQL 技术著作。除了翻译，我也持续核对术语、校订技术细节、检查代码示例，并根据读者反馈修订内容。</p>
+    </div>
+    <div class="v2-about-actions" aria-label="个人作品与联系方式">
+        
+          
+            
+            <a class="v2-personal-link" href="https://github.com/xiongcccc" target="_blank" rel="noopener noreferrer"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" fill="currentColor" viewBox="3 3 18 18">
   <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
 </svg>
-<span class="hx-sr-only">GitHub</span>
-          </a>
-          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
-          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
-  </nav>
-</div>
-
-  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
-    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
-<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-hidden xl:hx-block">
-  
-  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
-    <div class="search-wrapper hx-relative md:hx-w-64">
-  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
-    <input
-      placeholder="Search..."
-      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
-      type="search"
-      value=""
-      spellcheck="false"
-    />
-    <kbd
-      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
-    >
-      CTRL K
-    </kbd>
+</span>
+<span><strong>GitHub</strong><small>开源项目与代码贡献</small></span></a>
+          
+        
+          
+            
+            <a class="v2-personal-link" href="https://xiongcc.cn/" target="_blank" rel="noopener noreferrer"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+<span><strong>个人主页</strong><small>技术文章与实践记录</small></span></a>
+          
+        
+          
+            
+            <a class="v2-personal-link" href="https://postgres-howto.cn/#/" target="_blank" rel="noopener noreferrer"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
+<span><strong>PostgreSQL HowTo</strong><small>PostgreSQL 中文实践手册</small></span></a>
+          
+        
+          
+            <details class="v2-account">
+              <summary class="v2-personal-link"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>
+<span><strong>PostgreSQL 学徒</strong><small>公众号 · 数据库技术分享</small></span><span class="v2-disclosure" aria-hidden="true"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></span>
+</span></summary>
+              <p>微信公众号：<strong>PostgreSQL学徒</strong>。可在微信中按名称查找。</p>
+            </details>
+          
+        
+          
+            
+            <a class="v2-personal-link" href="mailto:xiongcc_1994@126.com"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+<span><strong>邮件联系</strong><small>xiongcc_1994@126.com</small></span></a>
+          
+        
+          
+            
+            <a class="v2-personal-link" href="/translator/"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></span>
+<span><strong>更多作品与介绍</strong><small>技术项目、课程与近期文章</small></span></a>
+          
+        
+    </div>
+    <p class="v2-maintenance-note">这些工作主要利用业余时间完成，在线内容免费开放阅读。希望这些持续的积累，能帮助中文开发者与数据库工程师更系统、深入地理解 PostgreSQL。</p>
   </div>
-
-  <div>
-    <ul
-      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
-      style="transition: max-height 0.2s ease 0s;"
-    ></ul>
-  </div>
-</div>
-
-  </div>
-  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
-    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
-      
-      
-          <li class=""><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/about/"
-    
-  >About
-    </a></li>
-          <li class=""><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/"
-    
-  >Docs
-        <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
-    </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
-        <ul class='hx-relative hx-flex hx-flex-col hx-gap-1 before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] ltr:hx-ml-3 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-mr-3 rtl:hx-pr-3 rtl:before:hx-right-0 dark:before:hx-bg-neutral-800'><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter01/"
-    
-  >第 1 章：介绍
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter02/"
-    
-  >第 2 章：隔离性
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter03/"
-    
-  >第 3 章：页与元组
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter04/"
-    
-  >第 4 章：快照
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter05/"
-    
-  >第 5 章：页剪枝与 HOT 更新
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter06/"
-    
-  >第 6 章：Vacuum 与 Autovacuum
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter07/"
-    
-  >第 7 章：冻结
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter08/"
-    
-  >第 8 章：重建表与索引
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter09/"
-    
-  >第 9 章：缓冲区缓存
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter10/"
-    
-  >第 10 章：预写式日志
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter11/"
-    
-  >第 11 章：WAL 模式
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter12/"
-    
-  >第 12 章：关系级锁
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter13/"
-    
-  >第 13 章：行级锁
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter14/"
-    
-  >第 14 章：多样的锁
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter15/"
-    
-  >第 15 章：内存结构上的锁
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter16/"
-    
-  >第 16 章：查询执行阶段
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter17/"
-    
-  >第 17 章：统计信息
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter18/"
-    
-  >第 18 章：表访问方法
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter19/"
-    
-  >第 19 章：索引访问方法
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter20/"
-    
-  >第 20 章：索引扫描
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter21/"
-    
-  >第 21 章：嵌套循环
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter22/"
-    
-  >第 22 章：哈希
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter23/"
-    
-  >第 23 章：排序与归并
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter24/"
-    
-  >第 24 章：Hash
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter25/"
-    
-  >第 25 章：B-tree
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter26/"
-    
-  >第 26 章：GiST
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter27/"
-    
-  >第 27 章：SP-GiST
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter28/"
-    
-  >第 28 章：GIN
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter29/"
-    
-  >第 29 章：BRIN
-    </a>
-              
-            </li><li class="hx-flex hx-flex-col open"><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/docs/chapter30/"
-    
-  >结论
-    </a>
-              
-            </li></ul>
-      </div></li>
-          <li class=""><a
-    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
-      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
-    href="/recommend/"
-    
-  >Recommend
-    </a></li>
-    </ul>
-
-    <div class="max-xl:hx-hidden hx-h-0 hx-w-64 hx-shrink-0"></div></div>
-  
-  
-    <div class="md:hx-hidden  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
-  title="Change theme"
-  data-theme="light"
-  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
-  type="button"
-  aria-label="Change theme"
->
-  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
-</button>
-</div></div></aside>
-    
-<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents"></nav>
-
-
-    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
-      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
-        <h1 class="hx-text-center hx-mt-2 hx-text-4xl hx-font-bold hx-tracking-tight hx-text-slate-900 dark:hx-text-slate-100">《PostgreSQL 内参：深入解析运行原理》</h1>
-        <div class="content">
-          <h2>内容导航<span class="hx-absolute -hx-mt-20" id="内容导航"></span>
-    <a href="#%e5%86%85%e5%ae%b9%e5%af%bc%e8%88%aa" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><div class="hextra-cards hx-mt-4 hx-gap-4 hx-grid not-prose" style="--hextra-cards-grid-cols: 3;">
-  <a
-    class="hextra-card hx-group hx-flex hx-flex-col hx-justify-start hx-overflow-hidden hx-rounded-lg hx-border hx-border-gray-200 hx-text-current hx-no-underline dark:hx-shadow-none hover:hx-shadow-gray-100 dark:hover:hx-shadow-none hx-shadow-gray-100 active:hx-shadow-sm active:hx-shadow-gray-200 hx-transition-all hx-duration-200 hover:hx-border-gray-300 hx-bg-transparent hx-shadow-sm dark:hx-border-neutral-800 hover:hx-bg-slate-50 hover:hx-shadow-md dark:hover:hx-border-neutral-700 dark:hover:hx-bg-neutral-900"href="docs"
-      ><span class="hextra-card-icon hx-flex hx-font-semibold hx-items-start hx-gap-2 hx-p-4 hx-text-gray-700 hover:hx-text-gray-900 dark:hx-text-neutral-200 dark:hover:hx-text-neutral-50"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg> 文章导航</span></a>
-  <a
-    class="hextra-card hx-group hx-flex hx-flex-col hx-justify-start hx-overflow-hidden hx-rounded-lg hx-border hx-border-gray-200 hx-text-current hx-no-underline dark:hx-shadow-none hover:hx-shadow-gray-100 dark:hover:hx-shadow-none hx-shadow-gray-100 active:hx-shadow-sm active:hx-shadow-gray-200 hx-transition-all hx-duration-200 hover:hx-border-gray-300 hx-bg-transparent hx-shadow-sm dark:hx-border-neutral-800 hover:hx-bg-slate-50 hover:hx-shadow-md dark:hover:hx-border-neutral-700 dark:hover:hx-bg-neutral-900"href="about"
-      ><span class="hextra-card-icon hx-flex hx-font-semibold hx-items-start hx-gap-2 hx-p-4 hx-text-gray-700 hover:hx-text-gray-900 dark:hx-text-neutral-200 dark:hover:hx-text-neutral-50"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg> 内容简介</span></a>
-  <a
-    class="hextra-card hx-group hx-flex hx-flex-col hx-justify-start hx-overflow-hidden hx-rounded-lg hx-border hx-border-gray-200 hx-text-current hx-no-underline dark:hx-shadow-none hover:hx-shadow-gray-100 dark:hover:hx-shadow-none hx-shadow-gray-100 active:hx-shadow-sm active:hx-shadow-gray-200 hx-transition-all hx-duration-200 hover:hx-border-gray-300 hx-bg-transparent hx-shadow-sm dark:hx-border-neutral-800 hover:hx-bg-slate-50 hover:hx-shadow-md dark:hover:hx-border-neutral-700 dark:hover:hx-bg-neutral-900"href="recommend"
-      ><span class="hextra-card-icon hx-flex hx-font-semibold hx-items-start hx-gap-2 hx-p-4 hx-text-gray-700 hover:hx-text-gray-900 dark:hx-text-neutral-200 dark:hover:hx-text-neutral-50"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg> 推荐序</span></a>
-</div>
-
-<h2>关于此书<span class="hx-absolute -hx-mt-20" id="关于此书"></span>
-    <a href="#%e5%85%b3%e4%ba%8e%e6%ad%a4%e4%b9%a6" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 的发展势头蒸蒸日上，正在经历一场慢热的崛起。PostgreSQL 是世界上最先进的开源数据库，不仅功能强大丰富，而且一专多长，除了内置的多种高级数据类型之外，还提供了丰富的扩展，融汇百家之所长，使其成为满足多样化数据处理需求的理想选择，市面上关于 PostgreSQL 人才的需求迫在眉睫。</p>
-<p>目前市面上已有的相关书籍大多数是关于运维使用方向的，详细介绍内核原理的还是彭老师编著的《PostgreSQL 数据库内核分析》，但是此书是基于 8.4.1 的版本，迄今为止，最新版已经到了 17，两个版本相差十年之久，书中很多内核特性和原理都已发生了较大的变化，不再适用于较新的版本。另外一本是《The Internals of PostgreSQL》，作者是日本的铃木启修，已经由冯若航、刘阳明和张文升翻译成中文，于 2019 年发布，对应的中文版是《PostgreSQL 内幕指南》，该书主要介绍了体系架构、查询处理、MVCC和缓存管理等，阅读需要一定的基础，有一定的门槛。《PostgreSQL 14 Internals》 基于 14 的版本编著，与《PostgreSQL 内幕指南》相比各有千秋，书中不仅有大量的原理解析，还包含了许多实战性很强的内容 ↘️</p>
-<hr style="border: none; border-top: 1px solid #F0EDE5; margin: 20px 0;">
-<div class="hextra-pdf">
-  <iframe src="postgresql_internals-14_en.pdf" width="100%" style="min-height: 32rem;" frameborder="0"></iframe>
-</div>
-
-<hr style="border: none; border-top: 1px solid #F0EDE5; margin: 20px 0;">
-<p>该书由浅入深地介绍了体系架构、MVCC、锁和查询执行等，是市面上不可多得的优质书籍，不仅是广大的运维管理人员，内核开发人员也可以从中受益良多，相信这本书的问世可以极大地推动 PostgreSQL 在中国的发展。
-笔者历经两年有余，将这本书翻译成为了中文，由于笔者能力有限，翻译过程中难免会有错误疏漏之处，敬请谅解。如果你发现有任何错误的地方，请随时联系我进行更正，读者的反馈至关重要，也欢迎大家提出改进建议。读者可以通过邮件方式与我联系：xiongcc_1994@126.com / xiongcc_1994@outlook.com。</p>
-<h2>关于译者<span class="hx-absolute -hx-mt-20" id="关于译者"></span>
-    <a href="#%e5%85%b3%e4%ba%8e%e8%af%91%e8%80%85" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><section class="translator-profile" aria-label="关于译者">
-  <aside class="translator-profile-card">
-    <img class="translator-avatar" src="https://github.com/xiongcccc.png?size=180" alt="熊灿灿的 GitHub 头像">
-    <div class="translator-identity">
-      <strong>熊灿灿</strong>
-      <span>xiongcc · xiongcccc</span>
+  <section id="support" class="v2-support" aria-labelledby="support-heading">
+  <h3 id="support-heading">一起完善这份译著</h3>
+  <div class="v2-support-grid">
+    <div class="v2-support-item">
+      <a href="mailto:xiongcc_1994@126.com?subject=PostgreSQL%20%e4%b8%ad%e6%96%87%e8%af%91%e8%91%97%e5%8b%98%e8%af%af%e5%8f%8d%e9%a6%88"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+反馈勘误</a>
+      <p>翻译、术语、代码示例或失效链接，都欢迎通过邮件反馈。</p>
     </div>
-    <p class="translator-status">Working from home</p>
-    <dl class="translator-meta">
-      <div>
-        <dt>Location</dt>
-        <dd>四川省成都市</dd>
-      </div>
-      <div>
-        <dt>Focus</dt>
-        <dd>PostgreSQL · Greenplum</dd>
-      </div>
-      <div>
-        <dt>Homepage</dt>
-        <dd><a href="https://xiongcc.cn/">xiongcc.cn</a></dd>
-      </div>
-    </dl>
-  </aside>
-  <div class="translator-profile-main">
-    <p class="translator-bio">PostgreSQL · Database Internals · AI Infrastructure</p>
-    <p>大家好，我是熊灿灿，也可以喊我 CC。我是 PostgreSQL / Greenplum 工程师、开源爱好者和技术写作者，长期关注数据库内核、生产实践，以及 AI 时代的数据基础设施。</p>
-    <div class="translator-tags" aria-label="译者身份">
-      <span>PostgreSQL ACE / MVP</span>
-      <span>PostgreSQL 学徒</span>
-      <span>100+ 技术文章</span>
-      <span>PostgreSQL DBA Daily</span>
+    <div class="v2-support-item">
+      <a href="mailto:xiongcc_1994@126.com?subject=PostgreSQL%20%e8%af%bb%e8%80%85%e4%ba%a4%e6%b5%81%e7%be%a4"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>
+读者交流群</a>
+      <p>讨论书中内容与 PostgreSQL 实践。邮件联系译者，获取入群方式。</p>
     </div>
-    <div class="translator-highlights" aria-label="个人项目与身份">
-      <a href="https://postgres-internals.cn/">
-        <strong>《PostgreSQL 内参》</strong>
-        <span>《PostgreSQL 14 Internals》中文版，系统梳理 PostgreSQL 内部工作机制</span>
-      </a>
-      <a href="https://github.com/xiongcccc/pg-mastery">
-        <strong>pg-mastery</strong>
-        <span>PostgreSQL internals、DBA 实践与调优知识库</span>
-      </a>
-      <a href="https://github.com/xiongcccc/pgcheck">
-        <strong>pgcheck</strong>
-        <span>面向 DBA / SRE 的 PostgreSQL 健康检查工具</span>
-      </a>
-      <a href="https://postgres-howto.cn/#/">
-        <strong>PostgreSQL 中文 HowTo</strong>
-        <span>面向真实使用场景的 PostgreSQL 中文实践手册</span>
-      </a>
-      <a href="https://coding.imooc.com/class/1009.html">
-        <strong>PostgreSQL 入门到进阶实战</strong>
-        <span>面向 AI 时代数据基础设施的 PostgreSQL 系统课程</span>
-      </a>
-      <a href="https://github.com/xiongcccc/pg-slide-harvester">
-        <strong>pg-slide-harvester</strong>
-        <span>自动收集 PostgreSQL 大会演讲资料，建立本地可搜索技术档案</span>
-      </a>
+    <div class="v2-support-item">
+      <button type="button" data-copy-site data-site-url="https://postgres-internals.cn/"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></span>
+复制网站链接</button>
+      <p>如果内容对你有帮助，也欢迎分享给其他 PostgreSQL 爱好者。</p>
+      <p class="v2-share-status" role="status" aria-live="polite"></p>
+      <input class="v2-share-url" type="text" readonly hidden aria-label="网站分享地址" value="https://postgres-internals.cn/">
     </div>
-    <div class="translator-latest" aria-label="最近写了">
-      <strong>最近写了</strong>
-      <a href="https://xiongcc.cn/2026/09/07/PostgreSQL%20%E7%9A%84%202026%20%E4%B8%8E%E4%B8%8B%E4%B8%80%E4%B8%AA%E5%8D%81%E5%B9%B4/">PostgreSQL 的 2026 与下一个十年</a>
-      <a href="https://xiongcc.cn/2026/08/14/%E5%BD%93%E7%AD%94%E6%A1%88%E4%B8%8D%E5%86%8D%E7%A8%80%E7%BC%BA%EF%BC%8CDBA%20%E7%9C%9F%E6%AD%A3%E7%A8%80%E7%BC%BA%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F/">当答案不再稀缺，DBA 真正稀缺的是什么？</a>
-    </div>
-    <p class="translator-contact">
-      GitHub：<a href="https://github.com/xiongcccc">xiongcccc</a>
-      <span>微信公众号：PostgreSQL学徒</span>
-      <span>邮箱：<a href="mailto:xiongcc_1994@126.com">xiongcc_1994@126.com</a> / <a href="mailto:xiongcc19950101@gmail.com">xiongcc19950101@gmail.com</a></span>
-    </p>
   </div>
 </section>
-<h2>变更历史<span class="hx-absolute -hx-mt-20" id="变更历史"></span>
-    <a href="#%e5%8f%98%e6%9b%b4%e5%8e%86%e5%8f%b2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><section class="site-changelog" aria-label="变更历史">
-<article class="changelog-item changelog-item-current">
-<time datetime="2026-05-14">2026/05/14</time>
-<div class="changelog-content">
-<span class="changelog-badge">最新</span>
-<ul>
-<li>大幅优化移动端阅读体验，调整部分页面布局</li>
-</ul>
-</div>
-</article>
-<article class="changelog-item">
-<time datetime="2025-10-13">2025/10/13</time>
-<div class="changelog-content">
-<ul>
-<li>优化第 4 章版本可见性翻译 — “第二行的最新版本 (0,3) 是不可见的”</li>
-</ul>
-</div>
-</article>
-<article class="changelog-item">
-<time datetime="2025-03-25">2025/03/25</time>
-<div class="changelog-content">
-<ul>
-<li>修复第 13 章拼写 BUG</li>
-</ul>
-</div>
-</article>
-<article class="changelog-item">
-<time datetime="2025-01-06">2025/01/06</time>
-<div class="changelog-content">
-<ul>
-<li>修复部分拼写错误</li>
-</ul>
-</div>
-</article>
-<article class="changelog-item">
-<time datetime="2024-12-25">2024/12/25</time>
-<div class="changelog-content">
-<ul>
-<li>调整部分遗漏参数样式</li>
-<li>优化第 24 章和第 26 章部分 LaTeX 语法</li>
-</ul>
-</div>
-</article>
-<article class="changelog-item">
-<time datetime="2024-12-24">2024/12/24</time>
-<div class="changelog-content">
-<ul>
-<li>优化“旁注”显示效果 (之前使用背景色)</li>
-<li>修复部分语法错误</li>
-<li>优化移动端读者阅读体验</li>
-</ul>
-<p class="changelog-note">遗留问题：Windows 版微信里点开上面的链接，会自动下载英文版原书 PDF。</p>
-</div>
-</article>
-</section>
-<h2>注意事项<span class="hx-absolute -hx-mt-20" id="注意事项"></span>
-    <a href="#%e6%b3%a8%e6%84%8f%e4%ba%8b%e9%a1%b9" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>✅ 推荐使用 PC 端 + Chrome / Safari 浏览器进行浏览，阅读体验更佳。</p>
-<p>阅读过程中如果有什么问题，可以加群沟通 (群聊二维码不定时更新，如果过期，请狠狠地催译者 👋)</p>
-<div style="overflow: hidden;">
-  <img src="wechatgroup.jpeg" alt="Logo" width="250" height="250" style="float: left; margin-right: 10px;">
-  <div style="overflow: hidden; text-align: center;">
-  </div>
-</div>
-现在，可以开启你的旅程了！Enjoy it ~~ 😉🥳🥰🤒😃😘😆 
 
+</section>
+
+  </main>
+
+      <footer class="v2-footer hextra-footer">
+  <div class="v2-container v2-footer-main">
+    <div>
+      <p class="v2-footer-brand">PostgreSQL 中文译著</p>
+      <p>© 2026 xiongcc · 翻译与维护</p>
+      <nav class="v2-footer-links" aria-label="网站链接">
+        <a href="https://github.com/xiongcccc/xiongcccc.github.io">网站 GitHub</a>
+        <a href="#top" data-home-scroll><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7l4-4m0 0l4 4m-4-4v18"/></svg></span>
+返回顶部</a>
+      </nav>
+      <details class="v2-footer-resources">
+        <summary>内参资料与历史</summary>
+        <nav class="v2-footer-links" aria-label="内参资料与历史">
+        <a href="/about/">内参简介</a>
+        <a href="/recommend/">推荐序</a>
+        <a href="/internals/#变更历史" id="变更历史" data-legacy-hash="变更历史">变更历史</a>
+        <a href="/internals/#注意事项" id="注意事项" data-legacy-hash="注意事项">阅读说明</a>
+        </nav>
+      </details>
+      <details class="v2-stats">
+        <summary>访问统计</summary>
+        <div class="site-visit-stats" aria-label="访问统计">
+          <span id="busuanzi_container_site_pv" class="site-visit-stat">总访问量 <span id="busuanzi_value_site_pv">--</span> 次</span>
+          <span id="busuanzi_container_site_uv" class="site-visit-stat">访客数 <span id="busuanzi_value_site_uv">--</span> 人</span>
+          <span id="busuanzi_container_page_pv" class="site-visit-stat">本页阅读 <span id="busuanzi_value_page_pv">--</span> 次</span>
         </div>
-      </main>
-    </article>
-  </div>
-
-      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div class="hx-mx-auto hx-flex hx-gap-2 hx-py-2 hx-px-4 hx-max-w-screen-xl"><button
-  title="Change theme"
-  data-theme="light"
-  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
-  type="button"
-  aria-label="Change theme"
->
-  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
-</button>
-</div><hr class="dark:hx-border-neutral-800" /><div
-    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
-  >
-    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+      </details>
+    </div>
+    <div class="v2-right">
+      <p>原著：Egor Rogov / Pavel Tolmachev。<br>英文原文版权归 Postgres Professional 所有。<br>本中文译文版权归熊灿灿所有，根据授权翻译与发布。</p>
+      <nav class="v2-footer-links" aria-label="原著与出版信息">
+        <a href="/internals/#关于此书">内参原著</a>
+        <a href="/query-optimization-18/colophon/">查询优化原著与出版信息</a>
+      </nav>
     </div>
   </div>
 </footer>
+
     
-    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
+    
+      
+<div class="v2-search-overlay" aria-hidden="true" inert>
+  <section id="home-search" class="v2-search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-heading" tabindex="-1">
+    <div class="v2-dialog-head">
+      <h2 id="search-heading">搜索全站</h2>
+      <button class="v2-tool" data-close-search type="button" aria-label="关闭搜索" title="关闭搜索"><span class="v2-icon" aria-hidden="true"><svg width="18" height="18" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span>
+</button>
+    </div>
+    <div class="v2-search-content">
+      <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
 
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
 
-<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    </div>
+  </section>
+</div>
+
+      
+      <script defer src="/js/home-v2.min.c07005df6bad2bd3a27b5ddb13ec0cddce2a1ada7dd5e2f105adc89ddd1c93d7.js" integrity="sha256-wHAF32utK9Oie13bE&#43;wM3c4qGtp91eLxBa3Ind0ck9c="></script>
+    
+    
+
+<script defer src="/js/walking-elephant.min.eff88f12eb1959444f266045dd0410e8dc1101e8039e07d52e84cabe15357764.js" integrity="sha256-7/iPEusZWURPJmBF3QQQ6NwRAegDngfVLoTKvhU1d2Q="></script>
+
+<script defer src="/home-theme.min.8cf1beff77caadcab98996f729eacd9d1d00e79dee666ea764b7d48c8f08f6b9.js" integrity="sha256-jPG&#43;/3fKrcq5iZb3KerNnR0A553uZm6nZLfUjI8I9rk="></script>
+
+  
+  
+    
+    
+    
+    <script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
     <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
+  
 
 
   </body>

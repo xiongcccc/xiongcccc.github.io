@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 3 章：访问方法 – PostgreSQL 18 查询优化</title>
+  <meta name="description" content="PostgreSQL 18 查询优化中文审阅版：第 3 章：访问方法。对应原书第 33–68 页。" />
+
+  
+    <link rel="canonical" href="https://postgres-internals.cn/query-optimization-18/chapter03/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 3 章：访问方法" />
+<meta property="og:description" content="PostgreSQL 18 查询优化中文审阅版：第 3 章：访问方法。对应原书第 33–68 页。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://postgres-internals.cn/query-optimization-18/chapter03/" /><meta property="article:section" content="query-optimization-18" />
+
+
+
+  
+  <meta itemprop="name" content="第 3 章：访问方法">
+  <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 3 章：访问方法。对应原书第 33–68 页。">
+  <meta itemprop="wordCount" content="1823">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 3 章：访问方法">
+  <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 3 章：访问方法。对应原书第 33–68 页。">
+
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+
+
+
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'light';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  <script defer src="/js/marginalia.js"></script>
+<script defer src="/js/site-stats.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
+</head>
+
+<body dir="ltr" class="query-book-page"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 18 查询优化">PostgreSQL 18 <span class="query-book-brand">查询优化</span></span>
+    </a><a
+            title="目录"
+            href="/query-optimization-18/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">目录</span>
+          </a><a
+            title="书库"
+            href="/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">书库</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#31-%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.1 顺序扫描</a>
+            </li>
+          <li>
+              <a
+                href="#32-%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.2 索引扫描</a>
+            </li>
+          <li>
+              <a
+                href="#33-%e4%bd%8d%e5%9b%be%e6%89%ab%e6%8f%8f"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.3 位图扫描</a>
+            </li>
+          <li>
+              <a
+                href="#34-%e8%a6%86%e7%9b%96%e7%b4%a2%e5%bc%95"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.4 覆盖索引</a>
+            </li>
+          <li>
+              <a
+                href="#35-%e5%b9%b6%e8%a1%8c%e8%ae%bf%e9%97%ae"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.5 并行访问</a>
+            </li>
+          <li>
+              <a
+                href="#36-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e6%af%94%e8%be%83"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >3.6 访问方法比较</a>
+            </li>
+          </ul>
+  </li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+
+
+
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#31-%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f">3.1 顺序扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#311-%e6%ad%bb%e8%a1%8c%e7%89%88%e6%9c%ac">3.1.1 死行版本
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#312-%e7%bc%93%e5%86%b2%e5%8c%ba%e7%8e%af%e4%b8%8e%e5%90%8c%e6%ad%a5%e6%89%ab%e6%8f%8f">3.1.2 缓冲区环与同步扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#32-%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f">3.2 索引扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#321-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2">3.2.1 等值检索
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#322-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2">3.2.2 范围检索
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#33-%e4%bd%8d%e5%9b%be%e6%89%ab%e6%8f%8f">3.3 位图扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#331-%e5%90%88%e5%b9%b6%e4%bd%8d%e5%9b%be">3.3.1 合并位图
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#332-%e6%9c%89%e6%8d%9f%e4%bd%8d%e5%9b%be%e9%a1%b5%e9%9d%a2">3.3.2 有损位图页面
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#333-%e8%81%9a%e7%b0%87">3.3.3 聚簇
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#34-%e8%a6%86%e7%9b%96%e7%b4%a2%e5%bc%95">3.4 覆盖索引
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#341-%e4%bb%85%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f">3.4.1 仅索引扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#342-%e5%8c%85%e5%90%ab-include-%e5%ad%90%e5%8f%a5%e7%9a%84%e7%b4%a2%e5%bc%95">3.4.2 包含 INCLUDE 子句的索引
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#35-%e5%b9%b6%e8%a1%8c%e8%ae%bf%e9%97%ae">3.5 并行访问
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#351-%e5%b7%a5%e4%bd%9c%e8%bf%9b%e7%a8%8b%e6%95%b0%e9%87%8f%e9%99%90%e5%88%b6">3.5.1 工作进程数量限制
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#352-%e5%b9%b6%e8%a1%8c%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f">3.5.2 并行顺序扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#353-%e5%b9%b6%e8%a1%8c%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f%e4%b8%8e%e5%b9%b6%e8%a1%8c%e4%bb%85%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f">3.5.3 并行索引扫描与并行仅索引扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#354-%e5%b9%b6%e8%a1%8c%e4%bd%8d%e5%9b%be%e5%a0%86%e6%89%ab%e6%8f%8f">3.5.4 并行位图堆扫描
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#36-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e6%af%94%e8%be%83">3.6 访问方法比较
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        <nav class="query-book-context" aria-label="书籍导航">
+          <a href="/">首页</a>
+          <a href="/query-optimization-18/">PostgreSQL 18 查询优化</a>
+        </nav>
+        
+          <details class="query-book-toc">
+            <summary>本章目录</summary>
+            <nav id="TableOfContents">
+  <ul>
+    <li><a href="#31-顺序扫描">3.1 顺序扫描</a>
+      <ul>
+        <li><a href="#311-死行版本">3.1.1 死行版本</a></li>
+        <li><a href="#312-缓冲区环与同步扫描">3.1.2 缓冲区环与同步扫描</a></li>
+      </ul>
+    </li>
+    <li><a href="#32-索引扫描">3.2 索引扫描</a>
+      <ul>
+        <li><a href="#321-等值检索">3.2.1 等值检索</a></li>
+        <li><a href="#322-范围检索">3.2.2 范围检索</a></li>
+      </ul>
+    </li>
+    <li><a href="#33-位图扫描">3.3 位图扫描</a>
+      <ul>
+        <li><a href="#331-合并位图">3.3.1 合并位图</a></li>
+        <li><a href="#332-有损位图页面">3.3.2 有损位图页面</a></li>
+        <li><a href="#333-聚簇">3.3.3 聚簇</a></li>
+      </ul>
+    </li>
+    <li><a href="#34-覆盖索引">3.4 覆盖索引</a>
+      <ul>
+        <li><a href="#341-仅索引扫描">3.4.1 仅索引扫描</a></li>
+        <li><a href="#342-包含-include-子句的索引">3.4.2 包含 INCLUDE 子句的索引</a></li>
+      </ul>
+    </li>
+    <li><a href="#35-并行访问">3.5 并行访问</a>
+      <ul>
+        <li><a href="#351-工作进程数量限制">3.5.1 工作进程数量限制</a></li>
+        <li><a href="#352-并行顺序扫描">3.5.2 并行顺序扫描</a></li>
+        <li><a href="#353-并行索引扫描与并行仅索引扫描">3.5.3 并行索引扫描与并行仅索引扫描</a></li>
+        <li><a href="#354-并行位图堆扫描">3.5.4 并行位图堆扫描</a></li>
+      </ul>
+    </li>
+    <li><a href="#36-访问方法比较">3.6 访问方法比较</a></li>
+  </ul>
+</nav>
+          </details>
+        
+        <div class="content query-book-content">
+          <h1>第 3 章：访问方法</h1>
+          <h2>3.1 顺序扫描<span class="hx-absolute -hx-mt-20" id="31-顺序扫描"></span>
+    <a href="#31-%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>规划器可以通过多种方式访问表中的数据，最简单的一种是<strong>顺序扫描</strong> (Seq Scan)。</p>
+<p>顺序扫描逐页读取表的主分支。与通常的表访问一样，普通表通过共享缓冲区缓存读取；临时表则使用当前会话的本地缓冲区。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-sequential-scan.png" target="_blank" rel="noopener" aria-label="打开原图：顺序扫描逐页读取表的主分支，其中也可能包含尚未清理的死行版本。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-sequential-scan.png" width="879" height="291" alt="顺序扫描逐页读取表的主分支，其中也可能包含尚未清理的死行版本。" loading="lazy">
+  </a>
+  <figcaption>顺序扫描逐页读取表的主分支，其中也可能包含尚未清理的死行版本。</figcaption>
+</figure>
+</p>
+<p>在顺序扫描期间，PostgreSQL 可以利用操作系统的预读或异步 I/O，高效地预取相邻页面，避免发起彼此无关的随机读取。</p>
+<p>当查询需要读取整张表或其中的大部分数据时，顺序扫描通常是一个不错的选择。也就是说，此时谓词的筛选能力较弱，大部分输入行都能通过过滤。</p>
+<p>在查询计划中，顺序扫描由 Seq Scan 节点表示：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM flights;
+</span></span><span class="line"><span class="cl">                  QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..744.71 rows=37671 width=51)
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>括号中的几个值很重要：</p>
+<ul>
+<li>cost 是预估成本。</li>
+<li>rows 是预估的操作返回行数。</li>
+<li>width 是预估的平均行宽，单位为字节。</li>
+</ul>
+<p>成本以规划器内部的相对单位衡量，由两个数值表示：</p>
+<ul>
+<li>第一个数值是<strong>启动成本</strong>，即节点返回第一行之前必须付出的成本。顺序扫描不需要准备工作，因此启动成本为零。</li>
+<li>第二个数值是返回全部行的<strong>总成本</strong>。</li>
+</ul>
+<p>PostgreSQL 的成本模型同时考虑 I/O 和 CPU 开销。在本例的简化计算中，I/O 部分等于表的页数乘以顺序读取一个页面的成本：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT relpages,
+</span></span><span class="line"><span class="cl">  current_setting(&#39;seq_page_cost&#39;),
+</span></span><span class="line"><span class="cl">  relpages * current_setting(&#39;seq_page_cost&#39;)::real AS total
+</span></span><span class="line"><span class="cl">FROM pg_class WHERE relname = &#39;flights&#39;;
+</span></span><span class="line"><span class="cl"> relpages | current_setting | total
+</span></span><span class="line"><span class="cl">----------+-----------------+-------
+</span></span><span class="line"><span class="cl">      368 | 1               |   368
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>CPU 部分包括处理表中各行的成本：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT reltuples,
+</span></span><span class="line"><span class="cl">  current_setting(&#39;cpu_tuple_cost&#39;),
+</span></span><span class="line"><span class="cl">  reltuples * current_setting(&#39;cpu_tuple_cost&#39;)::real AS total
+</span></span><span class="line"><span class="cl">FROM pg_class WHERE relname = &#39;flights&#39;;
+</span></span><span class="line"><span class="cl"> reltuples | current_setting | total
+</span></span><span class="line"><span class="cl">-----------+-----------------+--------
+</span></span><span class="line"><span class="cl">     37671 | 0.01            | 376.71
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.1.1 死行版本<span class="hx-absolute -hx-mt-20" id="311-死行版本"></span>
+    <a href="#311-%e6%ad%bb%e8%a1%8c%e7%89%88%e6%9c%ac" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>执行顺序扫描时，PostgreSQL 必须检查每个页面中的行版本，包括已经过时、但尚未被清理的版本。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 如果表中存在大量死行版本，扫描开销可能会明显增加。</p>
+<p>这也是及时清理可以改善某些查询性能的原因之一。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup></p>
+<p>创建 flights 的副本，并禁用自动清理，以免死行版本被自动清除：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE TABLE flights_copy
+</span></span><span class="line"><span class="cl">WITH (autovacuum_enabled = false)
+</span></span><span class="line"><span class="cl">AS SELECT * FROM flights;
+</span></span><span class="line"><span class="cl">SELECT 37671
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">SELECT pg_size_pretty(
+</span></span><span class="line"><span class="cl">  pg_total_relation_size(&#39;flights_copy&#39;)
+</span></span><span class="line"><span class="cl">);
+</span></span><span class="line"><span class="cl"> pg_size_pretty
+</span></span><span class="line"><span class="cl">----------------
+</span></span><span class="line"><span class="cl"> 3024 kB
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>删除所有行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DELETE FROM flights_copy;
+</span></span><span class="line"><span class="cl">DELETE 37671</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在 VACUUM 回收旧行版本之前，它们仍然保留在表文件中，因此文件大小没有变化：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT pg_size_pretty(
+</span></span><span class="line"><span class="cl">  pg_total_relation_size(&#39;flights_copy&#39;)
+</span></span><span class="line"><span class="cl">);
+</span></span><span class="line"><span class="cl"> pg_size_pretty
+</span></span><span class="line"><span class="cl">----------------
+</span></span><span class="line"><span class="cl"> 3024 kB
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>使用 analyze 选项查看查询计划。隐式启用的 buffers 选项会显示以下数据块计数：</p>
+<ul>
+<li>hit：所需的数据块已在 PostgreSQL 的缓存中。</li>
+<li>read：在缓冲区缓存中没有找到所需的数据块，需要向操作系统请求读取。</li>
+<li>written：本后端进程写出了此前已经变脏的数据块。</li>
+<li>dirtied：此前干净的数据块变成了脏块。</li>
+</ul>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
+</span></span><span class="line"><span class="cl">SELECT count(*) FROM flights_copy;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Aggregate  (cost=673.89..673.90 rows=1 width=8) (actual...
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=377
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on flights_copy  (cost=0.00..614.51 rows=...
+</span></span><span class="line"><span class="cl">        Buffers: shared hit=377
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=3
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>尽管表中已经没有活行，扫描仍然访问了三百多个堆页面。清理这张表，再检查它的大小：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">VACUUM flights_copy;
+</span></span><span class="line"><span class="cl">SELECT pg_size_pretty(pg_total_relation_size(&#39;flights_copy&#39;));
+</span></span><span class="line"><span class="cl">VACUUM
+</span></span><span class="line"><span class="cl"> pg_size_pretty
+</span></span><span class="line"><span class="cl">----------------
+</span></span><span class="line"><span class="cl"> 24 kB
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>死行版本已被清除，表的大小也随之减小。再次执行查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
+</span></span><span class="line"><span class="cl">SELECT count(*) FROM flights_copy;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Aggregate  (cost=0.00..0.01 rows=1 width=8) (actual row...
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on flights_copy  (cost=0.00..0.00 rows=1 ...
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=2
+</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在表已经为空，没有需要检查的行版本，预估成本也降到了极低的水平。对于大得多的表，遍历那些充满过时行版本的页面可能会产生可观的开销。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP TABLE flights_copy;
+</span></span><span class="line"><span class="cl">DROP TABLE</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.1.2 缓冲区环与同步扫描<span class="hx-absolute -hx-mt-20" id="312-缓冲区环与同步扫描"></span>
+    <a href="#312-%e7%bc%93%e5%86%b2%e5%8c%ba%e7%8e%af%e4%b8%8e%e5%90%8c%e6%ad%a5%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>对大表进行顺序扫描，可能会让大量只使用一次的页面进入缓冲区缓存，并逐出原本有用的缓存页面。为避免这种情况，PostgreSQL 对足够大的堆扫描采用批量读取的缓冲区访问策略。当关系大小超过缓冲区缓存的四分之一时，只使用缓存中的一部分作为<strong>缓冲区环</strong>，在环内完成页面替换，其余缓存数据不受影响。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-buffer-ring.png" target="_blank" rel="noopener" aria-label="打开原图：共享缓冲区中的缓冲区环：加入环的缓冲区、扫描读取的数据页，以及被逐出或刷到磁盘的脏缓冲区。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-buffer-ring.png" width="876" height="426" alt="共享缓冲区中的缓冲区环：加入环的缓冲区、扫描读取的数据页，以及被逐出或刷到磁盘的脏缓冲区。" loading="lazy">
+  </a>
+  <figcaption>共享缓冲区中的缓冲区环：加入环的缓冲区、扫描读取的数据页，以及被逐出或刷到磁盘的脏缓冲区。</figcaption>
+</figure>
+</p>
+<p>大表的顺序扫描还可以使用<strong>同步扫描</strong>。当多个后端进程扫描同一张大表时，新扫描可以从另一个扫描当前读取位置附近开始，先扫描到表尾，再回到表头继续。这样，多个后端进程就更有机会在相同页面仍驻留于缓冲区环时使用它们。</p>
+<p>临时表使用本地缓冲区，因此上述缓冲区缓存访问策略和同步扫描机制不能以相同方式应用于临时表。</p>
+<h2>3.2 索引扫描<span class="hx-absolute -hx-mt-20" id="32-索引扫描"></span>
+    <a href="#32-%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>我们以 PostgreSQL 的 B 树索引为例，说明 Index Scan 的工作方式。对于标量数据，B 树是最常用的索引类型。</p>
+<p>与 PostgreSQL 的其他索引一样，B 树是独立于表数据的辅助结构。它占用额外的磁盘空间，可以删除，也可以根据表中的数据重建。索引旨在降低只访问表中较少数据的操作成本；B 树索引还用于保证主键约束和唯一约束。</p>
+<p>索引将被索引的值，也就是<strong>搜索键</strong>，与指向表中行版本的引用关联起来。B 树按照明确的排序规则组织键，使 PostgreSQL 能够沿树找到所需的键，再通过相应的元组标识符访问表。B 树操作符类必须为相应数据类型定义线性顺序。数字、字符串和日期都是典型的例子。相比之下，几何点没有一种适合通常 B 树语义的自然全序；PostgreSQL 为此类空间数据提供了其他索引类型。</p>
+<p>PostgreSQL 的 B 树是平衡树，每个内部页面可以指向许多子页面。树的深度取决于键的大小和条目数量，但在实际使用中，即使索引很大，通常也只需要少数几层。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-btree.png" target="_blank" rel="noopener" aria-label="打开原图：B 树结构：根页面、内部页面、叶子页面，以及叶子条目所引用的表页面。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-btree.png" width="876" height="531" alt="B 树结构：根页面、内部页面、叶子页面，以及叶子条目所引用的表页面。" loading="lazy">
+  </a>
+  <figcaption>B 树结构：根页面、内部页面、叶子页面，以及叶子条目所引用的表页面。</figcaption>
+</figure>
+</p>
+<p>上图展示了一棵 B 树。索引页面由索引条目组成，每个条目包含：</p>
+<ul>
+<li>一个键，即被索引的键列中的值。</li>
+<li>指向另一个索引页面的向下链接；如果位于叶子层，则是一个或多个指向表中行版本的引用。</li>
+</ul>
+<p>页面内的键按顺序排列。</p>
+<p><strong>叶子页面</strong>位于树的最底层，其条目引用表中的行版本。叶子页面之间通过双向链接连接，因此可以高效地向前或向后扫描键。</p>
+<p><strong>内部页面</strong>指向下一层的页面。分隔键用来判断所需的值可能位于哪棵子树中。最顶层的页面就是<strong>根页面</strong>。</p>
+<p>B 树页面不必完全填满；保留空闲空间有利于后续插入。</p>
+<p>当页面无法容纳一个新条目时，PostgreSQL 会分裂该页面。一半条目留在原页面中，另一半移到新分配的兄弟页面。B 树页面分裂后通常不会再合并，因此某些负载可能导致索引膨胀和碎片化。</p>
+<p>默认情况下，升序 B 树索引将空值放在非空值之后，即 NULLS LAST。创建索引时，可以通过 NULLS FIRST 或 NULLS LAST 改变这一顺序，并按需结合 ASC 或 DESC 使用。</p>
+<h3>3.2.1 等值检索<span class="hx-absolute -hx-mt-20" id="321-等值检索"></span>
+    <a href="#321-%e7%ad%89%e5%80%bc%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>假设我们要查找索引列值为 4 的行。</p>
+<p>检索从树根开始。根页面中的索引条目界定了下层页面的键范围：“从 1 到 9”和“9 及以上”。我们需要前一个范围，它对应键为 1 的条目。由于键是有序的，页面内部的检索十分高效。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-btree-equality.png" target="_blank" rel="noopener" aria-label="打开原图：等值检索沿根页面、内部页面和叶子页面定位键 4，再访问其引用的表中行版本。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-btree-equality.png" width="861" height="609" alt="等值检索沿根页面、内部页面和叶子页面定位键 4，再访问其引用的表中行版本。" loading="lazy">
+  </a>
+  <figcaption>等值检索沿根页面、内部页面和叶子页面定位键 4，再访问其引用的表中行版本。</figcaption>
+</figure>
+</p>
+<p>沿着该条目的引用，我们到达第二层页面。在这里找到“从 3 到 6”的范围 (键为 3)，再进入第三层页面。这是一个叶子页面。找到键 4 后，就可以沿着它的引用访问表页面。</p>
+<p>请注意，即使是唯一索引，也可能包含重复的键，因为 MVCC 可以为同一行生成多个版本。为了节省空间，相同的键可以在索引页面中合并为一个包含多个指针的条目。</p>
+<p>返回堆元组之前，必须检查其可见性。</p>
+<p>图中高亮显示了检索时需要访问的页面和条目。</p>
+<p>以 bookings 表为例。book_ref 列是主键，因此 PostgreSQL 自动为它创建了唯一 B 树索引 bookings_pkey。</p>
+<p>查看查找单个键值的执行计划：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM bookings WHERE book_ref = &#39;CDEFD8&#39;;
+</span></span><span class="line"><span class="cl">                    QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using bookings_pkey on bookings
+</span></span><span class="line"><span class="cl">   (cost=0.43..8.45 rows=1 width=21)
+</span></span><span class="line"><span class="cl">   Index Cond: (book_ref = &#39;CDEFD8&#39;::bpchar)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>所选的访问方式是 Index Scan，计划中也给出了使用的索引名称。索引访问和堆访问由同一个计划节点表示。Index Cond 显示索引使用的条件。</p>
+<p>对于这种检索，启动成本包括从树根向下定位到相应叶子页面的工作。这个预估值很小，因为规划器认为 B 树上层页面很可能已在缓存中，向下检索主要计入 CPU 开销。</p>
+<p>总成本还包括预期的叶子页面和堆页面访问成本。</p>
+<p>由于索引是唯一的，而且等值条件至多对应一条可见行，因此可以粗略地将本例的页面访问理解为：访问一个叶子页面，再访问一个堆页面。随机页面读取的成本由 <em>random_page_cost</em> 定义：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT current_setting(&#39;random_page_cost&#39;);
+</span></span><span class="line"><span class="cl"> current_setting
+</span></span><span class="line"><span class="cl">-----------------
+</span></span><span class="line"><span class="cl"> 4
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>它的默认值高于 <em>seq_page_cost</em>，反映了传统成本模型中非顺序访问通常具有更高成本的假设。使用 SSD，或者大部分数据已在缓存中时，常会缩小这两个参数之间的差距。</p>
+<p>合适的取值取决于存储设备和实际负载，并不存在适用于所有 SSD 的统一规则。</p>
+<p>Index Cond 包含能够驱动索引扫描，或能够在索引层检查的条件。</p>
+<p>需要访问堆行才能检查的条件，会单独显示为 Filter：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE book_ref = &#39;CDEFD8&#39; AND total_amount &gt; 1000;
+</span></span><span class="line"><span class="cl">                    QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using bookings_pkey on bookings
+</span></span><span class="line"><span class="cl">   (cost=0.43..8.45 rows=1 width=21)
+</span></span><span class="line"><span class="cl">   Index Cond: (book_ref = &#39;CDEFD8&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   Filter: (total_amount &gt; &#39;1000&#39;::numeric)
+</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.2.2 范围检索<span class="hx-absolute -hx-mt-20" id="322-范围检索"></span>
+    <a href="#322-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>B 树不仅能高效地进行等值检索，也适用于有序范围条件：&lt;、&lt;=、&gt;、&gt;= 和 BETWEEN。</p>
+<p>首先，找到条件的一个边界键。例如，对于从 4 到 9 的范围，可以从 4 或 9 开始；而对于“小于 9”的条件，则需要从 9 开始。随后像前面的例子一样，沿树向下到达叶子索引页面，取得表中的第一个值。接下来，根据条件沿叶子页面向右或向左移动，逐个检查条目，直到遇到范围之外的键。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-btree-range.png" target="_blank" rel="noopener" aria-label="打开原图：范围检索 x BETWEEN 4 AND 9 沿叶子页面访问键 4 至 9，相应的堆页面可能被反复访问。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-btree-range.png" width="861" height="615" alt="范围检索 x BETWEEN 4 AND 9 沿叶子页面访问键 4 至 9，相应的堆页面可能被反复访问。" loading="lazy">
+  </a>
+  <figcaption>范围检索 x BETWEEN 4 AND 9 沿叶子页面访问键 4 至 9，相应的堆页面可能被反复访问。</figcaption>
+</figure>
+</p>
+<p>图中展示了 x BETWEEN 4 AND 9 的检索过程，它等价于 x &gt;= 4 AND x &lt;= 9。PostgreSQL 沿树找到第一个符合条件的键，随后依次访问 5、6，直到 9。遇到 10 时，范围扫描结束。</p>
+<p>这一过程依赖两个性质：所有页面内的键都有序，并且叶子页面构成双向链表。检索结果自然就按键的顺序排列。</p>
+<p>注意，同一个表页面可能需要多次访问。检索值 4 时，先访问第一个表页面，接着访问最后一个页面中的另一个 4；检索值 5 时又回到第一个页面，检索值 6 时再回到最后一个页面，依此类推。</p>
+<p>B 树提供的顺序可以省去单独的排序操作：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE book_ref &gt; &#39;000CTL&#39; AND book_ref &lt; &#39;000FHR&#39;
+</span></span><span class="line"><span class="cl">ORDER BY book_ref;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using bookings_pkey on bookings
+</span></span><span class="line"><span class="cl">   Index Cond: ((book_ref &gt; &#39;000CTL&#39;::bpchar) AND (book_...
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>同一棵 B 树也可以反向扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, summary off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE book_ref &gt; &#39;000CTL&#39; AND book_ref &lt; &#39;000FHR&#39;
+</span></span><span class="line"><span class="cl">ORDER BY book_ref DESC;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan Backward using bookings_pkey on bookings (ac...
+</span></span><span class="line"><span class="cl">   Index Cond: ((book_ref &gt; &#39;000CTL&#39;::bpchar) AND (book_...
+</span></span><span class="line"><span class="cl">   Index Searches: 1
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=3 read=5
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=13
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这里，扫描先定位到右侧合适的叶子位置，再沿叶子链表反向遍历。Buffers 显示页面访问情况，Index Searches 则表示发起了多少次独立的 B 树检索。</p>
+<h2>3.3 位图扫描<span class="hx-absolute -hx-mt-20" id="33-位图扫描"></span>
+    <a href="#33-%e4%bd%8d%e5%9b%be%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>反复访问相同的堆页面，可能使常规索引扫描的成本变高。即使页面已在缓冲区缓存中，PostgreSQL 仍然需要定位并锁定该缓冲区 (pin)，然后执行必要的元组处理。<strong>位图扫描</strong>将查找候选元组位置与访问堆页面分成两个阶段。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-bitmap-build.png" target="_blank" rel="noopener" aria-label="打开原图：Bitmap Index Scan 根据索引条目构建位图，记录候选行版本在各个表页面中的位置。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-bitmap-build.png" width="861" height="612" alt="Bitmap Index Scan 根据索引条目构建位图，记录候选行版本在各个表页面中的位置。" loading="lazy">
+  </a>
+  <figcaption>Bitmap Index Scan 根据索引条目构建位图，记录候选行版本在各个表页面中的位置。</figcaption>
+</figure>
+</p>
+<p>首先扫描索引 (Bitmap Index Scan)，并在进程的本地内存中构建位图。位图由若干段组成，每个段对应一个表页面，段中的每一位对应页面中的一个行版本。构建位图时，将满足条件、需要读取的行版本标记出来。由于位图按段组织，当只有少数行版本被标记时，所占的空间也很少。</p>
+<p>从概念上说，精确的位图条目记录堆页号，以及该页内的元组偏移。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-bitmap-heap.png" target="_blank" rel="noopener" aria-label="打开原图：Bitmap Heap Scan 根据位图访问堆页面，每个包含候选元组的页面只需访问一次。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-bitmap-heap.png" width="876" height="246" alt="Bitmap Heap Scan 根据位图访问堆页面，每个包含候选元组的页面只需访问一次。" loading="lazy">
+  </a>
+  <figcaption>Bitmap Heap Scan 根据位图访问堆页面，每个包含候选元组的页面只需访问一次。</figcaption>
+</figure>
+</p>
+<p>位图构建完成后，Bitmap Heap Scan 开始访问堆页面。</p>
+<p>一个堆页面中可能有多个候选元组，但页面本身只需要访问一次。当许多匹配的索引条目所引用的元组分布在较少的堆页面上时，这就是位图扫描相对于常规索引扫描的主要优势。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON bookings(book_date);
+</span></span><span class="line"><span class="cl">CREATE INDEX ON bookings(total_amount);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>上面创建的两个索引为规划器提供了不同的位图来源。对于返回较多行的查询，规划器选择位图扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM bookings WHERE total_amount &lt; 5000;
+</span></span><span class="line"><span class="cl">                       QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings
+</span></span><span class="line"><span class="cl">   (cost=6241.15..26259.60 rows=332996 width=21)
+</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx
+</span></span><span class="line"><span class="cl">        (cost=0.00..6157.90 rows=332996 width=0)
+</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>计划中有两个相关节点：</p>
+<ul>
+<li>Bitmap Index Scan 读取索引并构建位图。</li>
+<li>Bitmap Heap Scan 根据位图读取堆页面。</li>
+</ul>
+<p>启动成本体现了这种方法的取舍：只有完整构建位图之后，才能使用它。位图访问放弃了常规索引扫描边读边返回结果的方式，换取更有序的堆访问。</p>
+<h3>3.3.1 合并位图<span class="hx-absolute -hx-mt-20" id="331-合并位图"></span>
+    <a href="#331-%e5%90%88%e5%b9%b6%e4%bd%8d%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图也可以合并多个索引条件。例如，同一个索引上的两个范围：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &lt; 5000
+</span></span><span class="line"><span class="cl">   OR total_amount &gt; 500000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings
+</span></span><span class="line"><span class="cl">   Recheck Cond: ((total_amount &lt; &#39;5000&#39;::numeric) OR (t...
+</span></span><span class="line"><span class="cl">   -&gt; BitmapOr
+</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_total_amount_idx
+</span></span><span class="line"><span class="cl">             Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_total_amount_idx
+</span></span><span class="line"><span class="cl">             Index Cond: (total_amount &gt; &#39;500000&#39;::numeric)
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>PostgreSQL 构建两个位图，再通过 BitmapOr 将它们合并。</p>
+<p>不同的索引也可以参与位图的合并：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &lt; 5000
+</span></span><span class="line"><span class="cl">   OR book_date = bookings.now() - INTERVAL &#39;1 day&#39;;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings
+</span></span><span class="line"><span class="cl">   Recheck Cond: ((total_amount &lt; &#39;5000&#39;::numeric) OR (b...
+</span></span><span class="line"><span class="cl">   -&gt; BitmapOr
+</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_total_amount_idx
+</span></span><span class="line"><span class="cl">             Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_book_date_idx
+</span></span><span class="line"><span class="cl">             Index Cond: (book_date = (&#39;2026-03-01 03:00:0...
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.2 有损位图页面<span class="hx-absolute -hx-mt-20" id="332-有损位图页面"></span>
+    <a href="#332-%e6%9c%89%e6%8d%9f%e4%bd%8d%e5%9b%be%e9%a1%b5%e9%9d%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图保存在后端进程的本地内存中，大小受 <em>work_mem</em> 限制；位图扫描不会将位图溢写到临时文件。</p>
+<p>如果精确位图变得过大，PostgreSQL 可以将其中一部分转为<strong>有损</strong>表示。精确条目记录堆页面中各个元组的偏移；有损条目则只记住某个堆页面可能包含匹配行。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-bitmap-lossy.png" target="_blank" rel="noopener" aria-label="打开原图：有损位图只记录需要访问的堆页面；图中精确段定位具体元组，有损段需要重新检查条件。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-bitmap-lossy.png" width="876" height="567" alt="有损位图只记录需要访问的堆页面；图中精确段定位具体元组，有损段需要重新检查条件。" loading="lazy">
+  </a>
+  <figcaption>有损位图只记录需要访问的堆页面；图中精确段定位具体元组，有损段需要重新检查条件。</figcaption>
+</figure>
+</p>
+<p>当 <em>work_mem</em> 很小、结果集又很大时，即使位图已经完全转为有损表示，也可能仍然放不下。在这种特殊情况下，PostgreSQL 可以超出 <em>work_mem</em> 的预算，分配足以表示所需堆页面的内存。</p>
+<p>有损位图段节省了内存，但 Bitmap Heap Scan 处理这样的段时，必须重新检查相应表页面中每个行版本是否满足条件。</p>
+<p>重新检查页面中每个行版本的条件会影响性能。如果合并两个位图时，其中至少一个位图的某个段是有损的，合并后对应的段也必须是有损的。因此，<em>work_mem</em> 的取值可能显著影响位图扫描的性能。</p>
+<p>Bitmap Heap Scan 会显示需要重新检查的条件 (Recheck Cond)。这个条件并非总会重新检查；在这里，只有位图无法放入可用内存、精度丢失时，才需要重检。</p>
+<p>先使用通常的内存设置：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off, timing off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings WHERE total_amount &lt; 5000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
+</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">   Heap Blocks: exact=15839
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
+</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">        Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.029 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 39.772 ms
+</span></span><span class="line"><span class="cl">(8 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Heap Blocks: exact=15839 表明，所有堆页面对应的位图条目都保持了精确表示。</p>
+<p>现在减少可用内存，再执行同一个查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;512kB&#39;;
+</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off, timing off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings WHERE total_amount &lt; 5000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
+</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">   Rows Removed by Index Recheck: 1121673
+</span></span><span class="line"><span class="cl">   Heap Blocks: exact=7581 lossy=8258
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
+</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">        Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.053 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 84.084 ms
+</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，一些堆页面由有损位图条目表示。Rows Removed by Index Recheck 显示重新检查条件时，有多少候选行因为不满足条件而被过滤掉。</p>
+<p>恢复原来的设置：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">RESET work_mem;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>3.3.3 聚簇<span class="hx-absolute -hx-mt-20" id="333-聚簇"></span>
+    <a href="#333-%e8%81%9a%e7%b0%87" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当堆中行的物理顺序与索引顺序具有较高相关性时，常规索引扫描会更具优势。</p>
+<p>此时，相邻的索引条目往往指向相同或相邻的堆页面，因此扫描所需的随机堆访问会大幅减少。</p>
+<p>如果物理相关性很高，位图按页面组织访问的优势就可能大幅减弱，规划器也可能更倾向于选择常规索引扫描。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-clustering.png" target="_blank" rel="noopener" aria-label="打开原图：聚簇后的堆页面顺序与索引顺序相关，相邻索引条目倾向于引用相同或相邻的表页面。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-clustering.png" width="861" height="615" alt="聚簇后的堆页面顺序与索引顺序相关，相邻索引条目倾向于引用相同或相邻的表页面。" loading="lazy">
+  </a>
+  <figcaption>聚簇后的堆页面顺序与索引顺序相关，相邻索引条目倾向于引用相同或相邻的表页面。</figcaption>
+</figure>
+</p>
+<p>CLUSTER 命令可以按照某个索引的顺序重写表。最初，bookings 中的行并未按该索引的顺序存放，下面这个没有 ORDER BY 的查询展示了这一点：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM bookings LIMIT 10;
+</span></span><span class="line"><span class="cl"> book_ref |           book_date            | total_amount
+</span></span><span class="line"><span class="cl">----------+--------------------------------+--------------
+</span></span><span class="line"><span class="cl"> 2EW1SQ   | 2025-09-01 03:00:12.557744+03  |      8125.00
+</span></span><span class="line"><span class="cl"> 3ZY3O5   | 2025-09-03 03:25:35.278453+03  |      7500.00
+</span></span><span class="line"><span class="cl"> 756UAS   | 2025-09-10 19:24:02.978559+03  |      6325.00
+</span></span><span class="line"><span class="cl"> GC7I6S   | 2025-09-03 03:26:37.085293+03  |     18000.00
+</span></span><span class="line"><span class="cl"> RBUUIQ   | 2025-09-01 03:00:33.126206+03  |     13000.00
+</span></span><span class="line"><span class="cl"> GB7E53   | 2025-09-10 18:58:23.948989+03  |     11000.00
+</span></span><span class="line"><span class="cl"> 6TAS39   | 2025-09-01 03:00:06.265219+03  |      5000.00
+</span></span><span class="line"><span class="cl"> UEX925   | 2025-09-03 03:27:39.815145+03  |     19550.00
+</span></span><span class="line"><span class="cl"> GGY5EU   | 2025-09-01 03:00:07.565193+03  |      5750.00
+</span></span><span class="line"><span class="cl"> MS148V   | 2025-09-03 03:29:12.70515+03   |      6750.00
+</span></span><span class="line"><span class="cl">(10 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>根据 total_amount 上的索引重新排列这些行。</p>
+<p>我们在事务中执行这段代码，以便在最后回滚聚簇操作，不影响后续示例：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">BEGIN;
+</span></span><span class="line"><span class="cl">CLUSTER bookings USING bookings_total_amount_idx;
+</span></span><span class="line"><span class="cl">CLUSTER</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，普通的顺序读取恰好会按照新的物理顺序遇到这些行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM bookings LIMIT 10;
+</span></span><span class="line"><span class="cl"> book_ref |           book_date            | total_amount
+</span></span><span class="line"><span class="cl">----------+--------------------------------+--------------
+</span></span><span class="line"><span class="cl"> 7ZHP9E   | 2025-09-10 19:44:37.68484+03   |      1750.00
+</span></span><span class="line"><span class="cl"> PZO1NI   | 2025-11-12 03:45:47.817622+03  |      1750.00
+</span></span><span class="line"><span class="cl"> 6BC1L3   | 2025-09-03 05:32:45.971723+03  |      1750.00
+</span></span><span class="line"><span class="cl"> YQQ1XT   | 2025-09-24 03:35:58.864739+03  |      1750.00
+</span></span><span class="line"><span class="cl"> EQXEG8   | 2025-11-05 03:52:11.774956+03  |      1750.00
+</span></span><span class="line"><span class="cl"> BS0GMN   | 2025-09-17 03:36:35.340508+03  |      1750.00
+</span></span><span class="line"><span class="cl"> 9HLHGP   | 2026-02-18 04:09:04.979717+03  |      1750.00
+</span></span><span class="line"><span class="cl"> SFR4P7   | 2025-10-15 03:37:58.510102+03  |      1750.00
+</span></span><span class="line"><span class="cl"> XDD0AF   | 2025-11-26 04:06:02.505752+03  |      1750.00
+</span></span><span class="line"><span class="cl"> BKVSNB   | 2025-10-02 07:44:39.551269+03  |      1750.00
+</span></span><span class="line"><span class="cl">(10 rows)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ANALYZE bookings;
+</span></span><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT * FROM bookings WHERE total_amount &lt; 5000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">----------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using bookings_total_amount_idx on bookings
+</span></span><span class="line"><span class="cl">   Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
+</span></span><span class="line"><span class="cl">(2 rows)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ROLLBACK;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>上面的 ANALYZE 更新了统计信息，使规划器能够了解新的物理相关性。聚簇之前，这个谓词使用位图扫描；相关性提高后，常规索引扫描的成本更低。最后的 ROLLBACK 将表恢复，以便继续后面的示例。</p>
+<p>实际使用时，有两点需要注意：</p>
+<ul>
+<li>CLUSTER 会重写表，需要获取 ACCESS EXCLUSIVE 锁，这一点与其他全表重写操作相似。</li>
+<li>PostgreSQL 不会自动维持聚簇顺序。后续插入和更新可能逐渐降低这种相关性。</li>
+</ul>
+<h2>3.4 覆盖索引<span class="hx-absolute -hx-mt-20" id="34-覆盖索引"></span>
+    <a href="#34-%e8%a6%86%e7%9b%96%e7%b4%a2%e5%bc%95" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>3.4.1 仅索引扫描<span class="hx-absolute -hx-mt-20" id="341-仅索引扫描"></span>
+    <a href="#341-%e4%bb%85%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果查询所需的值都能从某个索引中取得，那么这个索引就可以成为该查询的<strong>覆盖索引</strong>。</p>
+<p>原则上，PostgreSQL 此时可以只访问索引就完成查询，而不访问堆。但 MVCC 的可见性检查使情况变得复杂。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> B 树叶子条目能够告诉 PostgreSQL 它引用了哪个表元组，却没有足够的可见性信息来证明该元组对当前快照可见。</p>
+<p>对于已知<strong>全部可见</strong>的页面，<strong>可见性映射</strong>解决了这个问题。如果映射表明某个表页面中的所有元组都对所有事务可见，仅索引扫描就不必再沿叶子索引条目的引用访问这个堆页面。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-index-only.png" target="_blank" rel="noopener" aria-label="打开原图：仅索引扫描检查可见性映射：全部可见页面可以跳过堆访问，其他页面仍需读取堆元组检查可见性。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-index-only.png" width="876" height="561" alt="仅索引扫描检查可见性映射：全部可见页面可以跳过堆访问，其他页面仍需读取堆元组检查可见性。" loading="lazy">
+  </a>
+  <figcaption>仅索引扫描检查可见性映射：全部可见页面可以跳过堆访问，其他页面仍需读取堆元组检查可见性。</figcaption>
+</figure>
+</p>
+<p>因此，清理对仅索引扫描很重要。更新和删除会在必要时清除页面的全部可见状态，而 VACUUM 检查页面后，可以重新设置全部可见位。</p>
+<p>规划器无法确切知道执行时会发生多少次堆元组访问。估算仅索引扫描的成本时，它使用关系的统计信息，其中包括全部可见页面比例的估算值。如果预计需要访问太多堆页面，规划器可能会认为其他访问方式更便宜。</p>
+<p>对于每个匹配的索引条目，执行器都会检查可见性映射。如果相应堆页面全部可见，就无需访问堆；否则，必须读取堆元组来检查可见性。即使需要部分堆访问，计划节点仍然叫作 Index Only Scan。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, buffers off, costs off, timing off)
+</span></span><span class="line"><span class="cl">SELECT total_amount
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &gt; 200000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Only Scan using bookings_total_amount_idx on book...
+</span></span><span class="line"><span class="cl">   Index Cond: (total_amount &gt; &#39;200000&#39;::numeric)
+</span></span><span class="line"><span class="cl">   Heap Fetches: 0
+</span></span><span class="line"><span class="cl">   Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.122 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 0.148 ms
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Heap Fetches 表示为了检查可见性而读取堆元组的次数。这里仅凭可见性映射就能完成判断，因此不需要访问堆。</p>
+<p>现在更新一行：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">UPDATE bookings
+</span></span><span class="line"><span class="cl">SET total_amount = total_amount
+</span></span><span class="line"><span class="cl">WHERE book_ref = &#39;00EV9A&#39;;
+</span></span><span class="line"><span class="cl">UPDATE 1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>更新会清除受影响堆页面的全部可见状态。当匹配的索引条目指向这个页面时，执行器就必须访问堆：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, buffers off, costs off, timing off)
+</span></span><span class="line"><span class="cl">SELECT total_amount
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &gt; 200000;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Only Scan using bookings_total_amount_idx on book...
+</span></span><span class="line"><span class="cl">   Index Cond: (total_amount &gt; &#39;200000&#39;::numeric)
+</span></span><span class="line"><span class="cl">   Heap Fetches: 3
+</span></span><span class="line"><span class="cl">   Index Searches: 1
+</span></span><span class="line"><span class="cl"> Planning Time: 0.033 ms
+</span></span><span class="line"><span class="cl"> Execution Time: 0.136 ms
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>执行器并没有扫描被修改页面中的每个元组。这里的堆访问，是由需要检查可见性的索引条目引起的，因为已经不能再认定该页面全部可见。</p>
+<h3>3.4.2 包含 INCLUDE 子句的索引<span class="hx-absolute -hx-mt-20" id="342-包含-include-子句的索引"></span>
+    <a href="#342-%e5%8c%85%e5%90%ab-include-%e5%ad%90%e5%8f%a5%e7%9a%84%e7%b4%a2%e5%bc%95" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>覆盖索引可以大幅降低查询成本，但将所有所需列都作为索引键并不总是合适。例如：</p>
+<ul>
+<li>向唯一索引添加键列，会改变唯一性约束所针对的值组合。</li>
+<li>新增列的数据类型可能不受该索引支持。</li>
+</ul>
+<p>PostgreSQL 允许通过 INCLUDE 子句，将<strong>非键列</strong>包含在索引中。</p>
+<p>这些列的值不参与搜索树的键比较，而是作为附加数据保存在叶子条目中，以便仅索引扫描直接返回这些值，无需访问表。</p>
+<p>在 PostgreSQL 18 中，B 树、GiST 和 SP-GiST 索引支持 INCLUDE。</p>
+<p><strong>包含 INCLUDE 子句的索引</strong>与<strong>覆盖索引</strong>不是同一个概念。索引可以在不使用 INCLUDE 的情况下覆盖某个查询；反过来，包含额外列的索引也未必能够覆盖另一个查询。</p>
+<p>主键索引 tickets_pkey 包含 ticket_no，却不包含 book_ref，因此不能覆盖下面这个查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, summary off)
+</span></span><span class="line"><span class="cl">SELECT ticket_no, book_ref
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">WHERE ticket_no &gt; &#39;0005435990286&#39;;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using tickets_pkey on tickets (actual time=0...
+</span></span><span class="line"><span class="cl">   Index Cond: (ticket_no &gt; &#39;0005435990286&#39;::text)
+</span></span><span class="line"><span class="cl">   Index Searches: 1
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=1496831 read=23275 written=17
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=46 read=6
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Buffers 行报告了页面访问情况。这里大量的缓冲区命中，反映了为了获取索引中不存在的值而访问表所产生的开销。创建一个将 book_ref 作为附加数据保存的唯一索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE UNIQUE INDEX ON tickets (ticket_no)
+</span></span><span class="line"><span class="cl">INCLUDE (book_ref);
+</span></span><span class="line"><span class="cl">CREATE INDEX
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, summary off)
+</span></span><span class="line"><span class="cl">SELECT ticket_no, book_ref
+</span></span><span class="line"><span class="cl">FROM tickets
+</span></span><span class="line"><span class="cl">WHERE ticket_no &gt; &#39;0005435990286&#39;;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Only Scan using tickets_ticket_no_book_ref_idx on...
+</span></span><span class="line"><span class="cl">   Index Cond: (ticket_no &gt; &#39;0005435990286&#39;::text)
+</span></span><span class="line"><span class="cl">   Heap Fetches: 0
+</span></span><span class="line"><span class="cl">   Index Searches: 1
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=1 read=8033
+</span></span><span class="line"><span class="cl"> Planning:
+</span></span><span class="line"><span class="cl">   Buffers: shared hit=18 read=1 dirtied=1
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在，规划器选择 Index Only Scan，并使用新建的索引。由于相关堆页面全部可见，Heap Fetches 为零，页面访问量也小得多。</p>
+<p>通过 INCLUDE 添加的列不参与索引访问方法的键处理，因此这种索引可以包含 B 树不支持作为键的数据类型，例如几何类型或 xml。</p>
+<h2>3.5 并行访问<span class="hx-absolute -hx-mt-20" id="35-并行访问"></span>
+    <a href="#35-%e5%b9%b6%e8%a1%8c%e8%ae%bf%e9%97%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 可以并行执行查询计划中的某些部分。<strong>领导者进程</strong>启动并行工作进程，由它们执行计划中支持并行协作的部分，再通过 Gather 或 Gather Merge 节点收集输出。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-parallel-plan.png" target="_blank" rel="noopener" aria-label="打开原图：领导者进程通过 Gather 收集工作进程的结果，空闲时也可参与并行部分；Gather 之上的计划串行执行。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-parallel-plan.png" width="876" height="306" alt="领导者进程通过 Gather 收集工作进程的结果，空闲时也可参与并行部分；Gather 之上的计划串行执行。" loading="lazy">
+  </a>
+  <figcaption>领导者进程通过 Gather 收集工作进程的结果，空闲时也可参与并行部分；Gather 之上的计划串行执行。</figcaption>
+</figure>
+</p>
+<p>领导者进程也可以参与并行计划的执行，尤其是在接收工作进程返回的元组尚未占满其处理能力时。</p>
+<p>启动工作进程、协调进程以及传递元组都会产生开销，因此并行执行并不适合所有查询。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup> 此外，只有部分计划节点和操作支持并行协作；计划中其余部分由领导者进程串行执行。</p>
+<h3>3.5.1 工作进程数量限制<span class="hx-absolute -hx-mt-20" id="351-工作进程数量限制"></span>
+    <a href="#351-%e5%b7%a5%e4%bd%9c%e8%bf%9b%e7%a8%8b%e6%95%b0%e9%87%8f%e9%99%90%e5%88%b6" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>有几个配置参数用于限制并行执行。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-worker-limits.png" target="_blank" rel="noopener" aria-label="打开原图：工作进程数量的三层限制：max_worker_processes、max_parallel_workers 和 max_parallel_workers_per_gather；图中分别为 8、8、2。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-worker-limits.png" width="876" height="483" alt="工作进程数量的三层限制：max_worker_processes、max_parallel_workers 和 max_parallel_workers_per_gather；图中分别为 8、8、2。" loading="lazy">
+  </a>
+  <figcaption>工作进程数量的三层限制：max_worker_processes、max_parallel_workers 和 max_parallel_workers_per_gather；图中分别为 8、8、2。</figcaption>
+</figure>
+</p>
+<p>PostgreSQL 的工作进程不仅用于并行查询。逻辑复制和扩展也可以使用后台工作进程。应用代码同样可以使用工作进程，参见 DEV2 课程中的 Background Processes 一课。</p>
+<p><span class="marginalia" data-note="默认值：8"><em>max_worker_processes</em></span> 限制可同时运行的后台工作进程总数。</p>
+<p><span class="marginalia" data-note="默认值：8"><em>max_parallel_workers</em></span> 限制整个服务器可用于并行查询执行的工作进程数量。</p>
+<p><span class="marginalia" data-note="默认值：2。"><em>max_parallel_workers_per_gather</em></span> 限制服务于一个领导者进程的并行工作进程数量。</p>
+<p>合适的参数值取决于 CPU 能力、I/O 带宽、内存、负载以及并发会话数量。</p>
+<p>提高上限并不会让每个查询都变快；它只是改变了规划器和执行器可以使用的并行资源数量。</p>
+<h3>3.5.2 并行顺序扫描<span class="hx-absolute -hx-mt-20" id="352-并行顺序扫描"></span>
+    <a href="#352-%e5%b9%b6%e8%a1%8c%e9%a1%ba%e5%ba%8f%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>Parallel Seq Scan 允许多个进程协作扫描同一张表。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-parallel-sequential.png" target="_blank" rel="noopener" aria-label="打开原图：并行顺序扫描由多个进程分工读取堆页面，并通过 Partial Aggregate、Gather 和 Finalize Aggregate 完成计数。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-parallel-sequential.png" width="876" height="543" alt="并行顺序扫描由多个进程分工读取堆页面，并通过 Partial Aggregate、Gather 和 Finalize Aggregate 完成计数。" loading="lazy">
+  </a>
+  <figcaption>并行顺序扫描由多个进程分工读取堆页面，并通过 Partial Aggregate、Gather 和 Finalize Aggregate 完成计数。</figcaption>
+</figure>
+</p>
+<p>这个名称并不矛盾。堆数据块仍然像普通 Seq Scan 一样按顺序访问，区别在于多个参与进程同时读取各自负责的数据块，并通过共享的并行扫描状态协调彼此的工作。</p>
+<p>收益并不只是多个进程可以同时读取存储。每个工作进程还会在分配给自己的页面上计算谓词，并执行其他逐行 CPU 处理。只有节省的执行时间超过工作进程启动、同步和元组传输的开销，并行才有收益。聚合就是一个很好的例子：工作进程可以扫描并局部聚合大量行，而向上层传递的只是少量局部结果。</p>
+<p>对于小表，串行执行 count(*) 的成本更低：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT count(*) FROM seats;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Aggregate  (cost=31.76..31.77 rows=1 width=8)
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741 wid...
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Aggregate 必须读完全部输入才能返回最终计数，因此其启动成本接近总成本。</p>
+<p>在大得多的 bookings 表上执行同类查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT count(*) FROM bookings;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Finalize Aggregate  (cost=29807.83..29807.84 rows=1 wid...
+</span></span><span class="line"><span class="cl">   -&gt; Gather  (cost=29807.61..29807.82 rows=2 width=8)
+</span></span><span class="line"><span class="cl">        Workers Planned: 2
+</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate  (cost=28807.61..28807.62 ro...
+</span></span><span class="line"><span class="cl">             -&gt; Parallel Seq Scan on bookings  (cost=0.00....
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>Gather 下方是计划的并行部分，由规划的工作进程执行，领导者进程也可能参与。Gather 自身及其上方的节点则由领导者进程执行。</p>
+<p>每个工作进程计算局部计数，领导者进程收集这些局部结果，最后由 Finalize Aggregate 生成最终值。</p>
+<p>并非每个查询都能使用并行执行。例如，许多修改数据或锁定行的操作不能并行执行，函数和其他操作的并行安全规则也可能使计划只能串行执行。这些限制会随 PostgreSQL 版本演进，具体版本的行为应查阅对应文档。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup></p>
+<h3>3.5.3 并行索引扫描与并行仅索引扫描<span class="hx-absolute -hx-mt-20" id="353-并行索引扫描与并行仅索引扫描"></span>
+    <a href="#353-%e5%b9%b6%e8%a1%8c%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f%e4%b8%8e%e5%b9%b6%e8%a1%8c%e4%bb%85%e7%b4%a2%e5%bc%95%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>B 树索引访问也可以参与并行计划。</p>
+<p>并行 B 树扫描分两个阶段进行。首先，领导者进程从树根向下定位到一个叶子页面。然后，工作进程沿叶子链表并行读取索引页面。读取某个索引页面的进程，也负责读取所需的表页面。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-parallel-index.png" target="_blank" rel="noopener" aria-label="打开原图：并行索引扫描中，不同进程读取不同的叶子页面，并访问相应的堆页面；同一个堆页面可能被多个进程访问。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-parallel-index.png" width="861" height="615" alt="并行索引扫描中，不同进程读取不同的叶子页面，并访问相应的堆页面；同一个堆页面可能被多个进程访问。" loading="lazy">
+  </a>
+  <figcaption>并行索引扫描中，不同进程读取不同的叶子页面，并访问相应的堆页面；同一个堆页面可能被多个进程访问。</figcaption>
+</figure>
+</p>
+<p>多个进程可能需要读取同一个表页面。图中就展示了这种情况：最后一个表页面中的行，由不同进程读取的多个索引页面所引用。当然，这个表页面在缓冲区缓存中只保存一份。并行仅索引扫描与此类似，只是当索引条目所引用的堆页面全部可见时，可以跳过堆访问。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-parallel-index-only.png" target="_blank" rel="noopener" aria-label="打开原图：并行仅索引扫描同时利用进程分工与可见性映射，对全部可见的堆页面避免回表访问。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-parallel-index-only.png" width="876" height="558" alt="并行仅索引扫描同时利用进程分工与可见性映射，对全部可见的堆页面避免回表访问。" loading="lazy">
+  </a>
+  <figcaption>并行仅索引扫描同时利用进程分工与可见性映射，对全部可见的堆页面避免回表访问。</figcaption>
+</figure>
+</p>
+<p>例如，统计最近一个月的预订数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT count(*)
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">WHERE book_date &gt; &#39;2026-02-01 03:00:00+03&#39;;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Finalize Aggregate
+</span></span><span class="line"><span class="cl">   -&gt; Gather
+</span></span><span class="line"><span class="cl">        Workers Planned: 2
+</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate
+</span></span><span class="line"><span class="cl">             -&gt; Parallel Index Only Scan using bookings_bo...
+</span></span><span class="line"><span class="cl">                  Index Cond: (book_date &gt; &#39;2026-02-01 03:0...
+</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>其结构与前面的并行顺序扫描计划相似，只是行通过 Parallel Index Only Scan 获取。</p>
+<h3>3.5.4 并行位图堆扫描<span class="hx-absolute -hx-mt-20" id="354-并行位图堆扫描"></span>
+    <a href="#354-%e5%b9%b6%e8%a1%8c%e4%bd%8d%e5%9b%be%e5%a0%86%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图堆访问也可以并行执行。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-parallel-bitmap.png" target="_blank" rel="noopener" aria-label="打开原图：并行位图堆扫描先构建位图，再由多个进程分工访问候选堆页面。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-parallel-bitmap.png" width="861" height="618" alt="并行位图堆扫描先构建位图，再由多个进程分工访问候选堆页面。" loading="lazy">
+  </a>
+  <figcaption>并行位图堆扫描先构建位图，再由多个进程分工访问候选堆页面。</figcaption>
+</figure>
+</p>
+<p>位图本身仍然串行构建：负责初始化的领导进程执行 Bitmap Index Scan，构建共享的位图状态。</p>
+<p>之后，工作进程就可以通过 Parallel Bitmap Heap Scan 协作完成堆访问阶段。</p>
+<p>统计最近三个月中金额小于 5,000 的预订数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
+</span></span><span class="line"><span class="cl">SELECT count(*)
+</span></span><span class="line"><span class="cl">FROM bookings
+</span></span><span class="line"><span class="cl">WHERE total_amount &lt; 5000
+</span></span><span class="line"><span class="cl">  AND book_date &gt; &#39;2025-12-01 03:00:00+03&#39;;
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Finalize Aggregate
+</span></span><span class="line"><span class="cl">   -&gt; Gather
+</span></span><span class="line"><span class="cl">        Workers Planned: 2
+</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate
+</span></span><span class="line"><span class="cl">             -&gt; Parallel Bitmap Heap Scan on bookings
+</span></span><span class="line"><span class="cl">                  Recheck Cond: (total_amount &lt; &#39;5000&#39;::num...
+</span></span><span class="line"><span class="cl">                  Filter: (book_date &gt; &#39;2025-12-01 03:00:00...
+</span></span><span class="line"><span class="cl">                  -&gt; Bitmap Index Scan on bookings_total_am...
+</span></span><span class="line"><span class="cl">                       Index Cond: (total_amount &lt; &#39;5000&#39;::n...
+</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>负责初始化的进程在 Bitmap Index Scan 中构建位图。位图选出的堆数据块，则由 Parallel Bitmap Heap Scan 并行处理。</p>
+<p>删除为这些示例创建的索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX bookings_book_date_idx;
+</span></span><span class="line"><span class="cl">DROP INDEX bookings_total_amount_idx;
+</span></span><span class="line"><span class="cl">DROP INDEX tickets_ticket_no_book_ref_idx;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h2>3.6 访问方法比较<span class="hx-absolute -hx-mt-20" id="36-访问方法比较"></span>
+    <a href="#36-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e6%af%94%e8%be%83" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>不存在一个通用的选择率阈值，能够确定某种访问方法从何时起优于另一种方法。不过，总体规律并不难理解。</p>
+<p>当谓词<strong>筛选能力很强</strong>，只需要一行或表中很小一部分数据时，常规索引扫描最有优势。此时，沿索引检索并读取少量堆页面的成本，远低于扫描整个关系。</p>
+<p>当<strong>匹配行比例处于中间范围</strong>时，位图扫描往往具有竞争力。虽然需要付出构建位图的启动成本，但可以减少对相同堆页面的反复访问。在最坏情况下，常规索引扫描的堆访问工作量大致随匹配元组数量增长；位图堆扫描则围绕包含候选元组的堆页面来组织访问。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-access-comparison.png" target="_blank" rel="noopener" aria-label="打开原图：访问方法的示意比较：横轴为通过条件的行比例，纵轴为时间；常规索引扫描、位图堆扫描和顺序扫描在不同范围各有优势，交点不是固定阈值。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-access-comparison.png" width="900" height="444" alt="访问方法的示意比较：横轴为通过条件的行比例，纵轴为时间；常规索引扫描、位图堆扫描和顺序扫描在不同范围各有优势，交点不是固定阈值。" loading="lazy">
+  </a>
+  <figcaption>访问方法的示意比较：横轴为通过条件的行比例，纵轴为时间；常规索引扫描、位图堆扫描和顺序扫描在不同范围各有优势，交点不是固定阈值。</figcaption>
+</figure>
+</p>
+<p>当谓词<strong>筛选能力较弱</strong>、大多数行都能通过过滤时，顺序扫描通常最好。既然已经需要读取大部分堆页面，再读索引只会增加工作量。这种差异在机械硬盘上更明显，因为随机读取远慢于顺序读取连续页面。</p>
+<p>不同方法的成本交点高度依赖于表、索引、物理相关性、行宽、缓存状态、存储设备、规划器成本参数，以及具体查询。规划器会综合这些估算，而不是使用“匹配行比例低于 X% 就使用索引”这样的固定规则。</p>
+<p>另一个因素是顺序。B 树索引扫描按索引顺序返回行，因此可以省去单独的排序。即使单看获取行的成本并不是最低，索引扫描仍可能因此更具优势。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-index-only-comparison.png" target="_blank" rel="noopener" aria-label="打开原图：仅索引扫描的时间范围：全部可见页面比例会影响堆访问量，从而使其表现介于较好与较差的情况之间。">
+    <img src="/query-optimization-18/chapter03/images/chapter03-index-only-comparison.png" width="861" height="468" alt="仅索引扫描的时间范围：全部可见页面比例会影响堆访问量，从而使其表现介于较好与较差的情况之间。" loading="lazy">
+  </a>
+  <figcaption>仅索引扫描的时间范围：全部可见页面比例会影响堆访问量，从而使其表现介于较好与较差的情况之间。</figcaption>
+</figure>
+</p>
+<p>仅索引扫描的性能，很大程度上取决于可见性映射，以及有多少堆页面处于全部可见状态。</p>
+<p>因此，规划器估算仅索引访问的成本时，会考虑全部可见页面比例的估算值。</p>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p><a href="https://www.postgresql.org/docs/18/mvcc.html">PostgreSQL 18：Concurrency Control</a>
+。&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p><a href="https://www.postgresql.org/docs/18/sql-vacuum.html">PostgreSQL 18：VACUUM</a>
+。&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p><a href="https://www.postgresql.org/docs/18/indexes-index-only-scans.html">PostgreSQL 18：Index-Only Scans and Covering Indexes</a>
+。&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p><a href="https://www.postgresql.org/docs/18/parallel-query.html">PostgreSQL 18：Parallel Query</a>
+。&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p><a href="https://www.postgresql.org/docs/18/when-can-parallel-query-be-used.html">PostgreSQL 18：When Can Parallel Query Be Used?</a>
+。&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+
+<nav class="query-book-pager" aria-label="前后篇">
+  
+    
+  
+    
+  
+    
+  
+    
+      <div>
+        
+          <a rel="prev" href="/query-optimization-18/chapter02/"><small>上一篇</small>第 2 章：规划与执行</a>
+        
+      </div>
+      <div>
+        
+          <a rel="next" href="/query-optimization-18/chapter04/"><small>下一篇</small>第 4 章：排序与分组</a>
+        
+      </div>
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+</nav>
+
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
+
+
+  </body>
+</html>

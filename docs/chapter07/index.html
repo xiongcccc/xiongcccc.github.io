@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow" />
@@ -22,7 +22,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 然而，这种可视化有一个令人头疼的问题。与最近的事务相比，旧事务 (T1) 处于遥远的过去。但迟早一个新的事务会在与未来有关的半圆中看到它。如果真是这样，那将产生灾难性的影响：从现在开始，所有更新的事务都将看不到事务 T1 所做的更改。" />
 
   
-    <link rel="canonical" href="/docs/chapter07/" itemprop="url" />
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter07/" itemprop="url" />
   
 
   
@@ -30,7 +30,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 <meta property="og:title" content="第 7 章：冻结" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="/docs/chapter07/" />
+<meta property="og:url" content="https://postgres-internals.cn/docs/chapter07/" />
 
   
   <meta itemprop="name" content="第 7 章：冻结">
@@ -59,7 +59,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 
 
 
-  <link href="/css/custom.min.1947bb750c4b71f63e82a4b8af0141b7b29f6955df99f0b7808ffb455d4a5532.css" rel="stylesheet" integrity="sha256-GUe7dQxLcfY&#43;gqS4rwFBt7KfaVXfmfC3gI/7RV1KVTI=" />
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
 
 
 
@@ -91,7 +91,24 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
   <script defer src="/js/marginalia.js"></script>
 <script defer src="/js/site-stats.js"></script>
 
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+  
+  <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
 </head>
+
 <body dir="ltr"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
   <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
 
@@ -154,6 +171,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
           </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
   </nav>
 </div>
+
 
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
@@ -709,6 +727,35 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
   <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
 </button>
 </div></div></aside>
+
+
+
+  <template data-reading-toc>
+    <details class="reading-navigation-toc">
+      <summary>本章目录</summary>
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#71-事务-id-回卷">7.1 事务 ID 回卷</a></li>
+    <li><a href="#72-元组冻结和可见性规则">7.2 元组冻结和可见性规则</a></li>
+    <li><a href="#73-管理冻结">7.3 管理冻结</a>
+      <ul>
+        <li><a href="#731-最小冻结年龄">7.3.1 最小冻结年龄</a></li>
+        <li><a href="#732-急切冻结年龄">7.3.2 急切冻结年龄</a></li>
+        <li><a href="#733-强制自动清理年龄">7.3.3 强制自动清理年龄</a></li>
+        <li><a href="#734-failsafe-冻结年龄">7.3.4 Failsafe 冻结年龄</a></li>
+      </ul>
+    </li>
+    <li><a href="#74-手动冻结">7.4 手动冻结</a>
+      <ul>
+        <li><a href="#741-vacuum-时进行冻结">7.4.1 Vacuum 时进行冻结</a></li>
+        <li><a href="#742-在初始加载时冻结数据">7.4.2 在初始加载时冻结数据</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </details>
+  </template>
+
     
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
@@ -1361,7 +1408,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
 <p>backend/access/transam/transam.c, TransactionIdPrecedes function&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:3">
-<p>postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://www.postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND">postgresql.org/docs/14/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND</a>&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:4">
 <p>backend/access/transam/varsup.c, SetTransactionIdLimit function&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
@@ -1390,6 +1437,7 @@ PostgreSQL 确实实现了 64 位事务 ID 1，通过一个 32 位 epoch 扩展�
     </div>
   </div>
 </footer>
+    
     
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 

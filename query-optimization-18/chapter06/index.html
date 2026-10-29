@@ -1,0 +1,1939 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon shortcut" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+<link fetchpriority="low" href="/site.webmanifest" rel="manifest" />
+
+  <title>第 6 章：统计信息 – PostgreSQL 18 查询优化</title>
+  <meta name="description" content="PostgreSQL 18 查询优化中文审阅版：第 6 章：统计信息。对应原书第 103–125 页。" />
+
+  
+    <link rel="canonical" href="https://postgres-internals.cn/query-optimization-18/chapter06/" itemprop="url" />
+  
+
+  
+
+<meta property="og:title" content="第 6 章：统计信息" />
+<meta property="og:description" content="PostgreSQL 18 查询优化中文审阅版：第 6 章：统计信息。对应原书第 103–125 页。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://postgres-internals.cn/query-optimization-18/chapter06/" /><meta property="article:section" content="query-optimization-18" />
+
+
+
+  
+  <meta itemprop="name" content="第 6 章：统计信息">
+  <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 6 章：统计信息。对应原书第 103–125 页。">
+  <meta itemprop="wordCount" content="1585">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="第 6 章：统计信息">
+  <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 6 章：统计信息。对应原书第 103–125 页。">
+
+    <link rel="preload" href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" as="style" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+    <link href="/css/compiled/main.min.23a12191daf50c320fcb5ce50e8c895a47f37ce361f66be7c771e19f254b32b2.css" rel="stylesheet" integrity="sha256-I6Ehkdr1DDIPy1zlDoyJWkfzfONh9mvnx3HhnyVLMrI=" />
+
+
+
+  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
+
+
+
+
+
+  <script>
+     
+    const defaultTheme = 'light';
+
+    const setDarkTheme = () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.colorScheme = "dark";
+    }
+    const setLightTheme = () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    }
+
+    if ("color-theme" in localStorage) {
+      localStorage.getItem("color-theme") === "dark" ? setDarkTheme() : setLightTheme();
+    } else {
+      defaultTheme === "dark" ? setDarkTheme() : setLightTheme();
+      if (defaultTheme === "system") {
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? setDarkTheme() : setLightTheme();
+      }
+    }
+  </script>
+
+  <script defer src="/js/marginalia.js"></script>
+<script defer src="/js/site-stats.js"></script>
+
+
+  
+  <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
+
+
+  
+  <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
+
+
+
+  
+  <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
+  
+  <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
+
+
+</head>
+
+<body dir="ltr" class="query-book-page"><div class="nav-container hx-sticky hx-top-0 hx-z-20 hx-w-full hx-bg-transparent print:hx-hidden">
+  <div class="nav-container-blur hx-pointer-events-none hx-absolute hx-z-[-1] hx-h-full hx-w-full hx-bg-white dark:hx-bg-dark hx-shadow-[0_2px_4px_rgba(0,0,0,.02),0_1px_0_rgba(0,0,0,.06)] contrast-more:hx-shadow-[0_0_0_1px_#000] dark:hx-shadow-[0_-1px_0_rgba(255,255,255,.1)_inset] contrast-more:dark:hx-shadow-[0_0_0_1px_#fff]"></div>
+
+  <nav class="hx-mx-auto hx-flex hx-items-center hx-justify-end hx-gap-2 hx-h-16 hx-px-6 hx-max-w-[90rem]">
+    <a class="hx-flex hx-items-center hover:hx-opacity-75 ltr:hx-mr-auto rtl:hx-ml-auto" href="/">
+        <img class="hx-block dark:hx-hidden" src="/images/postgresql-elephant-in-potential.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <img class="hx-hidden dark:hx-block" src="/images/postgresql-elephant-in-power.svg" alt="PostgreSQL 18 查询优化" height="30" width="45" />
+        <span class="hx-mx-2 hx-font-extrabold hx-inline hx-select-none" title="PostgreSQL 18 查询优化">PostgreSQL 18 <span class="query-book-brand">查询优化</span></span>
+    </a><a
+            title="目录"
+            href="/query-optimization-18/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">目录</span>
+          </a><a
+            title="书库"
+            href="/"
+            
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">书库</span>
+          </a><a
+            title="Contact ↗"
+            href="https://github.com/xiongcccc"
+            target="_blank" rel="noreferer"
+            class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
+          >
+            <span class="hx-text-center">Contact ↗</span>
+          </a><div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://github.com/xiongcccc/xiongcccc.github.io" title="GitHub"><svg height=24 fill="currentColor" viewBox="3 3 18 18">
+  <path d="M12 3C7.0275 3 3 7.12937 3 12.2276C3 16.3109 5.57625 19.7597 9.15374 20.9824C9.60374 21.0631 9.77249 20.7863 9.77249 20.5441C9.77249 20.3249 9.76125 19.5982 9.76125 18.8254C7.5 19.2522 6.915 18.2602 6.735 17.7412C6.63375 17.4759 6.19499 16.6569 5.8125 16.4378C5.4975 16.2647 5.0475 15.838 5.80124 15.8264C6.51 15.8149 7.01625 16.4954 7.18499 16.7723C7.99499 18.1679 9.28875 17.7758 9.80625 17.5335C9.885 16.9337 10.1212 16.53 10.38 16.2993C8.3775 16.0687 6.285 15.2728 6.285 11.7432C6.285 10.7397 6.63375 9.9092 7.20749 9.26326C7.1175 9.03257 6.8025 8.08674 7.2975 6.81794C7.2975 6.81794 8.05125 6.57571 9.77249 7.76377C10.4925 7.55615 11.2575 7.45234 12.0225 7.45234C12.7875 7.45234 13.5525 7.55615 14.2725 7.76377C15.9937 6.56418 16.7475 6.81794 16.7475 6.81794C17.2424 8.08674 16.9275 9.03257 16.8375 9.26326C17.4113 9.9092 17.76 10.7281 17.76 11.7432C17.76 15.2843 15.6563 16.0687 13.6537 16.2993C13.98 16.5877 14.2613 17.1414 14.2613 18.0065C14.2613 19.2407 14.25 20.2326 14.25 20.5441C14.25 20.7863 14.4188 21.0746 14.8688 20.9824C16.6554 20.364 18.2079 19.1866 19.3078 17.6162C20.4077 16.0457 20.9995 14.1611 21 12.2276C21 7.12937 16.9725 3 12 3Z"></path>
+</svg>
+<span class="hx-sr-only">GitHub</span>
+          </a>
+          <a class="hx-p-2 hx-text-current" target="_blank" rel="noreferer" href="https://twitter.com/" title="Twitter"><svg height=24 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg><span class="hx-sr-only">Twitter</span>
+          </a><button type="button" aria-label="Menu" class="hamburger-menu -hx-mr-2 hx-rounded hx-p-2 active:hx-bg-gray-400/20 md:hx-hidden"><svg height=24 fill="none" viewBox="0 0 24 24" stroke="currentColor"><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8H20"></path></g><g><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16H20"></path></g></svg></button>
+  </nav>
+</div>
+
+
+  <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
+    <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
+<aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
+  
+  <div class="hx-px-4 hx-pt-4 md:hx-hidden">
+    <div class="search-wrapper hx-relative md:hx-w-64">
+  <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
+    <input
+      placeholder="Search..."
+      class="search-input hx-block hx-w-full hx-appearance-none hx-rounded-lg hx-px-3 hx-py-2 hx-transition-colors hx-text-base hx-leading-tight md:hx-text-sm hx-bg-black/[.05] dark:hx-bg-gray-50/10 focus:hx-bg-white dark:focus:hx-bg-dark placeholder:hx-text-gray-500 dark:placeholder:hx-text-gray-400 contrast-more:hx-border contrast-more:hx-border-current"
+      type="search"
+      value=""
+      spellcheck="false"
+    />
+    <kbd
+      class="hx-absolute hx-my-1.5 hx-select-none ltr:hx-right-1.5 rtl:hx-left-1.5 hx-h-5 hx-rounded hx-bg-white hx-px-1.5 hx-font-mono hx-text-[10px] hx-font-medium hx-text-gray-500 hx-border dark:hx-border-gray-100/20 dark:hx-bg-dark/50 contrast-more:hx-border-current contrast-more:hx-text-current contrast-more:dark:hx-border-current hx-items-center hx-gap-1 hx-transition-opacity hx-pointer-events-none hx-hidden sm:hx-flex"
+    >
+      CTRL K
+    </kbd>
+  </div>
+
+  <div>
+    <ul
+      class="search-results hextra-scrollbar hx-hidden hx-border hx-border-gray-200 hx-bg-white hx-text-gray-100 dark:hx-border-neutral-800 dark:hx-bg-neutral-900 hx-absolute hx-top-full hx-z-20 hx-mt-2 hx-overflow-auto hx-overscroll-contain hx-rounded-xl hx-py-2.5 hx-shadow-xl hx-max-h-[min(calc(50vh-11rem-env(safe-area-inset-bottom)),400px)] md:hx-max-h-[min(calc(100vh-5rem-env(safe-area-inset-bottom)),400px)] hx-inset-x-0 ltr:md:hx-left-auto rtl:md:hx-right-auto contrast-more:hx-border contrast-more:hx-border-gray-900 contrast-more:dark:hx-border-gray-50 hx-w-screen hx-min-h-[100px] hx-max-w-[min(calc(100vw-2rem),calc(100%+20rem))]"
+      style="transition: max-height 0.2s ease 0s;"
+    ></ul>
+  </div>
+</div>
+
+  </div>
+  <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
+    <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
+      
+      
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a>
+  
+    <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
+              <a
+                href="#61-%e5%9f%ba%e7%a1%80%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >6.1 基础统计信息</a>
+            </li>
+          <li>
+              <a
+                href="#62-%e6%89%a9%e5%b1%95%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af"
+                class="hx-flex hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [word-break:break-word] hx-cursor-pointer [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] contrast-more:hx-border hx-gap-2 before:hx-opacity-25 before:hx-content-['#'] hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:hx-text-gray-900 contrast-more:dark:hx-text-gray-50 contrast-more:hx-border-transparent contrast-more:hover:hx-border-gray-900 contrast-more:dark:hover:hx-border-gray-50"
+              >6.2 扩展统计信息</a>
+            </li>
+          </ul>
+  </li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+    </ul>
+
+    <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
+        
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/introduction/"
+    
+  >引言
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter01/"
+    
+  >第 1 章：示例数据库
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter02/"
+    
+  >第 2 章：规划与执行
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter03/"
+    
+  >第 3 章：访问方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter04/"
+    
+  >第 4 章：排序与分组
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter05/"
+    
+  >第 5 章：连接方法
+    </a></li>
+          <li class="open"><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
+    href="/query-optimization-18/chapter06/"
+    
+  >第 6 章：统计信息
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter07/"
+    
+  >第 7 章：性能剖析
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter08/"
+    
+  >第 8 章：物化与函数
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/chapter09/"
+    
+  >第 9 章：调优方法
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/conclusion/"
+    
+  >结语
+    </a></li>
+          <li class=""><a
+    class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
+      hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
+    href="/query-optimization-18/colophon/"
+    
+  >原书署名与出版信息
+    </a></li>
+        
+      </ul>
+    </div>
+  
+  
+    <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
+  title="Change theme"
+  data-theme="light"
+  class="theme-toggle hx-group hx-h-7 hx-rounded-md hx-px-2 hx-text-left hx-text-xs hx-font-medium hx-text-gray-600 hx-transition-colors dark:hx-text-gray-400 hover:hx-bg-gray-100 hover:hx-text-gray-900 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50"
+  type="button"
+  aria-label="Change theme"
+>
+  <div class="hx-flex hx-items-center hx-gap-2 hx-capitalize"><svg height=12 class="group-data-[theme=light]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span class="group-data-[theme=light]:hx-hidden">Light</span><svg height=12 class="group-data-[theme=dark]:hx-hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><span class="group-data-[theme=dark]:hx-hidden">Dark</span></div>
+</button>
+</div></div></aside>
+
+
+
+    
+<nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
+    <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#61-%e5%9f%ba%e7%a1%80%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af">6.1 基础统计信息
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#611-%e8%a1%a8%e7%ba%a7%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af">6.1.1 表级统计信息
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#612-%e7%a9%ba%e5%80%bc%e6%af%94%e4%be%8b">6.1.2 空值比例
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#613-%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8f">6.1.3 非重复值的数量
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#614-%e9%ab%98%e9%a2%91%e5%80%bc">6.1.4 高频值
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#615-%e7%9b%b4%e6%96%b9%e5%9b%be">6.1.5 直方图
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#616-%e5%85%b6%e4%bb%96%e7%bb%9f%e8%ae%a1%e5%ad%97%e6%ae%b5">6.1.6 其他统计字段
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#617-custom-plan-%e4%b8%8e-generic-plan">6.1.7 custom plan 与 generic plan
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="hx-font-semibold hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#62-%e6%89%a9%e5%b1%95%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af">6.2 扩展统计信息
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#621-%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96">6.2.1 函数依赖
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#622-%e9%ab%98%e9%a2%91%e5%80%bc%e7%bb%84%e5%90%88">6.2.2 高频值组合
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#623-%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%bb%84%e5%90%88">6.2.3 非重复值组合
+        </a>
+      </li>
+      <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
+        <a class="ltr:hx-pl-4 rtl:hx-pr-4 hx-inline-block hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-300 contrast-more:hx-text-gray-900 contrast-more:hx-underline contrast-more:dark:hx-text-gray-50 hx-w-full hx-break-words" href="#624-%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af">6.2.4 表达式统计信息
+        </a>
+      </li></ul>
+      <div class="hx-mt-8 hx-border-t hx-bg-white hx-pt-8 hx-shadow-[0_-12px_16px_white] dark:hx-bg-dark dark:hx-shadow-[0_-12px_16px_#111] hx-sticky hx-bottom-0 hx-flex hx-flex-col hx-items-start hx-gap-2 hx-pb-8 dark:hx-border-neutral-800 contrast-more:hx-border-t contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-border-neutral-400">
+        <button aria-hidden="true" id="backToTop" onClick="scrollUp();" class="hx-transition-all hx-duration-75 hx-opacity-0 hx-text-xs hx-font-medium hx-text-gray-500 hover:hx-text-gray-900 dark:hx-text-gray-400 dark:hover:hx-text-gray-100 contrast-more:hx-text-gray-800 contrast-more:dark:hx-text-gray-50">
+          <span>Scroll to top</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="hx-inline ltr:hx-ml-1 rtl:hx-mr-1 hx-h-3.5 hx-w-3.5 hx-border hx-rounded-full hx-border-gray-500 hover:hx-border-gray-900 dark:hx-border-gray-400 dark:hover:hx-border-gray-100 contrast-more:hx-border-gray-800 contrast-more:dark:hx-border-gray-50">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+
+    <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
+      <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
+        <nav class="query-book-context" aria-label="书籍导航">
+          <a href="/">首页</a>
+          <a href="/query-optimization-18/">PostgreSQL 18 查询优化</a>
+        </nav>
+        
+          <details class="query-book-toc">
+            <summary>本章目录</summary>
+            <nav id="TableOfContents">
+  <ul>
+    <li><a href="#61-基础统计信息">6.1 基础统计信息</a>
+      <ul>
+        <li><a href="#611-表级统计信息">6.1.1 表级统计信息</a></li>
+        <li><a href="#612-空值比例">6.1.2 空值比例</a></li>
+        <li><a href="#613-非重复值的数量">6.1.3 非重复值的数量</a></li>
+        <li><a href="#614-高频值">6.1.4 高频值</a></li>
+        <li><a href="#615-直方图">6.1.5 直方图</a></li>
+        <li><a href="#616-其他统计字段">6.1.6 其他统计字段</a></li>
+        <li><a href="#617-custom-plan-与-generic-plan">6.1.7 custom plan 与 generic plan</a></li>
+      </ul>
+    </li>
+    <li><a href="#62-扩展统计信息">6.2 扩展统计信息</a>
+      <ul>
+        <li><a href="#621-函数依赖">6.2.1 函数依赖</a></li>
+        <li><a href="#622-高频值组合">6.2.2 高频值组合</a></li>
+        <li><a href="#623-非重复值组合">6.2.3 非重复值组合</a></li>
+        <li><a href="#624-表达式统计信息">6.2.4 表达式统计信息</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+          </details>
+        
+        <div class="content query-book-content">
+          <h1>第 6 章：统计信息</h1>
+          <h2>6.1 基础统计信息<span class="hx-absolute -hx-mt-20" id="61-基础统计信息"></span>
+    <a href="#61-%e5%9f%ba%e7%a1%80%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 在两个层级收集规划器所需的基础统计信息：整个关系，以及各个列。</p>
+<h3>6.1.1 表级统计信息<span class="hx-absolute -hx-mt-20" id="611-表级统计信息"></span>
+    <a href="#611-%e8%a1%a8%e7%ba%a7%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>关系级统计信息包含关系大小的估算值，即 pg_class 中的 reltuples 和 relpages 列。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 这些值十分重要，因此 PostgreSQL 不仅会在 VACUUM 和 ANALYZE 期间更新它们，也会在某些 DDL 操作之后更新，例如 CREATE INDEX 和 CREATE TABLE AS。</p>
+<p>如果当前物理文件大小与已存储的行数估算所依据的 relpages 不一致，规划器还可以按比例调整行数估算。这样，即使尚未进行下一次完整的统计信息更新，估算值也能反映表的增长。</p>
+<p>ANALYZE 从行中随机采样，而不是为了收集各列的统计信息而读取整个表。所需的样本大小不会随着表的增长而增加，而是由 <span class="marginalia" data-note="默认值：100"><em>default_statistics_target</em></span> 乘以 300 决定。</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT current_setting(&#39;default_statistics_target&#39;)::int
+</span></span><span class="line"><span class="cl">  * 300 AS rows_in_sample;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> rows_in_sample
+</span></span><span class="line"><span class="cl">----------------
+</span></span><span class="line"><span class="cl">          30000
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>对于大表，从样本得到的估算值不会完全准确。规划器通常只需要足以区分候选计划优劣的精度。数量级上的误差可能带来严重后果，而较小的采样误差往往不会。</p>
+<p>来看一个没有谓词的查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM flights;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..744.71 rows=37671 width=51)
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>行数估算来自 pg_class：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT reltuples, relpages FROM pg_class
+</span></span><span class="line"><span class="cl">WHERE relname = &#39;flights&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> reltuples | relpages
+</span></span><span class="line"><span class="cl">-----------+----------
+</span></span><span class="line"><span class="cl">     37671 |      368
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在这个例子中，它恰好与精确计数一致：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM flights;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl"> 37671
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>其余基础统计信息由 ANALYZE 按列收集，内部表示存储在 pg_statistic 中。pg_stats 视图以更易读的形式提供其中最有用的字段，同时遵守访问权限限制。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter06/images/chapter06-column-statistics.png" target="_blank" rel="noopener" aria-label="打开原图：列统计信息示意。横轴为取值，纵轴为频率；n_distinct 表示非重复值的数量或比例，null_frac 表示空值比例。">
+    <img src="/query-optimization-18/chapter06/images/chapter06-column-statistics.png" width="871" height="430" alt="列统计信息示意。横轴为取值，纵轴为频率；n_distinct 表示非重复值的数量或比例，null_frac 表示空值比例。" loading="lazy">
+  </a>
+  <figcaption>列统计信息示意。横轴为取值，纵轴为频率；n_distinct 表示非重复值的数量或比例，null_frac 表示空值比例。</figcaption>
+</figure>
+</p>
+<h3>6.1.2 空值比例<span class="hx-absolute -hx-mt-20" id="612-空值比例"></span>
+    <a href="#612-%e7%a9%ba%e5%80%bc%e6%af%94%e4%be%8b" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>pg_stats.null_frac 存储列值为 null 的行所占的比例，取值范围为 0 到 1。</p>
+<p>有些航班尚未起飞，因此 actual_departure 仍为 null：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM flights WHERE actual_departure IS NULL;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..744.71 rows=10755 width=51)
+</span></span><span class="line"><span class="cl">   Filter: (actual_departure IS NULL)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>规划器将关系的估算行数乘以 null_frac，得到结果行数的估算值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT round(37671 * null_frac) FROM pg_stats
+</span></span><span class="line"><span class="cl">WHERE tablename = &#39;flights&#39;
+</span></span><span class="line"><span class="cl">  AND attname = &#39;actual_departure&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> round
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl"> 10755
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>精确计数与之接近，但并不相同：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM flights
+</span></span><span class="line"><span class="cl">WHERE actual_departure IS NULL;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl"> 10806
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>6.1.3 非重复值的数量<span class="hx-absolute -hx-mt-20" id="613-非重复值的数量"></span>
+    <a href="#613-%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%9a%84%e6%95%b0%e9%87%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>pg_stats.n_distinct 存储列中非 null 的非重复值数量的估算值。正值表示估算的绝对数量；负值则以取负的形式表示非重复值数量与行数之比。例如，-1 表示所有值都不重复，主键通常就是这种情况。采用负值表示的好处是，这一估算可以随表的增长自然调整。</p>
+<h3>6.1.4 高频值<span class="hx-absolute -hx-mt-20" id="614-高频值"></span>
+    <a href="#614-%e9%ab%98%e9%a2%91%e5%80%bc" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果每个值出现的频率都相同，仅凭非重复值的数量，就能很好地估算等值谓词。然而，实际数据很少如此理想。因此，PostgreSQL 还存储了两项信息：</p>
+<ul>
+<li>pg_stats.most_common_vals：高频值数组，也称为 MCV 列表。</li>
+<li>pg_stats.most_common_freqs：对应的频率数组。</li>
+</ul>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter06/images/chapter06-mcv.png" target="_blank" rel="noopener" aria-label="打开原图：高频值及其频率。横轴为取值，纵轴为频率；most_common_vals 与 most_common_freqs 分别保存值及其出现频率，null_frac 单独表示空值比例。">
+    <img src="/query-optimization-18/chapter06/images/chapter06-mcv.png" width="875" height="542" alt="高频值及其频率。横轴为取值，纵轴为频率；most_common_vals 与 most_common_freqs 分别保存值及其出现频率，null_frac 单独表示空值比例。" loading="lazy">
+  </a>
+  <figcaption>高频值及其频率。横轴为取值，纵轴为频率；most_common_vals 与 most_common_freqs 分别保存值及其出现频率，null_frac 单独表示空值比例。</figcaption>
+</figure>
+</p>
+<p>对于 MCV 列表中的值，可以直接用所存储的频率作为选择率估算。列表的最大条目数由统计目标值控制。<em>default_statistics_target</em> 提供默认值，也可以通过 ALTER TABLE &hellip; ALTER COLUMN &hellip; SET STATISTICS 为单个列单独设置。增大统计目标值，还会增大 ANALYZE 使用的样本。</p>
+<p>为了避免 pg_statistic 过度膨胀，也避免规划器进行无用的工作，大于 1 kB 的值会被排除在统计和分析之外。这些大值很可能各不相同，本来也不太可能出现在 most_common_vals 中。</p>
+<p>为了进行实验，先降低到达机场这一列的统计目标值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER TABLE routes
+</span></span><span class="line"><span class="cl">ALTER COLUMN arrival_airport SET STATISTICS 10;
+</span></span><span class="line"><span class="cl">ANALYZE routes;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>孟买 (BOM) 出现得足够频繁，因此会进入 MCV 列表：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM routes WHERE arrival_airport = &#39;BOM&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                 QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=0.00..59.38 rows=55 width=103)
+</span></span><span class="line"><span class="cl">   Filter: (arrival_airport = &#39;BOM&#39;::bpchar)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>精确计数也是 55：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM routes WHERE arrival_airport = &#39;BOM&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">    55
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>查看高频值及其频率：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT unnest(most_common_vals::text::text[]) AS mcv,
+</span></span><span class="line"><span class="cl">       unnest(most_common_freqs::text::float[]) AS mcf
+</span></span><span class="line"><span class="cl">FROM pg_stats
+</span></span><span class="line"><span class="cl">WHERE tablename = &#39;routes&#39;
+</span></span><span class="line"><span class="cl">  AND attname = &#39;arrival_airport&#39;
+</span></span><span class="line"><span class="cl">ORDER BY 2 DESC;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> mcv |     mcf
+</span></span><span class="line"><span class="cl">-----+-------------
+</span></span><span class="line"><span class="cl"> BOM | 0.027093597
+</span></span><span class="line"><span class="cl"> FRA | 0.026108375
+</span></span><span class="line"><span class="cl"> SVO | 0.026108375
+</span></span><span class="line"><span class="cl"> DEL | 0.021182265
+</span></span><span class="line"><span class="cl"> ATL | 0.020689655
+</span></span><span class="line"><span class="cl"> BLR | 0.020689655
+</span></span><span class="line"><span class="cl"> CAN | 0.020689655
+</span></span><span class="line"><span class="cl"> TFU | 0.020197045
+</span></span><span class="line"><span class="cl"> CDG | 0.019211823
+</span></span><span class="line"><span class="cl"> HND | 0.019211823
+</span></span><span class="line"><span class="cl">(10 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>基数估算就是 routes 的行数乘以所存储的频率：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT round(
+</span></span><span class="line"><span class="cl">  2030 * most_common_freqs[
+</span></span><span class="line"><span class="cl">    array_position((most_common_vals::text::text[]),&#39;BOM&#39;)
+</span></span><span class="line"><span class="cl">  ]
+</span></span><span class="line"><span class="cl">)
+</span></span><span class="line"><span class="cl">FROM pg_stats
+</span></span><span class="line"><span class="cl">WHERE tablename = &#39;routes&#39;
+</span></span><span class="line"><span class="cl">  AND attname = &#39;arrival_airport&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> round
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">    55
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>MCV 数据也可以用于不等式条件的估算：PostgreSQL 可以将满足范围条件的 MCV 条目的频率相加。</p>
+<p>如果某个值不在 MCV 列表中，规划器就会假定剩余值均匀分布，据此进行估算。</p>
+<p>圣地亚哥 (SCL) 不在这个包含十个值的 MCV 列表中：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM routes
+</span></span><span class="line"><span class="cl">WHERE arrival_airport = &#39;SCL&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                 QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=0.00..59.38 rows=25 width=103)
+</span></span><span class="line"><span class="cl">   Filter: (arrival_airport = &#39;SCL&#39;::bpchar)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>精确计数为 18：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM routes
+</span></span><span class="line"><span class="cl">WHERE arrival_airport = &#39;SCL&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">    18
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>为了得到估算值，规划器先对高频值的频率求和：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT sum(f)
+</span></span><span class="line"><span class="cl">FROM pg_stats s, unnest(s.most_common_freqs) f
+</span></span><span class="line"><span class="cl">WHERE s.tablename = &#39;routes&#39;
+</span></span><span class="line"><span class="cl">  AND s.attname = &#39;arrival_airport&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    sum
+</span></span><span class="line"><span class="cl">------------
+</span></span><span class="line"><span class="cl"> 0.22118227
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>这一列有 73 个非重复值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT n_distinct
+</span></span><span class="line"><span class="cl">FROM pg_stats
+</span></span><span class="line"><span class="cl">WHERE tablename = &#39;routes&#39; AND attname = &#39;arrival_airport&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> n_distinct
+</span></span><span class="line"><span class="cl">------------
+</span></span><span class="line"><span class="cl">         73
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>其中十个已经明确列在 MCV 列表中。在没有空值的情况下，剩余的概率总量近似均匀地分配给其余 63 个值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT round( 2030 * (1 - 0.22118227) / (73 - 10) );
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> round
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">    25
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>6.1.5 直方图<span class="hx-absolute -hx-mt-20" id="615-直方图"></span>
+    <a href="#615-%e7%9b%b4%e6%96%b9%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果非重复值太多，无法通过 MCV 列表有效描述，PostgreSQL 还会构建直方图。</p>
+<p>直方图由若干个包含取值的桶组成。桶的数量同样由 <em>default_statistics_target</em> 参数控制。</p>
+<p>桶边界的选择使每个桶包含的取值数量近似相同，图中以面积相等的矩形表示。采用这种构造方式，PostgreSQL 只需在 pg_stats.histogram_bounds 中存储边界值数组。每个桶的频率为 <math><semantics><mfrac><mn>1</mn><mtext>桶数</mtext></mfrac><annotation encoding="application/x-tex">\frac{1}{\text{桶数}}</annotation></semantics></math>。</p>
+<p><figure class="query-book-figure">
+  <a class="query-diagram" href="/query-optimization-18/chapter06/images/chapter06-histogram.png" target="_blank" rel="noopener" aria-label="打开原图：等频直方图。横轴为取值，纵轴为频率；矩形面积相同，表示各桶包含近似相同数量的取值。">
+    <img src="/query-optimization-18/chapter06/images/chapter06-histogram.png" width="875" height="488" alt="等频直方图。横轴为取值，纵轴为频率；矩形面积相同，表示各桶包含近似相同数量的取值。" loading="lazy">
+  </a>
+  <figcaption>等频直方图。横轴为取值，纵轴为频率；矩形面积相同，表示各桶包含近似相同数量的取值。</figcaption>
+</figure>
+</p>
+<p>对于 field &lt; value 这样的不等式条件，规划器会估算直方图中位于边界值左侧的部分占多少。它不仅可以计入完整的桶，还可以在包含该边界值的桶内进行插值。</p>
+<p>MCV 值和空值不参与直方图的构建：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT histogram_bounds FROM pg_stats
+</span></span><span class="line"><span class="cl">WHERE tablename = &#39;routes&#39;
+</span></span><span class="line"><span class="cl">AND attname = &#39;arrival_airport&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">               histogram_bounds
+</span></span><span class="line"><span class="cl">-----------------------------------------------
+</span></span><span class="line"><span class="cl"> {AER,CKG,DFW,HEL,KZN,LHR,MXP,PKX,SVX,YEG,YYZ}
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>因此，范围条件的选择率需要结合 MCV 列表和直方图两方面的信息。</p>
+<p>来看下面的查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
+</span></span><span class="line"><span class="cl">FROM routes WHERE arrival_airport &lt;= &#39;DFW&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                  QUERY PLAN
+</span></span><span class="line"><span class="cl">----------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=0.00..59.38 rows=579 width=103)
+</span></span><span class="line"><span class="cl">   Filter: (arrival_airport &lt;= &#39;DFW&#39;::bpchar)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>精确计数为：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM routes WHERE arrival_airport &lt;= &#39;DFW&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">   609
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>落在所查询区间内的 MCV 值贡献了以下频率：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT sum( s.most_common_freqs[
+</span></span><span class="line"><span class="cl">  array_position( (s.most_common_vals::text::text[]),v )
+</span></span><span class="line"><span class="cl">] )
+</span></span><span class="line"><span class="cl">FROM pg_stats s,
+</span></span><span class="line"><span class="cl">  unnest(s.most_common_vals::text::text[]) v
+</span></span><span class="line"><span class="cl">WHERE s.tablename = &#39;routes&#39;
+</span></span><span class="line"><span class="cl">  AND s.attname = &#39;arrival_airport&#39;
+</span></span><span class="line"><span class="cl">  AND v &lt;= &#39;DFW&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    sum
+</span></span><span class="line"><span class="cl">------------
+</span></span><span class="line"><span class="cl"> 0.12955666
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>在这个例子中，DFW 恰好是第二个桶的右边界，因此十个直方图桶中有两个落在该区间内。这里没有空值，所以估算结果为：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT round(
+</span></span><span class="line"><span class="cl">  2030 * ( 0.12955666 + (1 - 0.22118227) * (2.0 / 10.0) )
+</span></span><span class="line"><span class="cl">);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> round
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">   579
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>如果边界值落在桶内部，PostgreSQL 会根据数据类型和操作符，使用适当的插值方法细化估算。</p>
+<p>对于不在 MCV 列表中的值，如果查询使用的是等值条件，直方图的作用就小得多。此时，PostgreSQL 会退回到基于剩余非重复值数量的估算方式。</p>
+<h3>6.1.6 其他统计字段<span class="hx-absolute -hx-mt-20" id="616-其他统计字段"></span>
+    <a href="#616-%e5%85%b6%e4%bb%96%e7%bb%9f%e8%ae%a1%e5%ad%97%e6%ae%b5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>还有几个统计字段会影响查询规划。</p>
+<p>pg_stats.correlation 衡量列值的逻辑顺序与行的物理顺序之间的统计相关性。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 接近 1 或 -1 表示物理顺序与列值顺序高度相关，接近零则表示相关性很弱。这会影响索引扫描的成本估算，因为较强的相关性意味着预期的堆随机访问更少。</p>
+<p>pg_class.relallvisible 存储可见性映射中标为 all-visible 的表页面数量。all-visible 页面中的所有元组都已知对当前和未来的所有事务可见。如果这样的页面不够多，规划器可能会选择位图扫描，而不是仅索引扫描。</p>
+<p>pg_stats.avg_width 存储列值的平均大小，单位为字节，用于估算操作所需的内存。</p>
+<h3>6.1.7 custom plan 与 generic plan<span class="hx-absolute -hx-mt-20" id="617-custom-plan-与-generic-plan"></span>
+    <a href="#617-custom-plan-%e4%b8%8e-generic-plan" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>使用简单查询协议时 (见第 2 章“规划与执行”)，一条语句通常在每次执行时，都作为新语句重新进行解析、规划和执行。</p>
+<p>扩展查询协议允许预备语句，这些语句可以带有参数。语法树保存在后端进程的本地内存中，规划则可以推迟到参数值已知时再进行。</p>
+<p><strong>custom plan</strong> 针对某一次执行，使用这次执行的实际参数值生成。数据分布倾斜时，这很有用，因为不同的参数值可能对应不同的最优访问方法。例如，对于很少出现的值，索引可能非常有效；对于十分常见的值，索引却可能不如顺序扫描。</p>
+<p><strong>generic plan</strong> 的生成不使用实际参数值，可以在多次执行之间复用，从而节省规划时间。当数据均匀分布、条件的选择率不取决于具体参数值时，generic plan 尤其适用。</p>
+<p>预备一个查询，并创建索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">PREPARE f(text) AS
+</span></span><span class="line"><span class="cl">SELECT * FROM flights WHERE status = $1;
+</span></span><span class="line"><span class="cl">CREATE INDEX ON flights(status);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>已取消的航班足够少，适合使用索引扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN EXECUTE f(&#39;Cancelled&#39;);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                   QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using flights_status_idx on flights
+</span></span><span class="line"><span class="cl">   (cost=0.29..59.43 rows=210 width=51)
+</span></span><span class="line"><span class="cl">   Index Cond: (status = &#39;Cancelled&#39;::text)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>已到达的航班则很多，因此 custom plan 选择顺序扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN EXECUTE f(&#39;Arrived&#39;);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..838.89 rows=26900 width=51)
+</span></span><span class="line"><span class="cl">   Filter: (status = &#39;Arrived&#39;::text)
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>再执行三次语句，使使用 custom plan 的总次数达到五次：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXECUTE f(&#39;Arrived&#39;);
+</span></span><span class="line"><span class="cl">EXECUTE f(&#39;Arrived&#39;);
+</span></span><span class="line"><span class="cl">EXECUTE f(&#39;Arrived&#39;);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>可以在 pg_prepared_statements 中查看计数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT name, generic_plans, custom_plans
+</span></span><span class="line"><span class="cl">FROM pg_prepared_statements;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> name | generic_plans | custom_plans
+</span></span><span class="line"><span class="cl">------+---------------+--------------
+</span></span><span class="line"><span class="cl"> f    |             0 |            5
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>本例在下一次执行时切换到 generic plan。generic plan 显示的是参数符号，而不是具体值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN EXECUTE f(&#39;Arrived&#39;);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Index Scan using flights_status_idx on flights  (cost=0...
+</span></span><span class="line"><span class="cl">   Index Cond: (status = $1)
+</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT name, generic_plans, custom_plans
+</span></span><span class="line"><span class="cl">FROM pg_prepared_statements;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> name | generic_plans | custom_plans
+</span></span><span class="line"><span class="cl">------+---------------+--------------
+</span></span><span class="line"><span class="cl"> f    |             1 |            5
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>对于倾斜分布的数据，这种切换可能并不理想。可以通过 <em>plan_cache_mode</em> 覆盖自动选择所使用的启发式规则：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SHOW plan_cache_mode;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> plan_cache_mode
+</span></span><span class="line"><span class="cl">-----------------
+</span></span><span class="line"><span class="cl"> auto
+</span></span><span class="line"><span class="cl">(1 row)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">SET plan_cache_mode = &#39;force_custom_plan&#39;;
+</span></span><span class="line"><span class="cl">EXPLAIN EXECUTE f(&#39;Arrived&#39;);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights  (cost=0.00..838.89 rows=26900 widt...
+</span></span><span class="line"><span class="cl">   Filter: (status = &#39;Arrived&#39;::text)
+</span></span><span class="line"><span class="cl">(2 rows)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">RESET plan_cache_mode;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h2>6.2 扩展统计信息<span class="hx-absolute -hx-mt-20" id="62-扩展统计信息"></span>
+    <a href="#62-%e6%89%a9%e5%b1%95%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>自动收集的基础统计信息，可能不足以准确估算基数和选择率。</p>
+<p>PostgreSQL 允许管理员手动指定还需要哪些额外的统计信息，即扩展统计信息。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> 你可以收集同时涵盖多个列的统计信息 (多元统计信息)，也可以收集任意表达式的统计信息。</p>
+<p>需要注意，基础统计信息针对表及其列收集，而不针对索引收集，表达式索引除外。因此，仅仅创建多列索引，并不会同时创建多元统计信息。</p>
+<p>扩展统计信息通过 CREATE STATISTICS 命令创建。定义存储在 pg_statistic_ext 中，收集到的数据存储在 pg_statistic_ext_data 中。</p>
+<p>PostgreSQL 提供了几种不同类型的多元统计信息。</p>
+<h3>6.2.1 函数依赖<span class="hx-absolute -hx-mt-20" id="621-函数依赖"></span>
+    <a href="#621-%e5%87%bd%e6%95%b0%e4%be%9d%e8%b5%96" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>函数依赖描述一列的值在多大程度上决定另一列的值。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup></p>
+<table>
+  <thead>
+      <tr>
+          <th>city</th>
+          <th>index</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Samara</td>
+          <td>443000</td>
+      </tr>
+      <tr>
+          <td>Kazan</td>
+          <td>420000</td>
+      </tr>
+      <tr>
+          <td>Nizhny Novgorod</td>
+          <td>603000</td>
+      </tr>
+      <tr>
+          <td>Veliky Novgorod</td>
+          <td>173000</td>
+      </tr>
+  </tbody>
+</table>
+<p>例如，如果邮政编码可以唯一确定城市，那么 city 和 postal_code 上的谓词就是相关的，如上表所示。</p>
+<p>来看 routes 上的两个谓词：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM routes
+</span></span><span class="line"><span class="cl">WHERE route_no = &#39;PG0085&#39; AND arrival_airport = &#39;FCO&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">     7
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>没有扩展统计信息时，估算值过低：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM routes
+</span></span><span class="line"><span class="cl">WHERE route_no = &#39;PG0085&#39; AND arrival_airport = &#39;FCO&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                       QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=4.20..22.77 rows=1 width=103)
+</span></span><span class="line"><span class="cl">   Recheck Cond: (route_no = &#39;PG0085&#39;::text)
+</span></span><span class="line"><span class="cl">   Filter: (arrival_airport = &#39;FCO&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on routes_route_no_validity_excl
+</span></span><span class="line"><span class="cl">       (cost=0.00..4.20 rows=7 width=0)
+</span></span><span class="line"><span class="cl">       Index Cond: (route_no = &#39;PG0085&#39;::text)
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>原因在于，规划器假定谓词之间互相独立，并将逻辑 AND 连接的各个条件的选择率相乘，作为整体选择率。执行计划清楚地显示了这一点：Bitmap Index Scan 节点针对 route_no 条件的估算是正确的，但经过 Bitmap Heap Scan 节点按 arrival_airport 过滤后，估算值就偏低了。然而，我们知道航线编号可以唯一确定到达机场，因此只要机场指定正确，第二个条件实际上是多余的。</p>
+<p>创建函数依赖统计信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE STATISTICS routes_dep(dependencies)
+</span></span><span class="line"><span class="cl">ON route_no, arrival_airport FROM routes;
+</span></span><span class="line"><span class="cl">ANALYZE routes;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>查看依赖关系：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT dependencies FROM pg_stats_ext
+</span></span><span class="line"><span class="cl">WHERE statistics_name = &#39;routes_dep&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     dependencies
+</span></span><span class="line"><span class="cl">----------------------
+</span></span><span class="line"><span class="cl"> {&#34;1 =&gt; 4&#34;: 1.000000}
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>冒号后的数字表示测得的、这一属性映射的依赖程度。现在估算得到改善：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM routes
+</span></span><span class="line"><span class="cl">WHERE route_no = &#39;PG0085&#39; AND arrival_airport = &#39;FCO&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                       QUERY PLAN
+</span></span><span class="line"><span class="cl">---------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=4.20..22.78 rows=7 width=103)
+</span></span><span class="line"><span class="cl">   Recheck Cond: (route_no = &#39;PG0085&#39;::text)
+</span></span><span class="line"><span class="cl">   Filter: (arrival_airport = &#39;FCO&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on routes_route_no_validity_excl
+</span></span><span class="line"><span class="cl">       (cost=0.00..4.20 rows=7 width=0)
+</span></span><span class="line"><span class="cl">       Index Cond: (route_no = &#39;PG0085&#39;::text)
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>psql 的元命令 \d routes 也会列出在该表上定义的统计信息对象。Statistics objects 部分显示它们的名称、列以及非默认的统计目标值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"> ...
+</span></span><span class="line"><span class="cl">Statistics objects:
+</span></span><span class="line"><span class="cl">    &#34;bookings.routes_dep&#34; (dependencies) ON route_no,
+</span></span><span class="line"><span class="cl">    arrival_airport FROM routes</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>6.2.2 高频值组合<span class="hx-absolute -hx-mt-20" id="622-高频值组合"></span>
+    <a href="#622-%e9%ab%98%e9%a2%91%e5%80%bc%e7%bb%84%e5%90%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>列之间可能存在相关性，但并不构成任何方向的函数依赖。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 下表列出了可能的城市与河流组合。city 和 river 上的谓词显然相关，但与前一个例子不同，任何一列都不能决定另一列：城市与河流之间是多对多关系。</p>
+<table>
+  <thead>
+      <tr>
+          <th>city</th>
+          <th>river</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Samara</td>
+          <td>Volga</td>
+      </tr>
+      <tr>
+          <td>Kazan</td>
+          <td>Volga</td>
+      </tr>
+      <tr>
+          <td>Nizhny Novgorod</td>
+          <td>Oka</td>
+      </tr>
+      <tr>
+          <td>Nizhny Novgorod</td>
+          <td>Volga</td>
+      </tr>
+      <tr>
+          <td>Veliky Novgorod</td>
+          <td>Volkhov</td>
+      </tr>
+  </tbody>
+</table>
+<p>示例数据库中也有类似的情况：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT * FROM routes
+</span></span><span class="line"><span class="cl">WHERE departure_airport = &#39;BOM&#39; AND airplane_code = &#39;7M7&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=4.69..40.71 rows=9 width=103)
+</span></span><span class="line"><span class="cl">   (actual rows=17.00 loops=1)
+</span></span><span class="line"><span class="cl">   Recheck Cond: (departure_airport = &#39;BOM&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   Filter: (airplane_code = &#39;7M7&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   Rows Removed by Filter: 38
+</span></span><span class="line"><span class="cl">   Heap Blocks: exact=27
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on routes_departure_airport_lowe...
+</span></span><span class="line"><span class="cl">       (cost=0.00..4.69 rows=55 width=0)
+</span></span><span class="line"><span class="cl">       (actual rows=55.00 loops=1)
+</span></span><span class="line"><span class="cl">       Index Cond: (departure_airport = &#39;BOM&#39;::bpchar)
+</span></span><span class="line"><span class="cl">       Index Searches: 1
+</span></span><span class="line"><span class="cl">(12 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>规划器低估了行数。为这两列建立 MCV 统计信息后，估算就正确了：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE STATISTICS (mcv)
+</span></span><span class="line"><span class="cl">ON departure_airport, airplane_code FROM routes;
+</span></span><span class="line"><span class="cl">ANALYZE routes;
+</span></span><span class="line"><span class="cl">EXPLAIN SELECT * FROM routes
+</span></span><span class="line"><span class="cl">WHERE departure_airport = &#39;BOM&#39; AND airplane_code = &#39;7M7&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on routes
+</span></span><span class="line"><span class="cl">   (cost=4.69..40.72 rows=17 width=103)
+</span></span><span class="line"><span class="cl">   Recheck Cond: (departure_airport = &#39;BOM&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   Filter: (airplane_code = &#39;7M7&#39;::bpchar)
+</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on routes_departure_airport_lowe...
+</span></span><span class="line"><span class="cl">       (cost=0.00..4.69 rows=55 width=0)
+</span></span><span class="line"><span class="cl">       Index Cond: (departure_airport = &#39;BOM&#39;::bpchar)
+</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>可以使用 pg_mcv_list_items 函数查看多元 MCV 数据：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT values, frequency
+</span></span><span class="line"><span class="cl">FROM pg_statistic_ext
+</span></span><span class="line"><span class="cl">  JOIN pg_statistic_ext_data ON oid = stxoid,
+</span></span><span class="line"><span class="cl">  pg_mcv_list_items(stxdmcv) m
+</span></span><span class="line"><span class="cl">WHERE stxname = &#39;routes_departure_airport_airplane_code_stat&#39;
+</span></span><span class="line"><span class="cl">LIMIT 3;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  values   |      frequency
+</span></span><span class="line"><span class="cl">-----------+----------------------
+</span></span><span class="line"><span class="cl"> {FRA,77W} | 0.009852216748768473
+</span></span><span class="line"><span class="cl"> {BOM,7M7} | 0.008374384236453201
+</span></span><span class="line"><span class="cl"> {PVG,77W} | 0.008374384236453201
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<h3>6.2.3 非重复值组合<span class="hx-absolute -hx-mt-20" id="623-非重复值组合"></span>
+    <a href="#623-%e9%9d%9e%e9%87%8d%e5%a4%8d%e5%80%bc%e7%bb%84%e5%90%88" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>分组是另一种规划器可能估算出错的情况。多元 ndistinct 统计信息可以改善按多个列分组时的估算。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>
+<p>在下面的例子中，所有字段可能形成的组合数，显然不能简单地通过各列非重复值数量相乘得到。</p>
+<table>
+  <thead>
+      <tr>
+          <th>city</th>
+          <th>region</th>
+          <th>index</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Samara</td>
+          <td>Samara Oblast</td>
+          <td>443000</td>
+      </tr>
+      <tr>
+          <td>Kazan</td>
+          <td>Republic of Tatarstan</td>
+          <td>420000</td>
+      </tr>
+      <tr>
+          <td>Nizhny Novgorod</td>
+          <td>Nizhny Novgorod Oblast</td>
+          <td>603000</td>
+      </tr>
+      <tr>
+          <td>Veliky Novgorod</td>
+          <td>Novgorod Oblast</td>
+          <td>173000</td>
+      </tr>
+  </tbody>
+</table>
+<p>统计有直达航线的非重复机场对数量：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM (
+</span></span><span class="line"><span class="cl">  SELECT DISTINCT departure_airport, arrival_airport
+</span></span><span class="line"><span class="cl">  FROM routes
+</span></span><span class="line"><span class="cl">);
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> count
+</span></span><span class="line"><span class="cl">-------
+</span></span><span class="line"><span class="cl">   932
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>没有多元非重复值统计信息时，规划器严重低估了分组数量：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT DISTINCT departure_airport, arrival_airport
+</span></span><span class="line"><span class="cl">FROM routes;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                   QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------
+</span></span><span class="line"><span class="cl"> HashAggregate
+</span></span><span class="line"><span class="cl">   (cost=64.45..66.48 rows=203 width=8)
+</span></span><span class="line"><span class="cl">   Group Key: departure_airport, arrival_airport
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on routes
+</span></span><span class="line"><span class="cl">       (cost=0.00..54.30 rows=2030 width=8)
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>创建一个扩展统计信息对象。如果不指定类型，PostgreSQL 会包含所有适用且受支持的多元统计信息类型：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE STATISTICS
+</span></span><span class="line"><span class="cl">ON departure_airport, arrival_airport FROM routes;
+</span></span><span class="line"><span class="cl">ANALYZE routes;
+</span></span><span class="line"><span class="cl">EXPLAIN SELECT DISTINCT departure_airport, arrival_airport
+</span></span><span class="line"><span class="cl">FROM routes;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                   QUERY PLAN
+</span></span><span class="line"><span class="cl">-------------------------------------------------
+</span></span><span class="line"><span class="cl"> HashAggregate
+</span></span><span class="line"><span class="cl">   (cost=64.45..73.77 rows=932 width=8)
+</span></span><span class="line"><span class="cl">   Group Key: departure_airport, arrival_airport
+</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on routes
+</span></span><span class="line"><span class="cl">       (cost=0.00..54.30 rows=2030 width=8)
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>估算得到了改善。查看存储的估算值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT n_distinct
+</span></span><span class="line"><span class="cl">FROM pg_stats_ext
+</span></span><span class="line"><span class="cl">WHERE statistics_name =
+</span></span><span class="line"><span class="cl">    &#39;routes_departure_airport_arrival_airport_stat&#39;;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  n_distinct
+</span></span><span class="line"><span class="cl">---------------
+</span></span><span class="line"><span class="cl"> {&#34;3, 4&#34;: 932}
+</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>\dX 可以列出扩展统计信息对象。统计值本身存储在 pg_statistic_ext_data 中。</p>
+<h3>6.2.4 表达式统计信息<span class="hx-absolute -hx-mt-20" id="624-表达式统计信息"></span>
+    <a href="#624-%e8%a1%a8%e8%be%be%e5%bc%8f%e7%bb%9f%e8%ae%a1%e4%bf%a1%e6%81%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>扩展统计信息还可以为表达式收集常规的单变量统计信息，就像表中有一个存储该表达式结果的列一样。</p>
+<table>
+  <thead>
+      <tr>
+          <th>city</th>
+          <th>index</th>
+          <th>address</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Samara</td>
+          <td>443000</td>
+          <td>443000, Samara</td>
+      </tr>
+      <tr>
+          <td>Kazan</td>
+          <td>420000</td>
+          <td>420000, Kazan</td>
+      </tr>
+      <tr>
+          <td>Nizhny Novgorod</td>
+          <td>603000</td>
+          <td>603000, Nizhny Novgorod</td>
+      </tr>
+      <tr>
+          <td>Veliky Novgorod</td>
+          <td>173000</td>
+          <td>173000, Veliky Novgorod</td>
+      </tr>
+  </tbody>
+</table>
+<p>表达式也可以与列或其他表达式一起参与多元统计信息的收集。</p>
+<p>如果没有表达式统计信息，当谓词的操作数是表达式时，规划器由于缺少该表达式本身的分布数据，可能只能采用通用的默认选择率。例如：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
+</span></span><span class="line"><span class="cl">SELECT * FROM flights
+</span></span><span class="line"><span class="cl">WHERE extract( month FROM scheduled_departure
+</span></span><span class="line"><span class="cl">               AT TIME ZONE &#39;Europe/Moscow&#39; ) = 1;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..1027.24 rows=188 width=51)
+</span></span><span class="line"><span class="cl">   (actual rows=5529.00 loops=1)
+</span></span><span class="line"><span class="cl">   Filter: (EXTRACT(month FROM (scheduled_departure AT T...
+</span></span><span class="line"><span class="cl">   Rows Removed by Filter: 32142
+</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>估算值远低于实际行数。提供统计信息的一种方式是创建表达式索引，但即使查询访问并不需要这个索引，它仍会占用存储空间，并带来维护成本。如果目的只是改善估算，可以改为创建表达式统计信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE STATISTICS
+</span></span><span class="line"><span class="cl">ON extract( month FROM scheduled_departure
+</span></span><span class="line"><span class="cl">            AT TIME ZONE &#39;Europe/Moscow&#39; )
+</span></span><span class="line"><span class="cl">FROM flights;
+</span></span><span class="line"><span class="cl">ANALYZE flights;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN
+</span></span><span class="line"><span class="cl">SELECT * FROM flights
+</span></span><span class="line"><span class="cl">WHERE extract( month FROM scheduled_departure
+</span></span><span class="line"><span class="cl">               AT TIME ZONE &#39;Europe/Moscow&#39; ) = 1;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                         QUERY PLAN
+</span></span><span class="line"><span class="cl">------------------------------------------------------------
+</span></span><span class="line"><span class="cl"> Seq Scan on flights
+</span></span><span class="line"><span class="cl">   (cost=0.00..1027.24 rows=5561 width=51)
+</span></span><span class="line"><span class="cl">   Filter: (EXTRACT(month FROM (scheduled_departure AT T...
+</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>现在估算值已接近实际值。</p>
+<p>可以通过 pg_stats_ext_exprs 视图查看表达式统计信息：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT statistics_name, left(expr,40) AS expr,
+</span></span><span class="line"><span class="cl">  n_distinct, most_common_vals
+</span></span><span class="line"><span class="cl">FROM pg_stats_ext_exprs \gx
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">-[ RECORD 1 ]----+-----------------------------------------
+</span></span><span class="line"><span class="cl">statistics_name  | flights_expr_stat
+</span></span><span class="line"><span class="cl">expr             | EXTRACT(month FROM (scheduled_departure
+</span></span><span class="line"><span class="cl">n_distinct       | 7
+</span></span><span class="line"><span class="cl">most_common_vals | {10,1,12,11,3,4,2}</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<p>清理本章创建的对象：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
+  
+
+<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX flights_status_idx;
+</span></span><span class="line"><span class="cl">DROP INDEX
+</span></span><span class="line"><span class="cl">SELECT &#39;DROP STATISTICS &#39; || statistics_name
+</span></span><span class="line"><span class="cl">FROM pg_stats_ext \gexec
+</span></span><span class="line"><span class="cl">DROP STATISTICS
+</span></span><span class="line"><span class="cl">DROP STATISTICS
+</span></span><span class="line"><span class="cl">DROP STATISTICS
+</span></span><span class="line"><span class="cl">DROP STATISTICS</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+  <button
+    class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
+    title="Copy code"
+  >
+    <div class="copy-icon group-[.copied]/copybtn:hx-hidden hx-pointer-events-none hx-h-4 hx-w-4"></div>
+    <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
+  </button>
+</div>
+
+  
+</div>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p><a href="https://www.postgresql.org/docs/18/row-estimation-examples">PostgreSQL 18：行估算示例</a>
+。&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p><a href="https://www.postgresql.org/docs/18/view-pg-stats">PostgreSQL 18：pg_stats</a>
+。&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p><a href="https://www.postgresql.org/docs/18/planner-stats#PLANNER-STATS-EXTENDED">PostgreSQL 18：扩展统计信息</a>
+。&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:4">
+<p><a href="https://www.postgresql.org/docs/18/planner-stats#PLANNER-STATS-EXTENDED-FUNCTIONAL-DEPS">PostgreSQL 18：函数依赖</a>
+。&#160;<a href="#fnref:4" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:5">
+<p><a href="https://www.postgresql.org/docs/18/planner-stats#PLANNER-STATS-EXTENDED-MCV-LISTS">PostgreSQL 18：多元 MCV 列表</a>
+。&#160;<a href="#fnref:5" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:6">
+<p><a href="https://www.postgresql.org/docs/18/planner-stats#PLANNER-STATS-EXTENDED-N-DISTINCT-COUNTS">PostgreSQL 18：多元非重复值数量</a>
+。&#160;<a href="#fnref:6" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+
+        </div>
+        <div class="hx-mt-16"></div>
+        
+
+<nav class="query-book-pager" aria-label="前后篇">
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+      <div>
+        
+          <a rel="prev" href="/query-optimization-18/chapter05/"><small>上一篇</small>第 5 章：连接方法</a>
+        
+      </div>
+      <div>
+        
+          <a rel="next" href="/query-optimization-18/chapter07/"><small>下一篇</small>第 7 章：性能剖析</a>
+        
+      </div>
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+</nav>
+
+        
+      </main>
+    </article>
+  </div>
+
+      <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
+    class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
+  >
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+    </div>
+  </div>
+</footer>
+    
+    <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
+
+
+<script defer src="/lib/flexsearch/flexsearch.bundle.min.0425860527cc9968f9f049421c7a56b39327d475e2e3a8f550416be3a9134327.js" integrity="sha256-BCWGBSfMmWj58ElCHHpWs5Mn1HXi46j1UEFr46kTQyc="></script>
+    <script defer src="/en.search.min.4a72af14c5044971882cecddc91b1d5027c5a1ce9145e85eae7ee5145e971777.js" integrity="sha256-SnKvFMUESXGILOzdyRsdUCfFoc6RRehern7lFF6XF3c="></script>
+
+
+  </body>
+</html>
