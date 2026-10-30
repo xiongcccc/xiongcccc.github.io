@@ -30,7 +30,7 @@
   
   <meta itemprop="name" content="第 5 章：连接方法">
   <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 5 章：连接方法。对应原书第 85–101 页。">
-  <meta itemprop="wordCount" content="1271">
+  <meta itemprop="wordCount" content="1314">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 5 章：连接方法">
   <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 5 章：连接方法。对应原书第 85–101 页。">
@@ -75,6 +75,12 @@
 
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
+  
+    
+    <link rel="stylesheet" href="/plan-callouts.min.b1691331e23c7fed70b8d26cb0fef1456425ce9de33255888750f9d1a7d555f4.css">
+    
+    <script defer src="/js/plan-callouts.min.ce831018bed7f3f3f6079760ef6c1feec719bb6e09949467519dc89930e29b12.js"></script>
+  
 
 
   
@@ -548,6 +554,10 @@
 
   
 </div>
+<div class="query-plan-notes" data-plan-node="Nested Loop" role="note" aria-label="执行计划标注">
+<p data-label="outer input"><strong>outer input（外集合）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
+<p data-label="inner input"><strong>inner input（内集合）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
+</div>
 <p>这是一个<strong>参数化的嵌套循环连接</strong>。外集合的 Index Scan 返回一行机票数据，该行的 t.ticket_no 值成为内集合中 segments 的 Index Scan 的参数。每次迭代时，内集合中的查找实际上都采用 ticket_no = constant 这样的条件。这个过程持续到外集合读取完毕。</p>
 <p>再看另一个嵌套循环。对于两个给定距离，我们分别列出航程足够的飞机：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
@@ -621,6 +631,10 @@
 </div>
 
   
+</div>
+<div class="query-plan-notes" data-plan-node="Nested Loop" role="note" aria-label="执行计划标注">
+<p data-label="caching"><strong>caching（缓存）</strong>：<code>Memoize</code></p>
+<p data-label="inner input"><strong>inner input（内集合）</strong>：<code>Memoize</code> 下方的 <code>Index Scan using airports_data_pkey</code></p>
 </div>
 <p>这个例子是特意选择的：传给内集合的参数只有 BOM 和 SVO 两个非重复值。</p>
 <p>每个值的首次查找都未命中缓存，因此 Misses: 2。</p>
@@ -701,6 +715,9 @@
 </div>
 
   
+</div>
+<div class="query-plan-notes" data-plan-node="Hash Join" role="note" aria-label="执行计划标注">
+<p data-label="hash table"><strong>hash table（哈希表）</strong>：<code>Hash</code></p>
 </div>
 <p>Hash Join 首先让其 Hash 子节点读取内集合并构建哈希表，然后读取外集合，在哈希表中查找匹配项，找到后就返回。</p>
 <p>运行查询：</p>
@@ -960,6 +977,10 @@
 </div>
 
   
+</div>
+<div class="query-plan-notes" data-plan-node="Merge Join" role="note" aria-label="执行计划标注">
+<p data-label="one input"><strong>one input（一个输入）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
+<p data-label="the other input"><strong>the other input（另一个输入）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
 </div>
 <p>本例利用了归并连接的一个重要性质：按排序顺序返回连接结果。 因此，生成的行集可以直接用于另一次归并连接，无须额外排序；也可以像本例一样直接返回给客户端。</p>
 <p>在下一个例子中，一个 Merge Join 从另一个 Merge Join 接收有序行集：</p>
