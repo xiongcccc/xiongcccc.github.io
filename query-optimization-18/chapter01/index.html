@@ -450,7 +450,6 @@
 <p>示例数据库网站提供四种数据规模的版本。本书使用 2025 年 9 月 1 日版，包含六个月的航班数据，数据库大小约为 2.7 GB。</p>
 <p>可以通过下面的函数查看版本：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT bookings.version();
 </span></span><span class="line"><span class="cl">
@@ -466,13 +465,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h2>1.2 主要实体<span class="hx-absolute -hx-mt-20" id="12-主要实体"></span>
+</div><h2>1.2 主要实体<span class="hx-absolute -hx-mt-20" id="12-主要实体"></span>
     <a href="#12-%e4%b8%bb%e8%a6%81%e5%ae%9e%e4%bd%93" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>数据库的核心实体是<strong>预订</strong> (bookings)。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM bookings b WHERE b.book_ref = &#39;03RUKL&#39;;
 </span></span><span class="line"><span class="cl">
@@ -488,12 +483,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这一行给出了预订日期和总金额。随着实际时间的推移，这笔预订距今的时间每天都在增加：</p>
+</div><p>这一行给出了预订日期和总金额。随着实际时间的推移，这笔预订距今的时间每天都在增加：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT now() - b.book_date
 </span></span><span class="line"><span class="cl">FROM bookings b
@@ -511,12 +502,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>不过，示例数据库有一个固定的“当前”时间：</p>
+</div><p>不过，示例数据库有一个固定的“当前”时间：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT bookings.now();
 </span></span><span class="line"><span class="cl">
@@ -532,12 +519,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>以这个固定时间为参照，预订距今的时间就短得多：</p>
+</div><p>以这个固定时间为参照，预订距今的时间就短得多：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT bookings.now() - b.book_date
 </span></span><span class="line"><span class="cl">FROM bookings b
@@ -555,13 +538,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>一次预订可以包含多名乘客。每位乘客都会获得一张单独的去程<strong>机票</strong> (tickets)；如果需要返程，还会另外签发一张返程机票。</p>
+</div><p>一次预订可以包含多名乘客。每位乘客都会获得一张单独的去程<strong>机票</strong> (tickets)；如果需要返程，还会另外签发一张返程机票。</p>
 <p>选中的这次预订包含以下机票：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT t.ticket_no, t.passenger_id, t.passenger_name
 </span></span><span class="line"><span class="cl">FROM bookings b
@@ -583,13 +562,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>如果出发地与目的地之间有直达航班，一张机票只包含一个<strong>航段</strong> (segments)；如果途中需要转机，则包含多个航段。</p>
+</div><p>如果出发地与目的地之间有直达航班，一张机票只包含一个<strong>航段</strong> (segments)；如果途中需要转机，则包含多个航段。</p>
 <p>这些乘客的行程包含哪些航段？我们只需查看其中一名乘客，因为同一次预订中的所有乘客都采用相同的行程：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT s.*
 </span></span><span class="line"><span class="cl">FROM tickets t
@@ -609,12 +584,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>上面是去程机票。再对比一下返程机票：</p>
+</div><p>上面是去程机票。再对比一下返程机票：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl"> ticket_no     | flight_id | fare_conditions | price
 </span></span><span class="line"><span class="cl">---------------+-----------+-----------------+---------
@@ -631,14 +602,10 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>去程与返程的行程不一定相同：Evgeniy 在返程途中需要转机三次，其中两个<strong>航班</strong> (flights) 的舱位等级为 Comfort。</p>
+</div><p>去程与返程的行程不一定相同：Evgeniy 在返程途中需要转机三次，其中两个<strong>航班</strong> (flights) 的舱位等级为 Comfort。</p>
 <p>每个航班沿一条<strong>航线</strong> (routes) 从一个机场飞往另一个机场。具有相同航线编号的记录，其出发机场和到达机场相同，而具体航班则因出发日期而不同。</p>
 <p>要查出所选航班对应的航线，我们还必须考虑这些表之间的时间关联。航班时刻表会不时调整，因此连接时不仅要匹配航线编号，还要确保航班的出发时间落在该航线的有效期内。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT r.route_no, f.scheduled_departure, f.status,
 </span></span><span class="line"><span class="cl">  r.departure_airport dep, r.arrival_airport arr
@@ -663,12 +630,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p><strong>航班时刻表</strong> (timetable) 视图隐藏了这些复杂细节。它就像机场的航班信息显示屏，展示我们需要的信息，而不必让我们关心两张表之间的连接：</p>
+</div><p><strong>航班时刻表</strong> (timetable) 视图隐藏了这些复杂细节。它就像机场的航班信息显示屏，展示我们需要的信息，而不必让我们关心两张表之间的连接：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT tt.route_no, tt.scheduled_departure, tt.status,
 </span></span><span class="line"><span class="cl">  tt.departure_airport dep, tt.arrival_airport arr
@@ -693,13 +656,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>两个去程航班和一个返程航班都已到达，状态为 Arrived。在示例数据库的当前时间，乘客正从 CDG 飞往 MUC，状态为 Departed。其余航班尚未开始办理登机手续 (check-in)，状态为 Scheduled。</p>
+</div><p>两个去程航班和一个返程航班都已到达，状态为 Arrived。在示例数据库的当前时间，乘客正从 CDG 飞往 MUC，状态为 Departed。其余航班尚未开始办理登机手续 (check-in)，状态为 Scheduled。</p>
 <p><strong>机场</strong> (airports) 使用标准的三字母机场代码作为键。下面是一个机场的完整记录：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM airports WHERE airport_code = &#39;CDG&#39; \gx
 </span></span><span class="line"><span class="cl">
@@ -718,12 +677,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>下面是我们关注的那条航线：</p>
+</div><p>下面是我们关注的那条航线：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT lower(r.validity) valid_from,
 </span></span><span class="line"><span class="cl">  upper(r.validity) valid_to, r.airplane_code,
@@ -747,12 +702,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>在这个有效期内，该航线每周七天都有航班，由 CR7 型<strong>飞机</strong> (airplanes) 执飞：</p>
+</div><p>在这个有效期内，该航线每周七天都有航班，由 CR7 型<strong>飞机</strong> (airplanes) 执飞：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM airplanes WHERE airplane_code = &#39;CR7&#39;;
 </span></span><span class="line"><span class="cl">
@@ -768,13 +719,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>飞机上的<strong>座位</strong> (seats) 数量及各舱位等级的座位分布，取决于执飞机型。在示例数据库中，同一型号的飞机都采用相同的客舱布局。</p>
+</div><p>飞机上的<strong>座位</strong> (seats) 数量及各舱位等级的座位分布，取决于执飞机型。在示例数据库中，同一型号的飞机都采用相同的客舱布局。</p>
 <p>例如，下面是第一排座位：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT s.*
 </span></span><span class="line"><span class="cl">FROM airplanes a
@@ -796,12 +743,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这些都是商务舱 (Business) 座位。下面统计这架飞机各舱位等级的座位总数：</p>
+</div><p>这些都是商务舱 (Business) 座位。下面统计这架飞机各舱位等级的座位总数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT s.fare_conditions, count(*)
 </span></span><span class="line"><span class="cl">FROM seats s
@@ -822,12 +765,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>下面是所选航线上一个航班的完整记录。实际出发和到达时间可能与计划时间有所不同：通常相差不大 (本例的出发时间晚了六分钟)，但有时也会相差数小时：</p>
+</div><p>下面是所选航线上一个航班的完整记录。实际出发和到达时间可能与计划时间有所不同：通常相差不大 (本例的出发时间晚了六分钟)，但有时也会相差数小时：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM flights f
 </span></span><span class="line"><span class="cl">WHERE f.flight_id = 27013 \gx
@@ -848,13 +787,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>乘客为首个航班办理登机手续时，会获得该张机票上所有航班的<strong>登机牌</strong> (boarding_passes)。登机牌上注明了座位。航班与座位的组合是唯一的：两名乘客不能占用同一个座位。登机时，登机牌上会记录乘客的登机序号，以及通过登机口的时间。</p>
+</div><p>乘客为首个航班办理登机手续时，会获得该张机票上所有航班的<strong>登机牌</strong> (boarding_passes)。登机牌上注明了座位。航班与座位的组合是唯一的：两名乘客不能占用同一个座位。登机时，登机牌上会记录乘客的登机序号，以及通过登机口的时间。</p>
 <p>这位乘客已经坐过或将要坐在哪些座位上？</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT f.status, f.flight_id, bp.seat_no, bp.boarding_no
 </span></span><span class="line"><span class="cl">FROM tickets t
@@ -883,12 +818,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>示例数据库可以用不同语言显示机场、城市、国家和飞机名称。显示语言由在数据库级别设置的配置参数 <em>bookings.lang</em> 控制：</p>
+</div><p>示例数据库可以用不同语言显示机场、城市、国家和飞机名称。显示语言由在数据库级别设置的配置参数 <em>bookings.lang</em> 控制：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SHOW bookings.lang;
 </span></span><span class="line"><span class="cl">
@@ -904,12 +835,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>将当前会话的显示语言切换为俄语：</p>
+</div><p>将当前会话的显示语言切换为俄语：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET bookings.lang = &#39;ru&#39;;
 </span></span><span class="line"><span class="cl">SELECT * FROM airports a WHERE a.airport_code = &#39;SVO&#39; \gx
@@ -929,12 +856,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这一功能通过基表上的视图实现，多语言名称以 JSON 形式存储在基表中：</p>
+</div><p>这一功能通过基表上的视图实现，多语言名称以 JSON 形式存储在基表中：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT ml.airport_name, ml.country, ml.city
 </span></span><span class="line"><span class="cl">FROM airports_data ml
@@ -952,12 +875,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>最后，汇总一下示例数据库中的表和视图：</p>
+</div><p>最后，汇总一下示例数据库中的表和视图：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">\dtv
 </span></span><span class="line"><span class="cl">
@@ -985,10 +904,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="footnotes" role="doc-endnotes">
+</div><div class="footnotes" role="doc-endnotes">
 <hr>
 <ol>
 <li id="fn:1">

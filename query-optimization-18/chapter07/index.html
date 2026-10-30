@@ -76,6 +76,11 @@
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
+  
 
 
   
@@ -532,7 +537,6 @@
 <p>当 <em>compute_query_id</em> 设置为 auto 或 on 时，PostgreSQL 内核会计算查询标识符。这样就可以使用统一的标识符，关联不同扩展提供的信息。<sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup></p>
 <p>启用 pg_stat_statements 扩展，后面将用它进行性能剖析：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE EXTENSION pg_stat_statements;
 </span></span><span class="line"><span class="cl">CREATE EXTENSION
@@ -547,12 +551,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>随后需要重启服务器。</p>
+</div><p>随后需要重启服务器。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">postgres$ pg_ctl restart -l /home/postgres/logfile
 </span></span><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/psql demo</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -564,12 +564,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>下面的示例还需要收集嵌套语句的统计信息：</p>
+</div><p>下面的示例还需要收集嵌套语句的统计信息：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET pg_stat_statements.track = &#39;all&#39;;
 </span></span><span class="line"><span class="cl">SET</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -581,12 +577,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>创建一个简洁的视图，只保留我们要查看的字段：</p>
+</div><p>创建一个简洁的视图，只保留我们要查看的字段：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE VIEW statements_v AS
 </span></span><span class="line"><span class="cl">SELECT
@@ -609,12 +601,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在来看一份按机型和舱位等级统计旅客人数的报表。先定义一个函数，统计指定机型、指定舱位等级的旅客人数：</p>
+</div><p>现在来看一份按机型和舱位等级统计旅客人数的报表。先定义一个函数，统计指定机型、指定舱位等级的旅客人数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION qty(
 </span></span><span class="line"><span class="cl">  airplane_code text, fare_conditions text
@@ -637,12 +625,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>再基于它构建一个返回表的函数：</p>
+</div><p>再基于它构建一个返回表的函数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION report()
 </span></span><span class="line"><span class="cl">RETURNS TABLE(
@@ -674,12 +658,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>重置语句执行统计，然后执行报表：</p>
+</div><p>重置语句执行统计，然后执行报表：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT pg_stat_statements_reset();
 </span></span><span class="line"><span class="cl">SELECT * FROM report();
@@ -704,46 +684,40 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在查看性能剖析结果：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM statements_v \gx
-</span></span><span class="line"><span class="cl">-[ RECORD 1 ]----------------------------------
-</span></span><span class="line"><span class="cl">queryid     | -3009688052632882778
-</span></span><span class="line"><span class="cl">toplevel    | t
-</span></span><span class="line"><span class="cl">query       | SELECT * FROM report()
-</span></span><span class="line"><span class="cl">calls       | 1
-</span></span><span class="line"><span class="cl">time_sec    | 28.311
-</span></span><span class="line"><span class="cl">shared_blks | 9417875
-</span></span><span class="line"><span class="cl">-[ RECORD 2 ]----------------------------------
-</span></span><span class="line"><span class="cl">queryid     | -3792749405278051211
-</span></span><span class="line"><span class="cl">toplevel    | f
-</span></span><span class="line"><span class="cl">query       | SELECT count(*)                    +
-</span></span><span class="line"><span class="cl">            |   FROM timetable tt                +
-</span></span><span class="line"><span class="cl">            |   JOIN boarding_passe
-</span></span><span class="line"><span class="cl">calls       | 30
-</span></span><span class="line"><span class="cl">time_sec    | 28.292
-</span></span><span class="line"><span class="cl">shared_blks | 9416655
-</span></span><span class="line"><span class="cl">-[ RECORD 3 ]----------------------------------
-</span></span><span class="line"><span class="cl">queryid     | 704897965492952962
-</span></span><span class="line"><span class="cl">toplevel    | f
-</span></span><span class="line"><span class="cl">query       | SELECT a.airplane_code, a.model    +
-</span></span><span class="line"><span class="cl">            |   FROM airplanes a                +
-</span></span><span class="line"><span class="cl">            |   ORDE
-</span></span><span class="line"><span class="cl">calls       | 1
-</span></span><span class="line"><span class="cl">time_sec    | 0
-</span></span><span class="line"><span class="cl">shared_blks | 4
-</span></span><span class="line"><span class="cl">-[ RECORD 4 ]----------------------------------
-</span></span><span class="line"><span class="cl">queryid     | -3948231919979109674
-</span></span><span class="line"><span class="cl">toplevel    | t
-</span></span><span class="line"><span class="cl">query       | SELECT pg_stat_statements_reset()
-</span></span><span class="line"><span class="cl">calls       | 1
-</span></span><span class="line"><span class="cl">time_sec    | 0
-</span></span><span class="line"><span class="cl">shared_blks | 0</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+</div><p>现在查看性能剖析结果：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SELECT * FROM statements_v \gx
+-[ RECORD 1 ]----------------------------------
+queryid     | -3009688052632882778
+toplevel    | t
+query       | SELECT * FROM report()
+calls       | 1
+time_sec    | 28.311
+shared_blks | <mark class="plan-highlight" data-source-page="135">9417875</mark>
+-[ RECORD 2 ]----------------------------------
+queryid     | -3792749405278051211
+toplevel    | f
+query       | SELECT count(*)                    +
+            |   FROM timetable tt                +
+            |   JOIN boarding_passe
+calls       | 30
+time_sec    | 28.292
+shared_blks | 9416655
+-[ RECORD 3 ]----------------------------------
+queryid     | 704897965492952962
+toplevel    | f
+query       | SELECT a.airplane_code, a.model    +
+            |   FROM airplanes a                +
+            |   ORDE
+calls       | 1
+time_sec    | 0
+shared_blks | 4
+-[ RECORD 4 ]----------------------------------
+queryid     | -3948231919979109674
+toplevel    | t
+query       | SELECT pg_stat_statements_reset()
+calls       | 1
+time_sec    | 0
+shared_blks | 0</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -752,10 +726,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>其中有三个值得关注的条目：</p>
+</div><p>其中有三个值得关注的条目：</p>
 <ul>
 <li>顶层的 report() 调用。</li>
 <li>qty 内部的查询，执行了 30 次。</li>
@@ -772,7 +743,6 @@
 <p>有时，查询执行时间太长，使用 EXPLAIN ANALYZE 并不现实。此时只能先使用普通的 EXPLAIN，在信息不完整的情况下尝试找出低效的原因。</p>
 <p>现在将旅客报表改写为一条 SQL 查询，并查看它的执行情况：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="k">EXPLAIN</span><span class="w"> </span><span class="p">(</span><span class="k">analyze</span><span class="p">,</span><span class="w"> </span><span class="n">costs</span><span class="w"> </span><span class="k">off</span><span class="p">,</span><span class="w"> </span><span class="n">timing</span><span class="w"> </span><span class="k">off</span><span class="p">)</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">WITH</span><span class="w"> </span><span class="n">rf</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">MATERIALIZED</span><span class="w"> </span><span class="p">(</span><span class="w">
@@ -809,59 +779,53 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>从下面的输出可以看出，较大的计划并不总是适合直接以文本形式阅读。借助第三方工具，可以更直观地查看计划，例如 explain.tensor.ru。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
+</div><p>从下面的输出可以看出，较大的计划并不总是适合直接以文本形式阅读。借助第三方工具，可以更直观地查看计划，例如 explain.tensor.ru。<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup></p>
 <p>注意，消除重复读取之后，查询执行时间缩短了多少，页面读取量又减少了多少：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Sort (actual rows=10.00 loops=1)
-</span></span><span class="line"><span class="cl">   Sort Key: ((ml.model -&gt;&gt; current_setting(&#39;bookings.la...
-</span></span><span class="line"><span class="cl">   Sort Method: quicksort  Memory: 25kB
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=13059 read=37154
-</span></span><span class="line"><span class="cl">   CTE rf
-</span></span><span class="line"><span class="cl">     -&gt; Hash Join (actual rows=37671.00 loops=1)
-</span></span><span class="line"><span class="cl">          Hash Cond: (f.route_no = r.route_no)
-</span></span><span class="line"><span class="cl">          Join Filter: (r.validity @&gt; f.scheduled_departure)
-</span></span><span class="line"><span class="cl">          Rows Removed by Join Filter: 115016
-</span></span><span class="line"><span class="cl">          Buffers: shared hit=397 read=5
-</span></span><span class="line"><span class="cl">          -&gt; Seq Scan on flights f (actual rows=37671.00 ...
-</span></span><span class="line"><span class="cl">               Buffers: shared hit=368
-</span></span><span class="line"><span class="cl">          -&gt; Hash (actual rows=2030.00 loops=1)
-</span></span><span class="line"><span class="cl">               Buckets: 2048  Batches: 1  Memory Usage: 145kB
-</span></span><span class="line"><span class="cl">               Buffers: shared hit=29 read=5
-</span></span><span class="line"><span class="cl">               -&gt; Seq Scan on routes r (actual rows=2030.0...
-</span></span><span class="line"><span class="cl">                    Buffers: shared hit=29 read=5
-</span></span><span class="line"><span class="cl"> ...
-</span></span><span class="line"><span class="cl">                    Buffers: shared hit=13059 read=37153
-</span></span><span class="line"><span class="cl">                    -&gt; Hash Join (actual rows=5982418.00 ...
-</span></span><span class="line"><span class="cl">                         Hash Cond: ((rf.airplane_code = s...
-</span></span><span class="line"><span class="cl">                         Buffers: shared hit=13059 read=37153
-</span></span><span class="line"><span class="cl">                         -&gt; Hash Join (actual rows=5982418...
-</span></span><span class="line"><span class="cl">                              Hash Cond: (bp.flight_id = rf...
-</span></span><span class="line"><span class="cl">                              Buffers: shared hit=13057 rea...
-</span></span><span class="line"><span class="cl">                              -&gt; Seq Scan on boarding_passe...
-</span></span><span class="line"><span class="cl">                                   Buffers: shared hit=12660...
-</span></span><span class="line"><span class="cl">                              -&gt; Hash (actual rows=37671.00...
-</span></span><span class="line"><span class="cl">                                   Buckets: 65536 (originall...
-</span></span><span class="line"><span class="cl">                                   Buffers: shared hit=397 r...
-</span></span><span class="line"><span class="cl">                                   -&gt; CTE Scan on rf (actual...
-</span></span><span class="line"><span class="cl">                                        Storage: Memory  Maxi...
-</span></span><span class="line"><span class="cl">                                        Buffers: shared hit=3...
-</span></span><span class="line"><span class="cl">                         -&gt; Hash (actual rows=1741.00 loop...
-</span></span><span class="line"><span class="cl">                              Buckets: 2048  Batches: 1  Me...
-</span></span><span class="line"><span class="cl">                              Buffers: shared hit=2 read=8
-</span></span><span class="line"><span class="cl">                              -&gt; Seq Scan on seats s (actua...
-</span></span><span class="line"><span class="cl">                                   Buffers: shared hit=2 read=8
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=5 read=1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.287 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 1388.015 ms
-</span></span><span class="line"><span class="cl">(54 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>                         QUERY PLAN
+-------------------------------------------------------------
+ Sort (actual rows=10.00 loops=1)
+   Sort Key: ((ml.model -&gt;&gt; current_setting('bookings.la...
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=<mark class="plan-highlight" data-source-page="138">13059</mark> read=<mark class="plan-highlight" data-source-page="138">37154</mark>
+   CTE rf
+     -&gt; Hash Join (actual rows=37671.00 loops=1)
+          Hash Cond: (f.route_no = r.route_no)
+          Join Filter: (r.validity @&gt; f.scheduled_departure)
+          Rows Removed by Join Filter: 115016
+          Buffers: shared hit=397 read=5
+          -&gt; Seq Scan on flights f (actual rows=37671.00 ...
+               Buffers: shared hit=368
+          -&gt; Hash (actual rows=2030.00 loops=1)
+               Buckets: 2048  Batches: 1  Memory Usage: 145kB
+               Buffers: shared hit=29 read=5
+               -&gt; Seq Scan on routes r (actual rows=2030.0...
+                    Buffers: shared hit=29 read=5
+ ...
+                    Buffers: shared hit=13059 read=37153
+                    -&gt; Hash Join (actual rows=5982418.00 ...
+                         Hash Cond: ((rf.airplane_code = s...
+                         Buffers: shared hit=13059 read=37153
+                         -&gt; Hash Join (actual rows=5982418...
+                              Hash Cond: (bp.flight_id = rf...
+                              Buffers: shared hit=13057 rea...
+                              -&gt; Seq Scan on boarding_passe...
+                                   Buffers: shared hit=12660...
+                              -&gt; Hash (actual rows=37671.00...
+                                   Buckets: 65536 (originall...
+                                   Buffers: shared hit=397 r...
+                                   -&gt; CTE Scan on rf (actual...
+                                        Storage: Memory  Maxi...
+                                        Buffers: shared hit=3...
+                         -&gt; Hash (actual rows=1741.00 loop...
+                              Buckets: 2048  Batches: 1  Me...
+                              Buffers: shared hit=2 read=8
+                              -&gt; Seq Scan on seats s (actua...
+                                   Buffers: shared hit=2 read=8
+ Planning:
+   Buffers: shared hit=5 read=1
+ Planning Time: 0.287 ms
+ Execution Time: 1388.015 ms
+(54 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -870,12 +834,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>作为参照，我们统计一下所涉及的主要表的堆页面数：</p>
+</div><p>作为参照，我们统计一下所涉及的主要表的堆页面数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT sum(relpages)
 </span></span><span class="line"><span class="cl">FROM pg_class
@@ -893,10 +853,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>对于需要读取全部行的查询，这个数可以作为页面处理量的粗略上限估计：如果实际处理的页面数远高于它，就可能意味着同一批数据被扫描了多次。</p>
+</div><p>对于需要读取全部行的查询，这个数可以作为页面处理量的粗略上限估计：如果实际处理的页面数远高于它，就可能意味着同一批数据被扫描了多次。</p>
 <p>在这个例子中，计划已经接近最优。虽然仍有改进空间，但很难再获得刚才那样大幅度的提升。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>

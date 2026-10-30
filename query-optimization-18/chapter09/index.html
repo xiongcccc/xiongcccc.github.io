@@ -76,6 +76,11 @@
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
+  
 
 
   
@@ -568,7 +573,6 @@
 <p>CPU 成本参数为处理已读入的数据定义了相应的权重。通常不调整这些参数，因为很难预测调整后的影响。不过，正如第 8 章“物化与函数”所示，有时需要以 <em>cpu_operator_cost</em> 为单位，指定用户自定义函数的成本。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup></p>
 <p>只有在具有代表性的查询中发现系统性的建模偏差时，才有理由调整成本参数，尤其是在基数估算已经比较准确的情况下。例如：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, buffers off)
 </span></span><span class="line"><span class="cl">SELECT * FROM bookings
@@ -592,13 +596,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>行数估算比较准确。规划器掌握了足够的统计信息，并选择了顺序扫描。</p>
+</div><p>行数估算比较准确。规划器掌握了足够的统计信息，并选择了顺序扫描。</p>
 <p>为了诊断问题，可以暂时让规划器尽量避免顺序扫描。<em>enable_*</em> 这一类参数有意采用了比较粗粒度的控制方式：它们不会在所有情况下排除所有包含相应节点类型的计划，而是强烈抑制这些选择。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET enable_seqscan = off; -- until the end of the session</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -609,13 +609,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这类参数最适合用于实验：“PostgreSQL 认为次优的备选计划是什么？它实际执行起来又如何？”</p>
+</div><p>这类参数最适合用于实验：“PostgreSQL 认为次优的备选计划是什么？它实际执行起来又如何？”</p>
 <p>现在，同一个查询采用了位图访问：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, buffers off)
 </span></span><span class="line"><span class="cl">SELECT * FROM bookings
@@ -646,10 +642,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>结果很可能表明，索引访问更有优势，因为全部数据都已缓存，随机访问很快。使用高速 SSD 时也可能出现类似情况。</p>
+</div><p>结果很可能表明，索引访问更有优势，因为全部数据都已缓存，随机访问很快。使用高速 SSD 时也可能出现类似情况。</p>
 <p>不能仅凭一条查询就得出结论。但如果这种偏差反复出现，就有理由检查全局设置。此时，可以尝试降低 <em>random_page_cost</em>，使规划器不再高估索引访问的成本；也可以提高 <em>effective_cache_size</em>，使索引扫描更有吸引力。</p>
 <h2>9.3 应用调优<span class="hx-absolute -hx-mt-20" id="93-应用调优"></span>
     <a href="#93-%e5%ba%94%e7%94%a8%e8%b0%83%e4%bc%98" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>9.3.1 客户端与连接<span class="hx-absolute -hx-mt-20" id="931-客户端与连接"></span>
@@ -672,23 +665,20 @@
 <li>CHECK 约束配合 <em>constraint_exclusion</em> 参数，可以避免扫描那些确定不含所需数据的表或分区。</li>
 </ul>
 <p>下面是一个复合键连接的例子，基数估算比较准确：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT * FROM segments s
+  JOIN boarding_passes bp ON s.flight_id = bp.flight_id
+                         AND s.ticket_no = bp.ticket_no;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM segments s
-</span></span><span class="line"><span class="cl">  JOIN boarding_passes bp ON s.flight_id = bp.flight_id
-</span></span><span class="line"><span class="cl">                         AND s.ticket_no = bp.ticket_no;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join  (cost=275309.45..625075.75 rows=5982418 widt...
-</span></span><span class="line"><span class="cl">   Hash Cond: ((s.flight_id = bp.flight_id) AND (s.ticke...
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on segments s
-</span></span><span class="line"><span class="cl">       (cost=0.00..134750.62 rows=7349462 width=31)
-</span></span><span class="line"><span class="cl">   -&gt; Hash  (cost=109624.18..109624.18 rows=5982418 widt...
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on boarding_passes bp
-</span></span><span class="line"><span class="cl">           (cost=0.00..109624.18 rows=5982418 width=80)
-</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Hash Join  (cost=275309.45..625075.75 rows=<mark class="plan-highlight" data-source-page="176">5982418</mark> widt...
+   Hash Cond: ((s.flight_id = bp.flight_id) AND (s.ticke...
+   -&gt; Seq Scan on segments s
+       (cost=0.00..134750.62 rows=<mark class="plan-highlight" data-source-page="176">7349462</mark> width=31)
+   -&gt; Hash  (cost=109624.18..109624.18 rows=5982418 widt...
+       -&gt; Seq Scan on boarding_passes bp
+           (cost=0.00..109624.18 rows=<mark class="plan-highlight" data-source-page="176">5982418</mark> width=80)
+(7 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -697,32 +687,26 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>然而，如果删除外键，估算就会变得很不合理。这也是谓词相关性问题的另一种表现：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>BEGIN;
+ALTER TABLE boarding_passes
+DROP CONSTRAINT boarding_passes_ticket_no_flight_id_fkey;
+EXPLAIN SELECT * FROM segments s
+  JOIN boarding_passes bp ON s.flight_id = bp.flight_id
+                         AND s.ticket_no = bp.ticket_no;
 
-  
-</div>
-<p>然而，如果删除外键，估算就会变得很不合理。这也是谓词相关性问题的另一种表现：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+                         QUERY PLAN
+------------------------------------------------------------
+ Hash Join  (cost=275309.45..625075.75 rows=<mark class="plan-highlight" data-source-page="177">504</mark> width=111)
+   Hash Cond: ((s.flight_id = bp.flight_id) AND (s.ticke...
+   -&gt; Seq Scan on segments s
+       (cost=0.00..134750.62 rows=<mark class="plan-highlight" data-source-page="177">7349462</mark> width=31)
+   -&gt; Hash  (cost=109624.18..109624.18 rows=5982418 widt...
+       -&gt; Seq Scan on boarding_passes bp
+           (cost=0.00..109624.18 rows=<mark class="plan-highlight" data-source-page="177">5982418</mark> width=80)
+(7 rows)
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">BEGIN;
-</span></span><span class="line"><span class="cl">ALTER TABLE boarding_passes
-</span></span><span class="line"><span class="cl">DROP CONSTRAINT boarding_passes_ticket_no_flight_id_fkey;
-</span></span><span class="line"><span class="cl">EXPLAIN SELECT * FROM segments s
-</span></span><span class="line"><span class="cl">  JOIN boarding_passes bp ON s.flight_id = bp.flight_id
-</span></span><span class="line"><span class="cl">                         AND s.ticket_no = bp.ticket_no;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join  (cost=275309.45..625075.75 rows=504 width=111)
-</span></span><span class="line"><span class="cl">   Hash Cond: ((s.flight_id = bp.flight_id) AND (s.ticke...
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on segments s
-</span></span><span class="line"><span class="cl">       (cost=0.00..134750.62 rows=7349462 width=31)
-</span></span><span class="line"><span class="cl">   -&gt; Hash  (cost=109624.18..109624.18 rows=5982418 widt...
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on boarding_passes bp
-</span></span><span class="line"><span class="cl">           (cost=0.00..109624.18 rows=5982418 width=80)
-</span></span><span class="line"><span class="cl">(7 rows)
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ROLLBACK;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+ROLLBACK;</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -731,10 +715,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h2>9.4 查询<span class="hx-absolute -hx-mt-20" id="94-查询"></span>
+</div><h2>9.4 查询<span class="hx-absolute -hx-mt-20" id="94-查询"></span>
     <a href="#94-%e6%9f%a5%e8%af%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>9.4.1 优化的途径<span class="hx-absolute -hx-mt-20" id="941-优化的途径"></span>
     <a href="#941-%e4%bc%98%e5%8c%96%e7%9a%84%e9%80%94%e5%be%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>查询调优的直接目标，是得到合适的执行计划，但达到这个目标有不同的途径。</p>
 <p>一种是直接干预：检查不合适的计划，找出其中不合理的选择，强制或引导规划器采用另一种方案。遗憾的是，问题所在并不总是一目了然，调优常常变成与规划器的较量。沿着这条路走下去，你会希望能够完全或部分关闭规划器，自己构造执行计划。这种功能称为 hint，PostgreSQL 并没有显式提供它。</p>
@@ -747,42 +728,39 @@
 <p>短查询通常服务于用户界面，因此应当尽可能快地执行，响应时间优先。</p>
 <p>典型的高效执行方式包括：扫描很小的关系；在大关系中通过索引查找；采用嵌套循环，对内集合进行成本很低的参数化查找。</p>
 <p>连接通常使用嵌套循环。与哈希连接不同，它不需要预备工作，在参与连接的行数很少时表现良好。来看一个查询，返回预订时间落在某个小时内的机票。 这个短查询示例禁用了并行执行，因为这里用不上它：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SET max_parallel_workers_per_gather = 0;
+EXPLAIN (analyze, timing off)
+SELECT t.*
+FROM bookings b
+JOIN tickets t ON t.book_ref = b.book_ref
+WHERE date_trunc('hour', b.book_date) =
+      '2025-11-01 12:00:00+03';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET max_parallel_workers_per_gather = 0;
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, timing off)
-</span></span><span class="line"><span class="cl">SELECT t.*
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">JOIN tickets t ON t.book_ref = b.book_ref
-</span></span><span class="line"><span class="cl">WHERE date_trunc(&#39;hour&#39;, b.book_date) =
-</span></span><span class="line"><span class="cl">      &#39;2025-11-01 12:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join  (cost=53312.08..181808.82 rows=27993 width=52)
-</span></span><span class="line"><span class="cl">   (actual rows=1338.00 loops=1)
-</span></span><span class="line"><span class="cl">   Hash Cond: (t.book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=12738 read=60934
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on tickets t
-</span></span><span class="line"><span class="cl">       (cost=0.00..113800.73 rows=5598473 width=52)
-</span></span><span class="line"><span class="cl">       (actual rows=5598473.00 loops=1)
-</span></span><span class="line"><span class="cl">       Buffers: shared read=57816
-</span></span><span class="line"><span class="cl">   -&gt; Hash  (cost=53156.65..53156.65 rows=12434 width=7)
-</span></span><span class="line"><span class="cl">       (actual rows=567.00 loops=1)
-</span></span><span class="line"><span class="cl">       Buckets: 16384  Batches: 1  Memory Usage: 150kB
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=12738 read=3118
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings b
-</span></span><span class="line"><span class="cl">           (cost=0.00..53156.65 rows=12434 width=7)
-</span></span><span class="line"><span class="cl">           (actual rows=567.00 loops=1)
-</span></span><span class="line"><span class="cl">           Filter: (date_trunc(&#39;hour&#39;::text, book_date) ...
-</span></span><span class="line"><span class="cl">           Rows Removed by Filter: 2486143
-</span></span><span class="line"><span class="cl">           Buffers: shared hit=12738 read=3118
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=172 read=18
-</span></span><span class="line"><span class="cl"> Planning Time: 0.704 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 380.957 ms
-</span></span><span class="line"><span class="cl">(22 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Hash Join  (cost=53312.08..181808.82 rows=27993 width=52)
+   (actual rows=1338.00 loops=1)
+   Hash Cond: (t.book_ref = b.book_ref)
+   Buffers: shared hit=12738 read=60934
+   -&gt; Seq Scan on tickets t
+       (cost=0.00..113800.73 rows=5598473 width=52)
+       (actual rows=5598473.00 loops=1)
+       Buffers: shared read=57816
+   -&gt; Hash  (cost=53156.65..53156.65 rows=12434 width=7)
+       (actual rows=567.00 loops=1)
+       Buckets: 16384  Batches: 1  Memory Usage: 150kB
+       Buffers: shared hit=12738 read=3118
+       -&gt; Seq Scan on bookings b
+           (cost=0.00..53156.65 rows=<mark class="plan-highlight" data-source-page="179">12434</mark> width=7)
+           (actual rows=<mark class="plan-highlight" data-source-page="179">567.00</mark> loops=1)
+           Filter: (date_trunc('hour'::text, book_date) ...
+           Rows Removed by Filter: 2486143
+           Buffers: shared hit=12738 read=3118
+ Planning:
+   Buffers: shared hit=172 read=18
+ Planning Time: 0.704 ms
+ Execution Time: 380.957 ms
+(22 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -791,27 +769,21 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这是一个短查询：两个大表中需要的数据都远不到各自的 1%。然而，两个表都被完整扫描，预估基数也与实际值相差很大。</p>
+</div><p>这是一个短查询：两个大表中需要的数据都远不到各自的 1%。然而，两个表都被完整扫描，预估基数也与实际值相差很大。</p>
 <p>先看最内层 bookings 上的 Seq Scan。问题在于 date_trunc：它没有规划器支持函数，因此 PostgreSQL 使用了固定的 0.5% 选择率估算。</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, buffers off, summary off)
+SELECT * FROM bookings b
+WHERE b.book_date &gt;= '2025-11-01 12:00:00+03'
+  AND b.book_date  &lt; '2025-11-01 13:00:00+03';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, buffers off, summary off)
-</span></span><span class="line"><span class="cl">SELECT * FROM bookings b
-</span></span><span class="line"><span class="cl">WHERE b.book_date &gt;= &#39;2025-11-01 12:00:00+03&#39;
-</span></span><span class="line"><span class="cl">  AND b.book_date  &lt; &#39;2025-11-01 13:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Seq Scan on bookings b
-</span></span><span class="line"><span class="cl">   (cost=0.00..53156.65 rows=546 width=21)
-</span></span><span class="line"><span class="cl">   (actual rows=567.00 loops=1)
-</span></span><span class="line"><span class="cl">   Filter: ((book_date &gt;= &#39;2025-11-01 12:00:00+03&#39;::time...
-</span></span><span class="line"><span class="cl">   Rows Removed by Filter: 2486143
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Seq Scan on bookings b
+   (cost=0.00..53156.65 rows=<mark class="plan-highlight" data-source-page="180">546</mark> width=21)
+   (actual rows=<mark class="plan-highlight" data-source-page="180">567.00</mark> loops=1)
+   Filter: ((book_date &gt;= '2025-11-01 12:00:00+03'::time...
+   Rows Removed by Filter: 2486143
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -820,37 +792,31 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>现在，估算已经接近实际，但 PostgreSQL 仍然没有能够避免全表扫描的访问路径。创建一个索引：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>CREATE INDEX ON bookings(book_date);
+EXPLAIN (analyze, timing off)
+SELECT t.* FROM bookings b
+JOIN tickets t ON t.book_ref = b.book_ref
+WHERE b.book_date &gt;= '2025-11-01 12:00:00+03'
+  AND b.book_date  &lt; '2025-11-01 13:00:00+03';
 
-  
-</div>
-<p>现在，估算已经接近实际，但 PostgreSQL 仍然没有能够避免全表扫描的访问路径。创建一个索引：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON bookings(book_date);
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, timing off)
-</span></span><span class="line"><span class="cl">SELECT t.* FROM bookings b
-</span></span><span class="line"><span class="cl">JOIN tickets t ON t.book_ref = b.book_ref
-</span></span><span class="line"><span class="cl">WHERE b.book_date &gt;= &#39;2025-11-01 12:00:00+03&#39;
-</span></span><span class="line"><span class="cl">  AND b.book_date  &lt; &#39;2025-11-01 13:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Nested Loop  (cost=0.99..13265.14 rows=1229 width=52) (...
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=2630 read=782
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using bookings_book_date_idx on booking...
-</span></span><span class="line"><span class="cl">       Index Cond: ((book_date &gt;= &#39;2025-11-01 12:00:00+0...
-</span></span><span class="line"><span class="cl">       Index Searches: 1
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=542 read=5
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using tickets_book_ref_passenger_id_out...
-</span></span><span class="line"><span class="cl">       Index Cond: (book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">       Index Searches: 567
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=2088 read=777
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=46 read=1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.153 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 128.876 ms
-</span></span><span class="line"><span class="cl">(14 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Nested Loop  (cost=0.99..13265.14 rows=1229 width=52) (...
+   Buffers: shared hit=<mark class="plan-highlight" data-source-page="180">2630</mark> read=<mark class="plan-highlight" data-source-page="180">782</mark>
+   -&gt; Index Scan using bookings_book_date_idx on booking...
+       Index Cond: ((book_date &gt;= '2025-11-01 12:00:00+0...
+       Index Searches: 1
+       Buffers: shared hit=542 read=5
+   -&gt; Index Scan using tickets_book_ref_passenger_id_out...
+       Index Cond: (book_ref = b.book_ref)
+       Index Searches: 567
+       Buffers: shared hit=2088 read=777
+ Planning:
+   Buffers: shared hit=46 read=1
+ Planning Time: 0.153 ms
+ Execution Time: 128.876 ms
+(14 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -859,41 +825,35 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这正是我们想要的：规划器选择了索引扫描，数据通过嵌套循环连接。</p>
+</div><p>这正是我们想要的：规划器选择了索引扫描，数据通过嵌套循环连接。</p>
 <p>还可以进一步改进：只扫描索引，完全不访问 bookings 表。将连接键包含在索引中，就能使第一次查找所需的列全部由这个覆盖索引提供：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>DROP INDEX bookings_book_date_idx;
+CREATE INDEX ON bookings(book_date) INCLUDE (book_ref);
+EXPLAIN (analyze, timing off)
+SELECT t.*
+FROM bookings b
+JOIN tickets t ON t.book_ref = b.book_ref
+WHERE b.book_date &gt;= '2025-11-01 12:00:00+03'
+  AND b.book_date  &lt; '2025-11-01 13:00:00+03';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX bookings_book_date_idx;
-</span></span><span class="line"><span class="cl">CREATE INDEX ON bookings(book_date) INCLUDE (book_ref);
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, timing off)
-</span></span><span class="line"><span class="cl">SELECT t.*
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">JOIN tickets t ON t.book_ref = b.book_ref
-</span></span><span class="line"><span class="cl">WHERE b.book_date &gt;= &#39;2025-11-01 12:00:00+03&#39;
-</span></span><span class="line"><span class="cl">  AND b.book_date  &lt; &#39;2025-11-01 13:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Nested Loop  (cost=0.99..13246.54 rows=1229 width=52) (...
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=2866 read=6
-</span></span><span class="line"><span class="cl">   -&gt; Index Only Scan using bookings_book_date_book_ref_...
-</span></span><span class="line"><span class="cl">       Index Cond: ((book_date &gt;= &#39;2025-11-01 12:00:00+0...
-</span></span><span class="line"><span class="cl">       Heap Fetches: 0
-</span></span><span class="line"><span class="cl">       Index Searches: 1
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=1 read=6
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using tickets_book_ref_passenger_id_out...
-</span></span><span class="line"><span class="cl">       Index Cond: (book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">       Index Searches: 567
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=2865
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=42 read=1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.171 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 2.089 ms
-</span></span><span class="line"><span class="cl">(15 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Nested Loop  (cost=0.99..13246.54 rows=1229 width=52) (...
+   Buffers: shared hit=<mark class="plan-highlight" data-source-page="181">2866</mark> read=<mark class="plan-highlight" data-source-page="181">6</mark>
+   -&gt; Index Only Scan using bookings_book_date_book_ref_...
+       Index Cond: ((book_date &gt;= '2025-11-01 12:00:00+0...
+       Heap Fetches: 0
+       Index Searches: 1
+       Buffers: shared hit=1 read=6
+   -&gt; Index Scan using tickets_book_ref_passenger_id_out...
+       Index Cond: (book_ref = b.book_ref)
+       Index Searches: 567
+       Buffers: shared hit=2865
+ Planning:
+   Buffers: shared hit=42 read=1
+ Planning Time: 0.171 ms
+ Execution Time: 2.089 ms
+(15 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -902,10 +862,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这又减少了大约 15% 的逻辑缓冲区访问。 PostgreSQL 现在能够对 bookings 使用仅索引扫描。索引中这些额外存储的列值，是否值得付出相应的维护和存储成本，取决于这种访问模式出现的频率。对于很少执行的查询，仅仅为了节省几次缓冲区访问而做的微小优化，可能并不划算。</p>
+</div><p>这又减少了大约 15% 的逻辑缓冲区访问。 PostgreSQL 现在能够对 bookings 使用仅索引扫描。索引中这些额外存储的列值，是否值得付出相应的维护和存储成本，取决于这种访问模式出现的频率。对于很少执行的查询，仅仅为了节省几次缓冲区访问而做的微小优化，可能并不划算。</p>
 <h3>9.4.3 长查询<span class="hx-absolute -hx-mt-20" id="943-长查询"></span>
     <a href="#943-%e9%95%bf%e6%9f%a5%e8%af%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>长查询是指以吞吐量为重、必须处理大量数据才能得到答案的查询。即使聚合后只返回一行，长查询仍可能读取数百万行。</p>
 <p>这类查询的谓词通常筛选能力较弱，大量输入行都能通过。因此，全表扫描和哈希连接更有吸引力，总体吞吐量也比立即返回第一行更重要。</p>
@@ -913,7 +870,6 @@
 <p>长查询处理的数据很多，通常还要聚合，因为用户很少需要数百万行结果。因此，它们可以从并行执行中获益。</p>
 <p>来看这个查询：统计起飞和到达都延误了 1 分钟至 4 小时的航班所承运的旅客人次。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">\timing on
 </span></span><span class="line"><span class="cl">SELECT count(*)
@@ -941,13 +897,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>查询返回了正确的结果，但执行时间不能令人满意。</p>
+</div><p>查询返回了正确的结果，但执行时间不能令人满意。</p>
 <p>先明确问题的规模。flights 表的总行数如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*)
 </span></span><span class="line"><span class="cl">FROM flights f;
@@ -964,12 +916,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这些谓词保留了相当多的行：</p>
+</div><p>这些谓词保留了相当多的行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT count(*) FROM flights f
 </span></span><span class="line"><span class="cl">WHERE f.actual_departure - f.scheduled_departure
@@ -989,31 +937,25 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>约 70% 的航班满足条件。参与连接的其他表都很大，也没有筛选能力很强的限制条件。</p>
+</div><p>约 70% 的航班满足条件。参与连接的其他表都很大，也没有筛选能力很强的限制条件。</p>
 <p>显然，这是一个长查询，但计划看起来却像是只查找少量数据的 OLTP 查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Aggregate  (cost=1713.52..1713.53 rows=1 width=8)
-</span></span><span class="line"><span class="cl">   -&gt; Nested Loop
-</span></span><span class="line"><span class="cl">       (cost=0.86..1713.12 rows=159 width=0)
-</span></span><span class="line"><span class="cl">       -&gt; Nested Loop
-</span></span><span class="line"><span class="cl">           (cost=0.43..1626.77 rows=195 width=22)
-</span></span><span class="line"><span class="cl">           -&gt; Seq Scan on flights f
-</span></span><span class="line"><span class="cl">               (cost=0.00..1498.13 rows=1 width=4)
-</span></span><span class="line"><span class="cl">               Filter: (((actual_departure - scheduled_d...
-</span></span><span class="line"><span class="cl">           -&gt; Index Scan using segments_flight_id_idx on...
-</span></span><span class="line"><span class="cl">               (cost=0.43..125.95 rows=269 width=18)
-</span></span><span class="line"><span class="cl">               Index Cond: (flight_id = f.flight_id)
-</span></span><span class="line"><span class="cl">       -&gt; Index Only Scan using boarding_passes_pkey on ...
-</span></span><span class="line"><span class="cl">           (cost=0.43..1.99 rows=150 width=36)
-</span></span><span class="line"><span class="cl">           Index Cond: ((ticket_no = tf.ticket_no) AND (...
-</span></span><span class="line"><span class="cl">(14 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>                         QUERY PLAN
+------------------------------------------------------------
+ Aggregate  (cost=1713.52..1713.53 rows=1 width=8)
+   -&gt; Nested Loop
+       (cost=0.86..1713.12 rows=159 width=0)
+       -&gt; Nested Loop
+           (cost=0.43..1626.77 rows=195 width=22)
+           -&gt; Seq Scan on flights f
+               (cost=0.00..1498.13 rows=<mark class="plan-highlight" data-source-page="184">1</mark> width=4)
+               Filter: (((actual_departure - scheduled_d...
+           -&gt; Index Scan using segments_flight_id_idx on...
+               (cost=0.43..125.95 rows=269 width=18)
+               Index Cond: (flight_id = f.flight_id)
+       -&gt; Index Only Scan using boarding_passes_pkey on ...
+           (cost=0.43..1.99 rows=150 width=36)
+           Index Cond: ((ticket_no = tf.ticket_no) AND (...
+(14 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1022,13 +964,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>核心问题一目了然：规划器估计只有一个航班符合条件，而不是实际的两万六千多个。基于这样的估算，嵌套循环和索引查找看起来完全合理。</p>
+</div><p>核心问题一目了然：规划器估计只有一个航班符合条件，而不是实际的两万六千多个。基于这样的估算，嵌套循环和索引查找看起来完全合理。</p>
 <p>做一个诊断实验，让规划器尽量避免嵌套循环：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET enable_nestloop = off;
 </span></span><span class="line"><span class="cl">SET</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -1040,12 +978,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在再执行 EXPLAIN：</p>
+</div><p>现在再执行 EXPLAIN：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, costs off)
 </span></span><span class="line"><span class="cl">SELECT count(*)
@@ -1097,50 +1031,44 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>表的访问方式自动改成了顺序扫描，查询也更快了。如果使用 buffers 选项检查计划，可以看到这个查询需要读取约 110,000 个页面。我们没有展示第一个版本带 buffers 的执行计划，但它读取的数据量几乎是这里的 200 倍，你可以自己检查一下！</p>
+</div><p>表的访问方式自动改成了顺序扫描，查询也更快了。如果使用 buffers 选项检查计划，可以看到这个查询需要读取约 110,000 个页面。我们没有展示第一个版本带 buffers 的执行计划，但它读取的数据量几乎是这里的 200 倍，你可以自己检查一下！</p>
 <p>性能的大幅改善验证了诊断，但为什么选择率会估算得这么差？两个谓词都对时间戳列使用了算术表达式，而规划器没有这些表达式的分布统计信息。按照第 6 章“统计信息”介绍的方法，收集表达式统计信息：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>CREATE STATISTICS
+ON (actual_departure - scheduled_departure) FROM flights;
+CREATE STATISTICS
+ON (actual_arrival - scheduled_arrival) FROM flights;
+ANALYZE flights;
+EXPLAIN SELECT count(*)
+FROM flights f
+  JOIN segments tf ON tf.flight_id = f.flight_id
+  JOIN boarding_passes bp ON bp.flight_id = tf.flight_id
+                         AND bp.ticket_no = tf.ticket_no
+WHERE f.actual_departure - f.scheduled_departure
+        BETWEEN interval '1 min' AND interval '4 hours'
+  AND f.actual_arrival - f.scheduled_arrival
+        BETWEEN interval '1 min' AND interval '4 hours';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE STATISTICS
-</span></span><span class="line"><span class="cl">ON (actual_departure - scheduled_departure) FROM flights;
-</span></span><span class="line"><span class="cl">CREATE STATISTICS
-</span></span><span class="line"><span class="cl">ON (actual_arrival - scheduled_arrival) FROM flights;
-</span></span><span class="line"><span class="cl">ANALYZE flights;
-</span></span><span class="line"><span class="cl">EXPLAIN SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM flights f
-</span></span><span class="line"><span class="cl">  JOIN segments tf ON tf.flight_id = f.flight_id
-</span></span><span class="line"><span class="cl">  JOIN boarding_passes bp ON bp.flight_id = tf.flight_id
-</span></span><span class="line"><span class="cl">                         AND bp.ticket_no = tf.ticket_no
-</span></span><span class="line"><span class="cl">WHERE f.actual_departure - f.scheduled_departure
-</span></span><span class="line"><span class="cl">        BETWEEN interval &#39;1 min&#39; AND interval &#39;4 hours&#39;
-</span></span><span class="line"><span class="cl">  AND f.actual_arrival - f.scheduled_arrival
-</span></span><span class="line"><span class="cl">        BETWEEN interval &#39;1 min&#39; AND interval &#39;4 hours&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Aggregate  (cost=517827.35..517827.36 rows=1 width=8)
-</span></span><span class="line"><span class="cl">   -&gt; Hash Join
-</span></span><span class="line"><span class="cl">       (cost=247829.93..510415.83 rows=2964608 width=0)
-</span></span><span class="line"><span class="cl">       Hash Cond: ((tf.flight_id = bp.flight_id) AND (tf...
-</span></span><span class="line"><span class="cl">       -&gt; Hash Join
-</span></span><span class="line"><span class="cl">           (cost=1731.48..155776.61 rows=3642052 width=22)
-</span></span><span class="line"><span class="cl">           Hash Cond: (tf.flight_id = f.flight_id)
-</span></span><span class="line"><span class="cl">           -&gt; Seq Scan on segments tf
-</span></span><span class="line"><span class="cl">               (cost=0.00..134750.62 rows=7349462 width=18)
-</span></span><span class="line"><span class="cl">           -&gt; Hash
-</span></span><span class="line"><span class="cl">               (cost=1498.13..1498.13 rows=18668 width=4)
-</span></span><span class="line"><span class="cl">               -&gt; Seq Scan on flights f
-</span></span><span class="line"><span class="cl">                   (cost=0.00..1498.13 rows=18668 width=4)
-</span></span><span class="line"><span class="cl">                   Filter: (((actual_departure - schedul...
-</span></span><span class="line"><span class="cl">       -&gt; Hash
-</span></span><span class="line"><span class="cl">           (cost=109624.18..109624.18 rows=5982418 width...
-</span></span><span class="line"><span class="cl">           -&gt; Seq Scan on boarding_passes bp
-</span></span><span class="line"><span class="cl">               (cost=0.00..109624.18 rows=5982418 width=36)
-</span></span><span class="line"><span class="cl">(18 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Aggregate  (cost=517827.35..517827.36 rows=1 width=8)
+   -&gt; Hash Join
+       (cost=247829.93..510415.83 rows=2964608 width=0)
+       Hash Cond: ((tf.flight_id = bp.flight_id) AND (tf...
+       -&gt; Hash Join
+           (cost=1731.48..155776.61 rows=3642052 width=22)
+           Hash Cond: (tf.flight_id = f.flight_id)
+           -&gt; Seq Scan on segments tf
+               (cost=0.00..134750.62 rows=<mark class="plan-highlight" data-source-page="186">7349462</mark> width=18)
+           -&gt; Hash
+               (cost=1498.13..1498.13 rows=18668 width=4)
+               -&gt; Seq Scan on flights f
+                   (cost=0.00..1498.13 rows=<mark class="plan-highlight" data-source-page="186">18668</mark> width=4)
+                   Filter: (((actual_departure - schedul...
+       -&gt; Hash
+           (cost=109624.18..109624.18 rows=5982418 width...
+           -&gt; Seq Scan on boarding_passes bp
+               (cost=0.00..109624.18 rows=<mark class="plan-highlight" data-source-page="186">5982418</mark> width=36)
+(18 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1149,42 +1077,36 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，规划器估计会有更多航班满足条件，不用强制干预就选择了哈希连接。不过，收集统计信息并不是优化的终点。还要问一个问题：<em>我们是否读取了超出实际需要的数据？</em></p>
+</div><p>现在，规划器估计会有更多航班满足条件，不用强制干预就选择了哈希连接。不过，收集统计信息并不是优化的终点。还要问一个问题：<em>我们是否读取了超出实际需要的数据？</em></p>
 <p>在这个模式中，boarding_passes 已经包含 flight_id，外键关系也保证了得到结果所需的数据完整性。连接 segments 并没有在这个查询中额外过滤任何行，因此可以直接连接 flights 和 boarding_passes。</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off)
+SELECT count(*)
+FROM flights f
+  JOIN boarding_passes bp ON bp.flight_id = f.flight_id
+WHERE f.actual_departure - f.scheduled_departure
+        BETWEEN interval '1 min' AND interval '4 hours'
+  AND f.actual_arrival - f.scheduled_arrival
+        BETWEEN interval '1 min' AND interval '4 hours';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off)
-</span></span><span class="line"><span class="cl">SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM flights f
-</span></span><span class="line"><span class="cl">  JOIN boarding_passes bp ON bp.flight_id = f.flight_id
-</span></span><span class="line"><span class="cl">WHERE f.actual_departure - f.scheduled_departure
-</span></span><span class="line"><span class="cl">        BETWEEN interval &#39;1 min&#39; AND interval &#39;4 hours&#39;
-</span></span><span class="line"><span class="cl">  AND f.actual_arrival - f.scheduled_arrival
-</span></span><span class="line"><span class="cl">        BETWEEN interval &#39;1 min&#39; AND interval &#39;4 hours&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Aggregate  (cost=134472.80..134472.81 rows=1 width=8) (...
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=3094 read=47074
-</span></span><span class="line"><span class="cl">   -&gt; Hash Join  (cost=1731.48..127061.28 rows=2964609 w...
-</span></span><span class="line"><span class="cl">       Hash Cond: (bp.flight_id = f.flight_id)
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=3094 read=47074
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on boarding_passes bp  (cost=0.00..10...
-</span></span><span class="line"><span class="cl">           Buffers: shared hit=2726 read=47074
-</span></span><span class="line"><span class="cl">       -&gt; Hash  (cost=1498.13..1498.13 rows=18668 width=...
-</span></span><span class="line"><span class="cl">           Buckets: 32768  Batches: 1  Memory Usage: 1183kB
-</span></span><span class="line"><span class="cl">           Buffers: shared hit=368
-</span></span><span class="line"><span class="cl">           -&gt; Seq Scan on flights f  (cost=0.00..1498.13...
-</span></span><span class="line"><span class="cl">               Filter: (((actual_departure - scheduled_d...
-</span></span><span class="line"><span class="cl">               Rows Removed by Filter: 11307
-</span></span><span class="line"><span class="cl">               Buffers: shared hit=368
-</span></span><span class="line"><span class="cl"> Planning Time: 0.067 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 465.082 ms
-</span></span><span class="line"><span class="cl">(16 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Aggregate  (cost=134472.80..134472.81 rows=1 width=8) (...
+   Buffers: shared hit=<mark class="plan-highlight" data-source-page="187">3094</mark> read=<mark class="plan-highlight" data-source-page="187">47074</mark>
+   -&gt; Hash Join  (cost=1731.48..127061.28 rows=2964609 w...
+       Hash Cond: (bp.flight_id = f.flight_id)
+       Buffers: shared hit=3094 read=47074
+       -&gt; Seq Scan on boarding_passes bp  (cost=0.00..10...
+           Buffers: shared hit=2726 read=47074
+       -&gt; Hash  (cost=1498.13..1498.13 rows=18668 width=...
+           Buckets: 32768  Batches: 1  Memory Usage: 1183kB
+           Buffers: shared hit=368
+           -&gt; Seq Scan on flights f  (cost=0.00..1498.13...
+               Filter: (((actual_departure - scheduled_d...
+               Rows Removed by Filter: 11307
+               Buffers: shared hit=368
+ Planning Time: 0.067 ms
+ Execution Time: 465.082 ms
+(16 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1193,12 +1115,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这两个堆关系包含的页面数量如下：</p>
+</div><p>这两个堆关系包含的页面数量如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT sum(relpages) FROM pg_class
 </span></span><span class="line"><span class="cl">WHERE relname IN (&#39;flights&#39;,&#39;boarding_passes&#39;);
@@ -1215,10 +1133,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>从 buffers 选项可以看到，这个版本读取的数据量大致就是参与查询的关系本身所占的大小。第一个版本没有展示 buffers，不过你可以检查，它读取的数据量几乎是这个版本的 200 倍。</p>
+</div><p>从 buffers 选项可以看到，这个版本读取的数据量大致就是参与查询的关系本身所占的大小。第一个版本没有展示 buffers，不过你可以检查，它读取的数据量几乎是这个版本的 200 倍。</p>
 <p>总的来说，查询改写是影响性能的手段中变化最丰富的一种。规划器自己能够做一些等价变换，而我们还可以，例如：</p>
 <ul>
 <li>改写条件，使其能够使用索引，或者反过来，使其不能使用索引。</li>
@@ -1228,7 +1143,6 @@
 </ul>
 <p>示例完成后，清理实验对象：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX bookings_book_date_book_ref_idx;
 </span></span><span class="line"><span class="cl">DROP INDEX
@@ -1244,10 +1158,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>9.4.4 规划器 advice 与 hint<span class="hx-absolute -hx-mt-20" id="944-规划器-advice-与-hint"></span>
+</div><h3>9.4.4 规划器 advice 与 hint<span class="hx-absolute -hx-mt-20" id="944-规划器-advice-与-hint"></span>
     <a href="#944-%e8%a7%84%e5%88%92%e5%99%a8-advice-%e4%b8%8e-hint" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>PostgreSQL 18 的核心没有提供 SQL hint 语法，不能在查询文本中直接指定某种连接顺序、扫描方式或连接方法。熟悉的 <em>enable_*</em> 设置适合作为粗粒度的诊断手段；显式的 JOIN 结构配合 <em>join_collapse_limit</em>，在某些情况下也可以限制连接顺序的搜索，但它们都不是通用的 hint 语言。</p>
 <p>PostgreSQL 19 包含 pg_plan_advice 模块，可以描述并约束规划器的部分决策；还有 pg_stash_advice，可以将这些 advice 与查询标识符关联起来，而无须修改应用的 SQL 文本。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup></p>
 <p>第三方扩展早已提供了 hint 机制。最初由 Kyotaro Horiguchi 开发的 pg_hint_plan，就是一个广为人知的例子。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup></p>

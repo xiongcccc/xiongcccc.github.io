@@ -76,6 +76,11 @@
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
+  
 
 
   
@@ -573,15 +578,12 @@
 <p>在顺序扫描期间，PostgreSQL 可以利用操作系统的预读或异步 I/O，高效地预取相邻页面，避免发起彼此无关的随机读取。</p>
 <p>当查询需要读取整张表或其中的大部分数据时，顺序扫描通常是一个不错的选择。也就是说，此时谓词的筛选能力较弱，大部分输入行都能通过过滤。</p>
 <p>在查询计划中，顺序扫描由 Seq Scan 节点表示：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM flights;
-</span></span><span class="line"><span class="cl">                  QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------
-</span></span><span class="line"><span class="cl"> Seq Scan on flights
-</span></span><span class="line"><span class="cl">   (cost=0.00..744.71 rows=37671 width=51)
-</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT * FROM flights;
+                  QUERY PLAN
+-------------------------------------------
+ Seq Scan on flights
+   (cost=0.00..<mark class="plan-highlight" data-source-page="34">744.71</mark> rows=37671 width=51)
+(2 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -590,10 +592,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>括号中的几个值很重要：</p>
+</div><p>括号中的几个值很重要：</p>
 <ul>
 <li>cost 是预估成本。</li>
 <li>rows 是预估的操作返回行数。</li>
@@ -605,17 +604,14 @@
 <li>第二个数值是返回全部行的<strong>总成本</strong>。</li>
 </ul>
 <p>PostgreSQL 的成本模型同时考虑 I/O 和 CPU 开销。在本例的简化计算中，I/O 部分等于表的页数乘以顺序读取一个页面的成本：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT relpages,
-</span></span><span class="line"><span class="cl">  current_setting(&#39;seq_page_cost&#39;),
-</span></span><span class="line"><span class="cl">  relpages * current_setting(&#39;seq_page_cost&#39;)::real AS total
-</span></span><span class="line"><span class="cl">FROM pg_class WHERE relname = &#39;flights&#39;;
-</span></span><span class="line"><span class="cl"> relpages | current_setting | total
-</span></span><span class="line"><span class="cl">----------+-----------------+-------
-</span></span><span class="line"><span class="cl">      368 | 1               |   368
-</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SELECT relpages,
+  current_setting('seq_page_cost'),
+  relpages * current_setting('seq_page_cost')::real AS total
+FROM pg_class WHERE relname = 'flights';
+ relpages | current_setting | total
+----------+-----------------+-------
+      368 | 1               |   <mark class="plan-highlight" data-source-page="35">368</mark>
+(1 row)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -624,21 +620,15 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>CPU 部分包括处理表中各行的成本：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT reltuples,
-</span></span><span class="line"><span class="cl">  current_setting(&#39;cpu_tuple_cost&#39;),
-</span></span><span class="line"><span class="cl">  reltuples * current_setting(&#39;cpu_tuple_cost&#39;)::real AS total
-</span></span><span class="line"><span class="cl">FROM pg_class WHERE relname = &#39;flights&#39;;
-</span></span><span class="line"><span class="cl"> reltuples | current_setting | total
-</span></span><span class="line"><span class="cl">-----------+-----------------+--------
-</span></span><span class="line"><span class="cl">     37671 | 0.01            | 376.71
-</span></span><span class="line"><span class="cl">(1 row)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+</div><p>CPU 部分包括处理表中各行的成本：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SELECT reltuples,
+  current_setting('cpu_tuple_cost'),
+  reltuples * current_setting('cpu_tuple_cost')::real AS total
+FROM pg_class WHERE relname = 'flights';
+ reltuples | current_setting | total
+-----------+-----------------+--------
+     37671 | 0.01            | <mark class="plan-highlight" data-source-page="35">376.71</mark>
+(1 row)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -647,15 +637,11 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>3.1.1 死行版本<span class="hx-absolute -hx-mt-20" id="311-死行版本"></span>
+</div><h3>3.1.1 死行版本<span class="hx-absolute -hx-mt-20" id="311-死行版本"></span>
     <a href="#311-%e6%ad%bb%e8%a1%8c%e7%89%88%e6%9c%ac" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>执行顺序扫描时，PostgreSQL 必须检查每个页面中的行版本，包括已经过时、但尚未被清理的版本。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> 如果表中存在大量死行版本，扫描开销可能会明显增加。</p>
 <p>这也是及时清理可以改善某些查询性能的原因之一。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup></p>
 <p>创建 flights 的副本，并禁用自动清理，以免死行版本被自动清除：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE TABLE flights_copy
 </span></span><span class="line"><span class="cl">WITH (autovacuum_enabled = false)
@@ -677,12 +663,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>删除所有行：</p>
+</div><p>删除所有行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DELETE FROM flights_copy;
 </span></span><span class="line"><span class="cl">DELETE 37671</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -694,12 +676,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>在 VACUUM 回收旧行版本之前，它们仍然保留在表文件中，因此文件大小没有变化：</p>
+</div><p>在 VACUUM 回收旧行版本之前，它们仍然保留在表文件中，因此文件大小没有变化：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT pg_size_pretty(
 </span></span><span class="line"><span class="cl">  pg_total_relation_size(&#39;flights_copy&#39;)
@@ -716,30 +694,24 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>使用 analyze 选项查看查询计划。隐式启用的 buffers 选项会显示以下数据块计数：</p>
+</div><p>使用 analyze 选项查看查询计划。隐式启用的 buffers 选项会显示以下数据块计数：</p>
 <ul>
 <li>hit：所需的数据块已在 PostgreSQL 的缓存中。</li>
 <li>read：在缓冲区缓存中没有找到所需的数据块，需要向操作系统请求读取。</li>
 <li>written：本后端进程写出了此前已经变脏的数据块。</li>
 <li>dirtied：此前干净的数据块变成了脏块。</li>
 </ul>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
-</span></span><span class="line"><span class="cl">SELECT count(*) FROM flights_copy;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Aggregate  (cost=673.89..673.90 rows=1 width=8) (actual...
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=377
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on flights_copy  (cost=0.00..614.51 rows=...
-</span></span><span class="line"><span class="cl">        Buffers: shared hit=377
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=3
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off)
+SELECT count(*) FROM flights_copy;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Aggregate  (cost=673.89..673.90 rows=1 width=8) (actual...
+   Buffers: shared <mark class="plan-highlight" data-source-page="37">hit=377</mark>
+   -&gt; Seq Scan on flights_copy  (cost=0.00..614.51 rows=...
+        Buffers: shared hit=377
+ Planning:
+   Buffers: shared hit=3
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -748,12 +720,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>尽管表中已经没有活行，扫描仍然访问了三百多个堆页面。清理这张表，再检查它的大小：</p>
+</div><p>尽管表中已经没有活行，扫描仍然访问了三百多个堆页面。清理这张表，再检查它的大小：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">VACUUM flights_copy;
 </span></span><span class="line"><span class="cl">SELECT pg_size_pretty(pg_total_relation_size(&#39;flights_copy&#39;));
@@ -770,12 +738,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>死行版本已被清除，表的大小也随之减小。再次执行查询：</p>
+</div><p>死行版本已被清除，表的大小也随之减小。再次执行查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
 </span></span><span class="line"><span class="cl">SELECT count(*) FROM flights_copy;
@@ -794,12 +758,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在表已经为空，没有需要检查的行版本，预估成本也降到了极低的水平。对于大得多的表，遍历那些充满过时行版本的页面可能会产生可观的开销。</p>
+</div><p>现在表已经为空，没有需要检查的行版本，预估成本也降到了极低的水平。对于大得多的表，遍历那些充满过时行版本的页面可能会产生可观的开销。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP TABLE flights_copy;
 </span></span><span class="line"><span class="cl">DROP TABLE</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -811,10 +771,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>3.1.2 缓冲区环与同步扫描<span class="hx-absolute -hx-mt-20" id="312-缓冲区环与同步扫描"></span>
+</div><h3>3.1.2 缓冲区环与同步扫描<span class="hx-absolute -hx-mt-20" id="312-缓冲区环与同步扫描"></span>
     <a href="#312-%e7%bc%93%e5%86%b2%e5%8c%ba%e7%8e%af%e4%b8%8e%e5%90%8c%e6%ad%a5%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>对大表进行顺序扫描，可能会让大量只使用一次的页面进入缓冲区缓存，并逐出原本有用的缓存页面。为避免这种情况，PostgreSQL 对足够大的堆扫描采用批量读取的缓冲区访问策略。当关系大小超过缓冲区缓存的四分之一时，只使用缓存中的一部分作为<strong>缓冲区环</strong>，在环内完成页面替换，其余缓存数据不受影响。</p>
 <p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter03/images/chapter03-buffer-ring.png" target="_blank" rel="noopener" aria-label="打开原图：共享缓冲区中的缓冲区环：加入环的缓冲区、扫描读取的数据页，以及被逐出或刷到磁盘的脏缓冲区。">
@@ -864,16 +821,13 @@
 <p>图中高亮显示了检索时需要访问的页面和条目。</p>
 <p>以 bookings 表为例。book_ref 列是主键，因此 PostgreSQL 自动为它创建了唯一 B 树索引 bookings_pkey。</p>
 <p>查看查找单个键值的执行计划：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM bookings WHERE book_ref = &#39;CDEFD8&#39;;
-</span></span><span class="line"><span class="cl">                    QUERY PLAN
-</span></span><span class="line"><span class="cl">---------------------------------------------
-</span></span><span class="line"><span class="cl"> Index Scan using bookings_pkey on bookings
-</span></span><span class="line"><span class="cl">   (cost=0.43..8.45 rows=1 width=21)
-</span></span><span class="line"><span class="cl">   Index Cond: (book_ref = &#39;CDEFD8&#39;::bpchar)
-</span></span><span class="line"><span class="cl">(3 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT * FROM bookings WHERE book_ref = 'CDEFD8';
+                    QUERY PLAN
+---------------------------------------------
+ <mark class="plan-highlight" data-source-page="42">Index Scan</mark> using bookings_pkey on bookings
+   (cost=0.43..8.45 rows=1 width=21)
+   Index Cond: (book_ref = 'CDEFD8'::bpchar)
+(3 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -882,15 +836,11 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>所选的访问方式是 Index Scan，计划中也给出了使用的索引名称。索引访问和堆访问由同一个计划节点表示。Index Cond 显示索引使用的条件。</p>
+</div><p>所选的访问方式是 Index Scan，计划中也给出了使用的索引名称。索引访问和堆访问由同一个计划节点表示。Index Cond 显示索引使用的条件。</p>
 <p>对于这种检索，启动成本包括从树根向下定位到相应叶子页面的工作。这个预估值很小，因为规划器认为 B 树上层页面很可能已在缓存中，向下检索主要计入 CPU 开销。</p>
 <p>总成本还包括预期的叶子页面和堆页面访问成本。</p>
 <p>由于索引是唯一的，而且等值条件至多对应一条可见行，因此可以粗略地将本例的页面访问理解为：访问一个叶子页面，再访问一个堆页面。随机页面读取的成本由 <em>random_page_cost</em> 定义：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT current_setting(&#39;random_page_cost&#39;);
 </span></span><span class="line"><span class="cl"> current_setting
@@ -905,15 +855,11 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>它的默认值高于 <em>seq_page_cost</em>，反映了传统成本模型中非顺序访问通常具有更高成本的假设。使用 SSD，或者大部分数据已在缓存中时，常会缩小这两个参数之间的差距。</p>
+</div><p>它的默认值高于 <em>seq_page_cost</em>，反映了传统成本模型中非顺序访问通常具有更高成本的假设。使用 SSD，或者大部分数据已在缓存中时，常会缩小这两个参数之间的差距。</p>
 <p>合适的取值取决于存储设备和实际负载，并不存在适用于所有 SSD 的统一规则。</p>
 <p>Index Cond 包含能够驱动索引扫描，或能够在索引层检查的条件。</p>
 <p>需要访问堆行才能检查的条件，会单独显示为 Filter：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM bookings
 </span></span><span class="line"><span class="cl">WHERE book_ref = &#39;CDEFD8&#39; AND total_amount &gt; 1000;
@@ -932,10 +878,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>3.2.2 范围检索<span class="hx-absolute -hx-mt-20" id="322-范围检索"></span>
+</div><h3>3.2.2 范围检索<span class="hx-absolute -hx-mt-20" id="322-范围检索"></span>
     <a href="#322-%e8%8c%83%e5%9b%b4%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>B 树不仅能高效地进行等值检索，也适用于有序范围条件：&lt;、&lt;=、&gt;、&gt;= 和 BETWEEN。</p>
 <p>首先，找到条件的一个边界键。例如，对于从 4 到 9 的范围，可以从 4 或 9 开始；而对于“小于 9”的条件，则需要从 9 开始。随后像前面的例子一样，沿树向下到达叶子索引页面，取得表中的第一个值。接下来，根据条件沿叶子页面向右或向左移动，逐个检查条目，直到遇到范围之外的键。</p>
 <p><figure class="query-book-figure">
@@ -950,7 +893,6 @@
 <p>注意，同一个表页面可能需要多次访问。检索值 4 时，先访问第一个表页面，接着访问最后一个页面中的另一个 4；检索值 5 时又回到第一个页面，检索值 6 时再回到最后一个页面，依此类推。</p>
 <p>B 树提供的顺序可以省去单独的排序操作：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT * FROM bookings
@@ -969,26 +911,20 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>同一棵 B 树也可以反向扫描：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, summary off)
-</span></span><span class="line"><span class="cl">SELECT * FROM bookings
-</span></span><span class="line"><span class="cl">WHERE book_ref &gt; &#39;000CTL&#39; AND book_ref &lt; &#39;000FHR&#39;
-</span></span><span class="line"><span class="cl">ORDER BY book_ref DESC;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Index Scan Backward using bookings_pkey on bookings (ac...
-</span></span><span class="line"><span class="cl">   Index Cond: ((book_ref &gt; &#39;000CTL&#39;::bpchar) AND (book_...
-</span></span><span class="line"><span class="cl">   Index Searches: 1
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=3 read=5
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=13
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+</div><p>同一棵 B 树也可以反向扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, summary off)
+SELECT * FROM bookings
+WHERE book_ref &gt; '000CTL' AND book_ref &lt; '000FHR'
+ORDER BY book_ref DESC;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Index Scan <mark class="plan-highlight" data-source-page="45">Backward</mark> using bookings_pkey on bookings (ac...
+   Index Cond: ((book_ref &gt; '000CTL'::bpchar) AND (book_...
+   Index Searches: 1
+   Buffers: shared hit=3 read=5
+ Planning:
+   Buffers: shared hit=13
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -997,10 +933,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这里，扫描先定位到右侧合适的叶子位置，再沿叶子链表反向遍历。Buffers 显示页面访问情况，Index Searches 则表示发起了多少次独立的 B 树检索。</p>
+</div><p>这里，扫描先定位到右侧合适的叶子位置，再沿叶子链表反向遍历。Buffers 显示页面访问情况，Index Searches 则表示发起了多少次独立的 B 树检索。</p>
 <h2>3.3 位图扫描<span class="hx-absolute -hx-mt-20" id="33-位图扫描"></span>
     <a href="#33-%e4%bd%8d%e5%9b%be%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>反复访问相同的堆页面，可能使常规索引扫描的成本变高。即使页面已在缓冲区缓存中，PostgreSQL 仍然需要定位并锁定该缓冲区 (pin)，然后执行必要的元组处理。<strong>位图扫描</strong>将查找候选元组位置与访问堆页面分成两个阶段。</p>
 <p><figure class="query-book-figure">
@@ -1022,7 +955,6 @@
 <p>位图构建完成后，Bitmap Heap Scan 开始访问堆页面。</p>
 <p>一个堆页面中可能有多个候选元组，但页面本身只需要访问一次。当许多匹配的索引条目所引用的元组分布在较少的堆页面上时，这就是位图扫描相对于常规索引扫描的主要优势。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON bookings(book_date);
 </span></span><span class="line"><span class="cl">CREATE INDEX ON bookings(total_amount);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -1034,24 +966,18 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>上面创建的两个索引为规划器提供了不同的位图来源。对于返回较多行的查询，规划器选择位图扫描：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
-</span></span><span class="line"><span class="cl">FROM bookings WHERE total_amount &lt; 5000;
-</span></span><span class="line"><span class="cl">                       QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings
-</span></span><span class="line"><span class="cl">   (cost=6241.15..26259.60 rows=332996 width=21)
-</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx
-</span></span><span class="line"><span class="cl">        (cost=0.00..6157.90 rows=332996 width=0)
-</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+</div><p>上面创建的两个索引为规划器提供了不同的位图来源。对于返回较多行的查询，规划器选择位图扫描：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT *
+FROM bookings WHERE total_amount &lt; 5000;
+                       QUERY PLAN
+-------------------------------------------------------
+ Bitmap Heap Scan on bookings
+   (cost=<mark class="plan-highlight" data-source-page="47">6241.15</mark>..26259.60 rows=332996 width=21)
+   Recheck Cond: (total_amount &lt; '5000'::numeric)
+   -&gt; Bitmap Index Scan on bookings_total_amount_idx
+        (cost=0.00..<mark class="plan-highlight" data-source-page="47">6157.90</mark> rows=332996 width=0)
+        Index Cond: (total_amount &lt; '5000'::numeric)
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1060,10 +986,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>计划中有两个相关节点：</p>
+</div><p>计划中有两个相关节点：</p>
 <ul>
 <li>Bitmap Index Scan 读取索引并构建位图。</li>
 <li>Bitmap Heap Scan 根据位图读取堆页面。</li>
@@ -1071,23 +994,20 @@
 <p>启动成本体现了这种方法的取舍：只有完整构建位图之后，才能使用它。位图访问放弃了常规索引扫描边读边返回结果的方式，换取更有序的堆访问。</p>
 <h3>3.3.1 合并位图<span class="hx-absolute -hx-mt-20" id="331-合并位图"></span>
     <a href="#331-%e5%90%88%e5%b9%b6%e4%bd%8d%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图也可以合并多个索引条件。例如，同一个索引上的两个范围：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">SELECT * FROM bookings
-</span></span><span class="line"><span class="cl">WHERE total_amount &lt; 5000
-</span></span><span class="line"><span class="cl">   OR total_amount &gt; 500000;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings
-</span></span><span class="line"><span class="cl">   Recheck Cond: ((total_amount &lt; &#39;5000&#39;::numeric) OR (t...
-</span></span><span class="line"><span class="cl">   -&gt; BitmapOr
-</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_total_amount_idx
-</span></span><span class="line"><span class="cl">             Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">        -&gt; Bitmap Index Scan on bookings_total_amount_idx
-</span></span><span class="line"><span class="cl">             Index Cond: (total_amount &gt; &#39;500000&#39;::numeric)
-</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+SELECT * FROM bookings
+WHERE total_amount &lt; 5000
+   OR total_amount &gt; 500000;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Bitmap Heap Scan on bookings
+   Recheck Cond: ((total_amount &lt; '5000'::numeric) OR (t...
+   -&gt; <mark class="plan-highlight" data-source-page="48">BitmapOr</mark>
+        -&gt; Bitmap Index Scan on bookings_total_amount_idx
+             Index Cond: (total_amount &lt; '5000'::numeric)
+        -&gt; Bitmap Index Scan on bookings_total_amount_idx
+             Index Cond: (total_amount &gt; '500000'::numeric)
+(7 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1096,13 +1016,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>PostgreSQL 构建两个位图，再通过 BitmapOr 将它们合并。</p>
+</div><p>PostgreSQL 构建两个位图，再通过 BitmapOr 将它们合并。</p>
 <p>不同的索引也可以参与位图的合并：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT * FROM bookings
@@ -1126,10 +1042,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>3.3.2 有损位图页面<span class="hx-absolute -hx-mt-20" id="332-有损位图页面"></span>
+</div><h3>3.3.2 有损位图页面<span class="hx-absolute -hx-mt-20" id="332-有损位图页面"></span>
     <a href="#332-%e6%9c%89%e6%8d%9f%e4%bd%8d%e5%9b%be%e9%a1%b5%e9%9d%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图保存在后端进程的本地内存中，大小受 <em>work_mem</em> 限制；位图扫描不会将位图溢写到临时文件。</p>
 <p>如果精确位图变得过大，PostgreSQL 可以将其中一部分转为<strong>有损</strong>表示。精确条目记录堆页面中各个元组的偏移；有损条目则只记住某个堆页面可能包含匹配行。</p>
 <p><figure class="query-book-figure">
@@ -1144,22 +1057,19 @@
 <p>重新检查页面中每个行版本的条件会影响性能。如果合并两个位图时，其中至少一个位图的某个段是有损的，合并后对应的段也必须是有损的。因此，<em>work_mem</em> 的取值可能显著影响位图扫描的性能。</p>
 <p>Bitmap Heap Scan 会显示需要重新检查的条件 (Recheck Cond)。这个条件并非总会重新检查；在这里，只有位图无法放入可用内存、精度丢失时，才需要重检。</p>
 <p>先使用通常的内存设置：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off, timing off)
-</span></span><span class="line"><span class="cl">SELECT * FROM bookings WHERE total_amount &lt; 5000;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
-</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">   Heap Blocks: exact=15839
-</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
-</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">        Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.029 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 39.772 ms
-</span></span><span class="line"><span class="cl">(8 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, buffers off, timing off)
+SELECT * FROM bookings WHERE total_amount &lt; 5000;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
+   Recheck Cond: (total_amount &lt; '5000'::numeric)
+   Heap Blocks: <mark class="plan-highlight" data-source-page="50">exact</mark>=15839
+   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
+        Index Cond: (total_amount &lt; '5000'::numeric)
+        Index Searches: 1
+ Planning Time: 0.029 ms
+ Execution Time: 39.772 ms
+(8 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1168,29 +1078,23 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Heap Blocks: exact=15839 表明，所有堆页面对应的位图条目都保持了精确表示。</p>
+</div><p>Heap Blocks: exact=15839 表明，所有堆页面对应的位图条目都保持了精确表示。</p>
 <p>现在减少可用内存，再执行同一个查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;512kB&#39;;
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off, timing off)
-</span></span><span class="line"><span class="cl">SELECT * FROM bookings WHERE total_amount &lt; 5000;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
-</span></span><span class="line"><span class="cl">   Recheck Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">   Rows Removed by Index Recheck: 1121673
-</span></span><span class="line"><span class="cl">   Heap Blocks: exact=7581 lossy=8258
-</span></span><span class="line"><span class="cl">   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
-</span></span><span class="line"><span class="cl">        Index Cond: (total_amount &lt; &#39;5000&#39;::numeric)
-</span></span><span class="line"><span class="cl">        Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.053 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 84.084 ms
-</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SET work_mem = '512kB';
+EXPLAIN (analyze, costs off, buffers off, timing off)
+SELECT * FROM bookings WHERE total_amount &lt; 5000;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Bitmap Heap Scan on bookings (actual rows=332628.00 loo...
+   Recheck Cond: (total_amount &lt; '5000'::numeric)
+   Rows Removed by Index Recheck: 1121673
+   Heap Blocks: <mark class="plan-highlight" data-source-page="51">exact</mark>=7581 <mark class="plan-highlight" data-source-page="51">lossy</mark>=8258
+   -&gt; Bitmap Index Scan on bookings_total_amount_idx (ac...
+        Index Cond: (total_amount &lt; '5000'::numeric)
+        Index Searches: 1
+ Planning Time: 0.053 ms
+ Execution Time: 84.084 ms
+(9 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1199,13 +1103,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，一些堆页面由有损位图条目表示。Rows Removed by Index Recheck 显示重新检查条件时，有多少候选行因为不满足条件而被过滤掉。</p>
+</div><p>现在，一些堆页面由有损位图条目表示。Rows Removed by Index Recheck 显示重新检查条件时，有多少候选行因为不满足条件而被过滤掉。</p>
 <p>恢复原来的设置：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">RESET work_mem;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -1216,10 +1116,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>3.3.3 聚簇<span class="hx-absolute -hx-mt-20" id="333-聚簇"></span>
+</div><h3>3.3.3 聚簇<span class="hx-absolute -hx-mt-20" id="333-聚簇"></span>
     <a href="#333-%e8%81%9a%e7%b0%87" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当堆中行的物理顺序与索引顺序具有较高相关性时，常规索引扫描会更具优势。</p>
 <p>此时，相邻的索引条目往往指向相同或相邻的堆页面，因此扫描所需的随机堆访问会大幅减少。</p>
 <p>如果物理相关性很高，位图按页面组织访问的优势就可能大幅减弱，规划器也可能更倾向于选择常规索引扫描。</p>
@@ -1232,7 +1129,6 @@
 </p>
 <p>CLUSTER 命令可以按照某个索引的顺序重写表。最初，bookings 中的行并未按该索引的顺序存放，下面这个没有 ORDER BY 的查询展示了这一点：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM bookings LIMIT 10;
 </span></span><span class="line"><span class="cl"> book_ref |           book_date            | total_amount
@@ -1256,13 +1152,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>根据 total_amount 上的索引重新排列这些行。</p>
+</div><p>根据 total_amount 上的索引重新排列这些行。</p>
 <p>我们在事务中执行这段代码，以便在最后回滚聚簇操作，不影响后续示例：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">BEGIN;
 </span></span><span class="line"><span class="cl">CLUSTER bookings USING bookings_total_amount_idx;
@@ -1275,12 +1167,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，普通的顺序读取恰好会按照新的物理顺序遇到这些行：</p>
+</div><p>现在，普通的顺序读取恰好会按照新的物理顺序遇到这些行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM bookings LIMIT 10;
 </span></span><span class="line"><span class="cl"> book_ref |           book_date            | total_amount
@@ -1315,10 +1203,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>上面的 ANALYZE 更新了统计信息，使规划器能够了解新的物理相关性。聚簇之前，这个谓词使用位图扫描；相关性提高后，常规索引扫描的成本更低。最后的 ROLLBACK 将表恢复，以便继续后面的示例。</p>
+</div><p>上面的 ANALYZE 更新了统计信息，使规划器能够了解新的物理相关性。聚簇之前，这个谓词使用位图扫描；相关性提高后，常规索引扫描的成本更低。最后的 ROLLBACK 将表恢复，以便继续后面的示例。</p>
 <p>实际使用时，有两点需要注意：</p>
 <ul>
 <li>CLUSTER 会重写表，需要获取 ACCESS EXCLUSIVE 锁，这一点与其他全表重写操作相似。</li>
@@ -1339,22 +1224,19 @@
 <p>因此，清理对仅索引扫描很重要。更新和删除会在必要时清除页面的全部可见状态，而 VACUUM 检查页面后，可以重新设置全部可见位。</p>
 <p>规划器无法确切知道执行时会发生多少次堆元组访问。估算仅索引扫描的成本时，它使用关系的统计信息，其中包括全部可见页面比例的估算值。如果预计需要访问太多堆页面，规划器可能会认为其他访问方式更便宜。</p>
 <p>对于每个匹配的索引条目，执行器都会检查可见性映射。如果相应堆页面全部可见，就无需访问堆；否则，必须读取堆元组来检查可见性。即使需要部分堆访问，计划节点仍然叫作 Index Only Scan。</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, buffers off, costs off, timing off)
-</span></span><span class="line"><span class="cl">SELECT total_amount
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">WHERE total_amount &gt; 200000;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Index Only Scan using bookings_total_amount_idx on book...
-</span></span><span class="line"><span class="cl">   Index Cond: (total_amount &gt; &#39;200000&#39;::numeric)
-</span></span><span class="line"><span class="cl">   Heap Fetches: 0
-</span></span><span class="line"><span class="cl">   Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.122 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 0.148 ms
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, buffers off, costs off, timing off)
+SELECT total_amount
+FROM bookings
+WHERE total_amount &gt; 200000;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Index Only Scan using bookings_total_amount_idx on book...
+   Index Cond: (total_amount &gt; '200000'::numeric)
+   Heap Fetches: <mark class="plan-highlight" data-source-page="56">0</mark>
+   Index Searches: 1
+ Planning Time: 0.122 ms
+ Execution Time: 0.148 ms
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1363,13 +1245,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Heap Fetches 表示为了检查可见性而读取堆元组的次数。这里仅凭可见性映射就能完成判断，因此不需要访问堆。</p>
+</div><p>Heap Fetches 表示为了检查可见性而读取堆元组的次数。这里仅凭可见性映射就能完成判断，因此不需要访问堆。</p>
 <p>现在更新一行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">UPDATE bookings
 </span></span><span class="line"><span class="cl">SET total_amount = total_amount
@@ -1383,26 +1261,20 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>更新会清除受影响堆页面的全部可见状态。当匹配的索引条目指向这个页面时，执行器就必须访问堆：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, buffers off, costs off, timing off)
-</span></span><span class="line"><span class="cl">SELECT total_amount
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">WHERE total_amount &gt; 200000;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Index Only Scan using bookings_total_amount_idx on book...
-</span></span><span class="line"><span class="cl">   Index Cond: (total_amount &gt; &#39;200000&#39;::numeric)
-</span></span><span class="line"><span class="cl">   Heap Fetches: 3
-</span></span><span class="line"><span class="cl">   Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.033 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 0.136 ms
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+</div><p>更新会清除受影响堆页面的全部可见状态。当匹配的索引条目指向这个页面时，执行器就必须访问堆：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, buffers off, costs off, timing off)
+SELECT total_amount
+FROM bookings
+WHERE total_amount &gt; 200000;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Index Only Scan using bookings_total_amount_idx on book...
+   Index Cond: (total_amount &gt; '200000'::numeric)
+   Heap Fetches: <mark class="plan-highlight" data-source-page="56">3</mark>
+   Index Searches: 1
+ Planning Time: 0.033 ms
+ Execution Time: 0.136 ms
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1411,10 +1283,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>执行器并没有扫描被修改页面中的每个元组。这里的堆访问，是由需要检查可见性的索引条目引起的，因为已经不能再认定该页面全部可见。</p>
+</div><p>执行器并没有扫描被修改页面中的每个元组。这里的堆访问，是由需要检查可见性的索引条目引起的，因为已经不能再认定该页面全部可见。</p>
 <h3>3.4.2 包含 INCLUDE 子句的索引<span class="hx-absolute -hx-mt-20" id="342-包含-include-子句的索引"></span>
     <a href="#342-%e5%8c%85%e5%90%ab-include-%e5%ad%90%e5%8f%a5%e7%9a%84%e7%b4%a2%e5%bc%95" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>覆盖索引可以大幅降低查询成本，但将所有所需列都作为索引键并不总是合适。例如：</p>
 <ul>
@@ -1427,7 +1296,6 @@
 <p><strong>包含 INCLUDE 子句的索引</strong>与<strong>覆盖索引</strong>不是同一个概念。索引可以在不使用 INCLUDE 的情况下覆盖某个查询；反过来，包含额外列的索引也未必能够覆盖另一个查询。</p>
 <p>主键索引 tickets_pkey 包含 ticket_no，却不包含 book_ref，因此不能覆盖下面这个查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, summary off)
 </span></span><span class="line"><span class="cl">SELECT ticket_no, book_ref
@@ -1450,12 +1318,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Buffers 行报告了页面访问情况。这里大量的缓冲区命中，反映了为了获取索引中不存在的值而访问表所产生的开销。创建一个将 book_ref 作为附加数据保存的唯一索引：</p>
+</div><p>Buffers 行报告了页面访问情况。这里大量的缓冲区命中，反映了为了获取索引中不存在的值而访问表所产生的开销。创建一个将 book_ref 作为附加数据保存的唯一索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE UNIQUE INDEX ON tickets (ticket_no)
 </span></span><span class="line"><span class="cl">INCLUDE (book_ref);
@@ -1483,10 +1347,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，规划器选择 Index Only Scan，并使用新建的索引。由于相关堆页面全部可见，Heap Fetches 为零，页面访问量也小得多。</p>
+</div><p>现在，规划器选择 Index Only Scan，并使用新建的索引。由于相关堆页面全部可见，Heap Fetches 为零，页面访问量也小得多。</p>
 <p>通过 INCLUDE 添加的列不参与索引访问方法的键处理，因此这种索引可以包含 B 树不支持作为键的数据类型，例如几何类型或 xml。</p>
 <h2>3.5 并行访问<span class="hx-absolute -hx-mt-20" id="35-并行访问"></span>
     <a href="#35-%e5%b9%b6%e8%a1%8c%e8%ae%bf%e9%97%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>PostgreSQL 可以并行执行查询计划中的某些部分。<strong>领导者进程</strong>启动并行工作进程，由它们执行计划中支持并行协作的部分，再通过 Gather 或 Gather Merge 节点收集输出。</p>
@@ -1527,7 +1388,6 @@
 <p>收益并不只是多个进程可以同时读取存储。每个工作进程还会在分配给自己的页面上计算谓词，并执行其他逐行 CPU 处理。只有节省的执行时间超过工作进程启动、同步和元组传输的开销，并行才有收益。聚合就是一个很好的例子：工作进程可以扫描并局部聚合大量行，而向上层传递的只是少量局部结果。</p>
 <p>对于小表，串行执行 count(*) 的成本更低：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT count(*) FROM seats;
 </span></span><span class="line"><span class="cl">                         QUERY PLAN
@@ -1543,23 +1403,17 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Aggregate 必须读完全部输入才能返回最终计数，因此其启动成本接近总成本。</p>
+</div><p>Aggregate 必须读完全部输入才能返回最终计数，因此其启动成本接近总成本。</p>
 <p>在大得多的 bookings 表上执行同类查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT count(*) FROM bookings;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate  (cost=29807.83..29807.84 rows=1 wid...
-</span></span><span class="line"><span class="cl">   -&gt; Gather  (cost=29807.61..29807.82 rows=2 width=8)
-</span></span><span class="line"><span class="cl">        Workers Planned: 2
-</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate  (cost=28807.61..28807.62 ro...
-</span></span><span class="line"><span class="cl">             -&gt; Parallel Seq Scan on bookings  (cost=0.00....
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT count(*) FROM bookings;
+                         QUERY PLAN
+-------------------------------------------------------------
+ Finalize Aggregate  (cost=29807.83..29807.84 rows=1 wid...
+   -&gt; <mark class="plan-highlight" data-source-page="62">Gather</mark>  (cost=29807.61..29807.82 rows=2 width=8)
+        Workers Planned: 2
+        -&gt; Partial Aggregate  (cost=28807.61..28807.62 ro...
+             -&gt; <mark class="plan-highlight" data-source-page="62">Parallel Seq Scan</mark> on bookings  (cost=0.00....
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1568,10 +1422,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Gather 下方是计划的并行部分，由规划的工作进程执行，领导者进程也可能参与。Gather 自身及其上方的节点则由领导者进程执行。</p>
+</div><p>Gather 下方是计划的并行部分，由规划的工作进程执行，领导者进程也可能参与。Gather 自身及其上方的节点则由领导者进程执行。</p>
 <p>每个工作进程计算局部计数，领导者进程收集这些局部结果，最后由 Finalize Aggregate 生成最终值。</p>
 <p>并非每个查询都能使用并行执行。例如，许多修改数据或锁定行的操作不能并行执行，函数和其他操作的并行安全规则也可能使计划只能串行执行。这些限制会随 PostgreSQL 版本演进，具体版本的行为应查阅对应文档。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup></p>
 <h3>3.5.3 并行索引扫描与并行仅索引扫描<span class="hx-absolute -hx-mt-20" id="353-并行索引扫描与并行仅索引扫描"></span>
@@ -1593,22 +1444,19 @@
 </figure>
 </p>
 <p>例如，统计最近一个月的预订数：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">WHERE book_date &gt; &#39;2026-02-01 03:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate
-</span></span><span class="line"><span class="cl">   -&gt; Gather
-</span></span><span class="line"><span class="cl">        Workers Planned: 2
-</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate
-</span></span><span class="line"><span class="cl">             -&gt; Parallel Index Only Scan using bookings_bo...
-</span></span><span class="line"><span class="cl">                  Index Cond: (book_date &gt; &#39;2026-02-01 03:0...
-</span></span><span class="line"><span class="cl">(6 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+SELECT count(*)
+FROM bookings
+WHERE book_date &gt; '2026-02-01 03:00:00+03';
+                         QUERY PLAN
+-------------------------------------------------------------
+ Finalize Aggregate
+   -&gt; Gather
+        Workers Planned: 2
+        -&gt; Partial Aggregate
+             -&gt; <mark class="plan-highlight" data-source-page="64">Parallel Index Only Scan</mark> using bookings_bo...
+                  Index Cond: (book_date &gt; '2026-02-01 03:0...
+(6 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1617,10 +1465,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>其结构与前面的并行顺序扫描计划相似，只是行通过 Parallel Index Only Scan 获取。</p>
+</div><p>其结构与前面的并行顺序扫描计划相似，只是行通过 Parallel Index Only Scan 获取。</p>
 <h3>3.5.4 并行位图堆扫描<span class="hx-absolute -hx-mt-20" id="354-并行位图堆扫描"></span>
     <a href="#354-%e5%b9%b6%e8%a1%8c%e4%bd%8d%e5%9b%be%e5%a0%86%e6%89%ab%e6%8f%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>位图堆访问也可以并行执行。</p>
 <p><figure class="query-book-figure">
@@ -1633,26 +1478,23 @@
 <p>位图本身仍然串行构建：负责初始化的领导进程执行 Bitmap Index Scan，构建共享的位图状态。</p>
 <p>之后，工作进程就可以通过 Parallel Bitmap Heap Scan 协作完成堆访问阶段。</p>
 <p>统计最近三个月中金额小于 5,000 的预订数：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">WHERE total_amount &lt; 5000
-</span></span><span class="line"><span class="cl">  AND book_date &gt; &#39;2025-12-01 03:00:00+03&#39;;
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">-------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate
-</span></span><span class="line"><span class="cl">   -&gt; Gather
-</span></span><span class="line"><span class="cl">        Workers Planned: 2
-</span></span><span class="line"><span class="cl">        -&gt; Partial Aggregate
-</span></span><span class="line"><span class="cl">             -&gt; Parallel Bitmap Heap Scan on bookings
-</span></span><span class="line"><span class="cl">                  Recheck Cond: (total_amount &lt; &#39;5000&#39;::num...
-</span></span><span class="line"><span class="cl">                  Filter: (book_date &gt; &#39;2025-12-01 03:00:00...
-</span></span><span class="line"><span class="cl">                  -&gt; Bitmap Index Scan on bookings_total_am...
-</span></span><span class="line"><span class="cl">                       Index Cond: (total_amount &lt; &#39;5000&#39;::n...
-</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+SELECT count(*)
+FROM bookings
+WHERE total_amount &lt; 5000
+  AND book_date &gt; '2025-12-01 03:00:00+03';
+                         QUERY PLAN
+-------------------------------------------------------------
+ Finalize Aggregate
+   -&gt; Gather
+        Workers Planned: 2
+        -&gt; Partial Aggregate
+             -&gt; <mark class="plan-highlight" data-source-page="66">Parallel Bitmap Heap Scan</mark> on bookings
+                  Recheck Cond: (total_amount &lt; '5000'::num...
+                  Filter: (book_date &gt; '2025-12-01 03:00:00...
+                  -&gt; <mark class="plan-highlight" data-source-page="66">Bitmap Index Scan</mark> on bookings_total_am...
+                       Index Cond: (total_amount &lt; '5000'::n...
+(9 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1661,13 +1503,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>负责初始化的进程在 Bitmap Index Scan 中构建位图。位图选出的堆数据块，则由 Parallel Bitmap Heap Scan 并行处理。</p>
+</div><p>负责初始化的进程在 Bitmap Index Scan 中构建位图。位图选出的堆数据块，则由 Parallel Bitmap Heap Scan 并行处理。</p>
 <p>删除为这些示例创建的索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX bookings_book_date_idx;
 </span></span><span class="line"><span class="cl">DROP INDEX bookings_total_amount_idx;
@@ -1680,10 +1518,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h2>3.6 访问方法比较<span class="hx-absolute -hx-mt-20" id="36-访问方法比较"></span>
+</div><h2>3.6 访问方法比较<span class="hx-absolute -hx-mt-20" id="36-访问方法比较"></span>
     <a href="#36-%e8%ae%bf%e9%97%ae%e6%96%b9%e6%b3%95%e6%af%94%e8%be%83" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>不存在一个通用的选择率阈值，能够确定某种访问方法从何时起优于另一种方法。不过，总体规律并不难理解。</p>
 <p>当谓词<strong>筛选能力很强</strong>，只需要一行或表中很小一部分数据时，常规索引扫描最有优势。此时，沿索引检索并读取少量堆页面的成本，远低于扫描整个关系。</p>
 <p>当<strong>匹配行比例处于中间范围</strong>时，位图扫描往往具有竞争力。虽然需要付出构建位图的启动成本，但可以减少对相同堆页面的反复访问。在最坏情况下，常规索引扫描的堆访问工作量大致随匹配元组数量增长；位图堆扫描则围绕包含候选元组的堆页面来组织访问。</p>

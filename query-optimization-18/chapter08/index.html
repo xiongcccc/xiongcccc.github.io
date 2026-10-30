@@ -76,6 +76,11 @@
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
+  
 
 
   
@@ -502,7 +507,6 @@
 <p>如果对外集合的每一行都重新计算一次内集合，就会造成浪费。因此，PostgreSQL 可以将其物化一次，再反复扫描保存的行。</p>
 <p>例如，查找这样的机场对：一个机场使用莫斯科时间，另一个位于北极圈以北。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT a1.city, a2.city
@@ -527,10 +531,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>本例中，没有可用于内集合谓词的有效索引。复用这个很小的内集合结果，比针对外集合的每一行都重新扫描和过滤成本更低。</p>
+</div><p>本例中，没有可用于内集合谓词的有效索引。复用这个很小的内集合结果，比针对外集合的每一行都重新扫描和过滤成本更低。</p>
 <h3>8.1.1 CTE 物化<span class="hx-absolute -hx-mt-20" id="811-cte-物化"></span>
     <a href="#811-cte-%e7%89%a9%e5%8c%96" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>公用表表达式 (CTE)，也称为 WITH 子查询，是组织查询结构、改善可读性的一种好方法。与普通子查询不同，使用 CTE 不会导致很深的嵌套。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 <p>只要条件允许，规划器就会将 CTE 折叠进父查询，而不是物化它。这样，规划器就可以选择最优的连接顺序。</p>
@@ -549,7 +550,6 @@
 </p>
 <p>来看一个只使用一次的 CTE：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">WITH q AS (
@@ -583,40 +583,34 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>计划中没有 CTE Scan：CTE 已经直接折叠进主查询。</p>
+</div><p>计划中没有 CTE Scan：CTE 已经直接折叠进主查询。</p>
 <p>强制物化：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+WITH q AS MATERIALIZED (
+  SELECT r.route_no, a.airplane_code
+  FROM routes r
+    JOIN airplanes a ON a.airplane_code = r.airplane_code
+)
+SELECT *
+FROM q
+  JOIN seats s ON s.airplane_code = q.airplane_code
+WHERE s.seat_no = '1A';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">WITH q AS MATERIALIZED (
-</span></span><span class="line"><span class="cl">  SELECT r.route_no, a.airplane_code
-</span></span><span class="line"><span class="cl">  FROM routes r
-</span></span><span class="line"><span class="cl">    JOIN airplanes a ON a.airplane_code = r.airplane_code
-</span></span><span class="line"><span class="cl">)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM q
-</span></span><span class="line"><span class="cl">  JOIN seats s ON s.airplane_code = q.airplane_code
-</span></span><span class="line"><span class="cl">WHERE s.seat_no = &#39;1A&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                       QUERY PLAN
-</span></span><span class="line"><span class="cl">---------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join
-</span></span><span class="line"><span class="cl">   Hash Cond: (q.airplane_code = s.airplane_code)
-</span></span><span class="line"><span class="cl">   CTE q
-</span></span><span class="line"><span class="cl">     -&gt; Hash Join
-</span></span><span class="line"><span class="cl">         Hash Cond: (r.airplane_code = ml.airplane_code)
-</span></span><span class="line"><span class="cl">         -&gt; Seq Scan on routes r
-</span></span><span class="line"><span class="cl">         -&gt; Hash
-</span></span><span class="line"><span class="cl">             -&gt; Seq Scan on airplanes_data ml
-</span></span><span class="line"><span class="cl">   -&gt; CTE Scan on q
-</span></span><span class="line"><span class="cl">   -&gt; Hash
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on seats s
-</span></span><span class="line"><span class="cl">           Filter: (seat_no = &#39;1A&#39;::text)
-</span></span><span class="line"><span class="cl">(12 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                       QUERY PLAN
+---------------------------------------------------------
+ Hash Join
+   Hash Cond: (q.airplane_code = s.airplane_code)
+   <mark class="plan-highlight" data-source-page="145">CTE</mark> q
+     -&gt; Hash Join
+         Hash Cond: (r.airplane_code = ml.airplane_code)
+         -&gt; Seq Scan on routes r
+         -&gt; Hash
+             -&gt; Seq Scan on airplanes_data ml
+   -&gt; <mark class="plan-highlight" data-source-page="145">CTE Scan</mark> on q
+   -&gt; Hash
+       -&gt; Seq Scan on seats s
+           Filter: (seat_no = '1A'::text)
+(12 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -625,43 +619,37 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，CTE 作为独立单元生成计划，父查询通过 CTE Scan 读取其结果。如果一个计算成本很高的结果会被重复使用，物化通常是不错的选择。但如果父查询只需要一个大型 CTE 结果中的极小部分，物化的代价就可能非常高。</p>
+</div><p>现在，CTE 作为独立单元生成计划，父查询通过 CTE Scan 读取其结果。如果一个计算成本很高的结果会被重复使用，物化通常是不错的选择。但如果父查询只需要一个大型 CTE 结果中的极小部分，物化的代价就可能非常高。</p>
 <p>例如：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, buffers)
+WITH b AS (
+  SELECT * FROM bookings
+)
+SELECT *
+FROM b AS b1
+  JOIN b AS b2 ON b1.book_ref = b2.book_ref
+WHERE b2.book_ref = '000112';
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers)
-</span></span><span class="line"><span class="cl">WITH b AS (
-</span></span><span class="line"><span class="cl">  SELECT * FROM bookings
-</span></span><span class="line"><span class="cl">)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM b AS b1
-</span></span><span class="line"><span class="cl">  JOIN b AS b2 ON b1.book_ref = b2.book_ref
-</span></span><span class="line"><span class="cl">WHERE b2.book_ref = &#39;000112&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Nested Loop (actual time=228.999..229.000 rows=0.00 loo...
-</span></span><span class="line"><span class="cl">   Buffers: shared read=15856, temp written=9746
-</span></span><span class="line"><span class="cl">   CTE b
-</span></span><span class="line"><span class="cl">     -&gt; Seq Scan on bookings (actual time=0.064..71.089 ...
-</span></span><span class="line"><span class="cl">         Buffers: shared read=15856
-</span></span><span class="line"><span class="cl">   -&gt; CTE Scan on b b1 (actual time=228.999..228.999 row...
-</span></span><span class="line"><span class="cl">       Filter: (book_ref = &#39;000112&#39;::bpchar)
-</span></span><span class="line"><span class="cl">       Rows Removed by Filter: 2486710
-</span></span><span class="line"><span class="cl">       Storage: Disk  Maximum Storage: 77968kB
-</span></span><span class="line"><span class="cl">       Buffers: shared read=15856, temp written=9746
-</span></span><span class="line"><span class="cl">   -&gt; CTE Scan on b b2 (never executed)
-</span></span><span class="line"><span class="cl">       Filter: (book_ref = &#39;000112&#39;::bpchar)
-</span></span><span class="line"><span class="cl">       Storage: Disk  Maximum Storage: 77968kB
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=23 read=1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.106 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 232.733 ms
-</span></span><span class="line"><span class="cl">(17 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Nested Loop (actual time=228.999..229.000 rows=0.00 loo...
+   Buffers: shared read=15856, temp written=9746
+   <mark class="plan-highlight" data-source-page="146">CTE</mark> b
+     -&gt; Seq Scan on bookings (actual time=0.064..71.089 ...
+         Buffers: shared read=15856
+   -&gt; <mark class="plan-highlight" data-source-page="146">CTE Scan</mark> on b b1 (actual time=228.999..228.999 row...
+       Filter: (book_ref = '000112'::bpchar)
+       Rows Removed by Filter: 2486710
+       Storage: Disk  Maximum Storage: 77968kB
+       Buffers: shared read=15856, temp written=9746
+   -&gt; <mark class="plan-highlight" data-source-page="146">CTE Scan</mark> on b b2 (never executed)
+       Filter: (book_ref = '000112'::bpchar)
+       Storage: Disk  Maximum Storage: 77968kB
+ Planning:
+   Buffers: shared hit=23 read=1
+ Planning Time: 0.106 ms
+ Execution Time: 232.733 ms
+(17 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -670,12 +658,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>父查询只查找一个键，却物化了整张 bookings 表。现在允许对这个 CTE 的两次引用分别进行优化：</p>
+</div><p>父查询只查找一个键，却物化了整张 bookings 表。现在允许对这个 CTE 的两次引用分别进行优化：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers)
 </span></span><span class="line"><span class="cl">WITH b AS NOT MATERIALIZED (
@@ -710,10 +694,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>规划器现在可以将键上的限制条件下推到两次扫描中，并使用主键索引。可以对比这一方案与前一个方案的 Buffers 值。</p>
+</div><p>规划器现在可以将键上的限制条件下推到两次扫描中，并使用主键索引。可以对比这一方案与前一个方案的 Buffers 值。</p>
 <p>不过，如果 CTE 修改数据，无论如何都会物化：修改必须恰好执行一次。</p>
 <h3>8.1.2 临时表<span class="hx-absolute -hx-mt-20" id="812-临时表"></span>
     <a href="#812-%e4%b8%b4%e6%97%b6%e8%a1%a8" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果数据需要由多条查询复用，就不能通过一个 CTE 为这些查询统一计算，但可以将数据放入临时表，再由这些查询使用。临时表具有几个有用的性质：<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup></p>
@@ -728,7 +709,6 @@
 <p><em>temp_buffers</em> 限制一个会话可用于临时关系的本地缓冲区内存。只有在会话首次访问临时表之前，才能更改它的值。</p>
 <p>创建一张包含北半球机场的临时表：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE TEMP TABLE airports_nh -- Northern Hemisphere
 </span></span><span class="line"><span class="cl">ON COMMIT PRESERVE ROWS -- default
@@ -744,14 +724,10 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这张表创建在临时模式中，可以通过 pg_temp 访问。</p>
+</div><p>这张表创建在临时模式中，可以通过 pg_temp 访问。</p>
 <p>对刚填充完的临时表，在用于查询之前执行分析通常是有意义的。后端进程的本地内存不能由 autovacuum 进程访问，因此临时表的清理和分析必须手动执行。</p>
 <p>对比分析前后的基数估算：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT *
 </span></span><span class="line"><span class="cl">FROM airports_nh;
@@ -779,17 +755,13 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>8.1.3 物化视图<span class="hx-absolute -hx-mt-20" id="813-物化视图"></span>
+</div><h3>8.1.3 物化视图<span class="hx-absolute -hx-mt-20" id="813-物化视图"></span>
     <a href="#813-%e7%89%a9%e5%8c%96%e8%a7%86%e5%9b%be" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>物化视图是以数据库关系形式存储、具有名称的查询结果。可以像查询普通的只读表一样查询它。<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup></p>
 <p>物化视图上可以创建索引，但不能添加完整性约束；约束必须在基表上检查。PostgreSQL 也会为物化视图收集规划器统计信息。</p>
 <p>与普通视图不同，基表变化时，物化视图中的行不会随之变化，必须显式刷新。</p>
 <p>全量刷新的成本可能很高。PostgreSQL 核心目前不会在基表变化时，逐行增量维护物化视图。Yugo Nagata 开发的 pg_ivm 扩展，在它所支持的场景中实现了增量视图维护。<sup id="fnref:4"><a href="#fn:4" class="footnote-ref" role="doc-noteref">4</a></sup></p>
 <p>基于 airports 创建物化视图：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE MATERIALIZED VIEW airports_mv AS
 </span></span><span class="line"><span class="cl">SELECT * FROM airports;
@@ -802,12 +774,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>创建索引：</p>
+</div><p>创建索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE UNIQUE INDEX ON airports_mv(airport_code);
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off) SELECT *
@@ -828,12 +796,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在修改一个基表中的值。2025 年 8 月，玛纳斯国际机场的 IATA 代码从 FRU 改为 BSZ；我们可以利用示例数据库中的这项信息来演示。</p>
+</div><p>现在修改一个基表中的值。2025 年 8 月，玛纳斯国际机场的 IATA 代码从 FRU 改为 BSZ；我们可以利用示例数据库中的这项信息来演示。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">UPDATE airports_data
 </span></span><span class="line"><span class="cl">SET airport_code = &#39;BSZ&#39;
@@ -856,12 +820,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>物化视图中保存的行没有变化。同步必须显式进行，刷新这个物化视图：</p>
+</div><p>物化视图中保存的行没有变化。同步必须显式进行，刷新这个物化视图：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">REFRESH MATERIALIZED VIEW CONCURRENTLY airports_mv;
 </span></span><span class="line"><span class="cl">SELECT count(*) FROM airports_mv
@@ -879,10 +839,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h2>8.2 函数<span class="hx-absolute -hx-mt-20" id="82-函数"></span>
+</div><h2>8.2 函数<span class="hx-absolute -hx-mt-20" id="82-函数"></span>
     <a href="#82-%e5%87%bd%e6%95%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>8.2.1 稳定性类别<span class="hx-absolute -hx-mt-20" id="821-稳定性类别"></span>
     <a href="#821-%e7%a8%b3%e5%ae%9a%e6%80%a7%e7%b1%bb%e5%88%ab" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>每个函数都有一个稳定性类别。这一类别是向优化器作出的、关于函数行为的承诺。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup></p>
 <p>VOLATILE 是默认类别。对于相同的参数，VOLATILE 函数在连续调用时可能返回不同结果，也可能产生副作用。PostgreSQL 不能假定两次调用可以相互替换。</p>
@@ -892,7 +849,6 @@
 <p>错误的标签可能产生错误结果。如果函数依赖时间、配置、表内容或其他会变化的状态，却被标记为 IMMUTABLE，就可能将一个过时的值固定在可复用的计划中。</p>
 <p>为 random() 创建一个包装函数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION rnd() RETURNS float
 </span></span><span class="line"><span class="cl">LANGUAGE sql VOLATILE
@@ -905,12 +861,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>使用正确的 VOLATILE 标签时，谓词会对每一行求值：</p>
+</div><p>使用正确的 VOLATILE 标签时，谓词会对每一行求值：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT * FROM generate_series(1,10) WHERE rnd() &gt; 0.5;
@@ -928,12 +880,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>一次执行可能返回这十行中的任意子集：</p>
+</div><p>一次执行可能返回这十行中的任意子集：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM generate_series(1,10) WHERE rnd() &gt; 0.5;
 </span></span><span class="line"><span class="cl">
@@ -953,12 +901,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在向 PostgreSQL 提供一个不真实的声明：</p>
+</div><p>现在向 PostgreSQL 提供一个不真实的声明：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION rnd() STABLE;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off)
@@ -978,12 +922,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>在这个计划中，STABLE 表达式成为 One-Time Filter，因此结果要么包含全部十行，要么一行也没有：</p>
+</div><p>在这个计划中，STABLE 表达式成为 One-Time Filter，因此结果要么包含全部十行，要么一行也没有：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM generate_series(1,10) WHERE rnd() &gt; 0.5;
 </span></span><span class="line"><span class="cl">
@@ -998,12 +938,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>将包装函数标记为 IMMUTABLE，会给规划器更大的处理空间：</p>
+</div><p>将包装函数标记为 IMMUTABLE，会给规划器更大的处理空间：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION rnd() IMMUTABLE;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off)
@@ -1030,17 +966,13 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>两次独立的规划可能将不同的随机结果固定下来。这些出人意料的计划不是 PostgreSQL 的错误，而是因为我们向优化器作出了不真实的承诺。</p>
+</div><p>两次独立的规划可能将不同的随机结果固定下来。这些出人意料的计划不是 PostgreSQL 的错误，而是因为我们向优化器作出了不真实的承诺。</p>
 <h3>8.2.2 函数内联<span class="hx-absolute -hx-mt-20" id="822-函数内联"></span>
     <a href="#822-%e5%87%bd%e6%95%b0%e5%86%85%e8%81%94" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>对于满足条件的 SQL 语言函数，PostgreSQL 可以将函数体内联到外层查询中，标量函数和返回集合的函数都可以如此。<sup id="fnref:6"><a href="#fn:6" class="footnote-ref" role="doc-noteref">6</a></sup> 两种情况都有许多限制：函数必须用 SQL 编写，只使用一条 SELECT 语句，并满足其他条件。标量函数不能访问数据库表，也不能调用稳定性类别更宽松的函数；返回集合的函数则必须是 STABLE 或 IMMUTABLE。</p>
 <p>内联很重要，因为从规划器的角度看，它消除了函数边界。外层查询中的谓词有时就可以下推到函数体内部，连接顺序也可以跨越原有的函数边界进行调整。</p>
 <p>简单标量 SQL 函数的函数体，可以在规划前直接替换进主 SQL 语句。此时，就没有函数调用开销。</p>
 <p>对于标量 SQL 函数，限制条件包括稳定性类别必须一致。声明为 STABLE 的函数，如果函数体调用了 random() 这样的 VOLATILE 操作，就不能安全地内联。将 rnd() 标记为 STABLE：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION rnd() STABLE;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off)
@@ -1060,13 +992,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>包装函数仍然出现在计划中。</p>
+</div><p>包装函数仍然出现在计划中。</p>
 <p>恢复与实际行为相符的稳定性类别：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION rnd() VOLATILE;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off)
@@ -1085,28 +1013,22 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在，过滤条件引用的是 random()，直接调用它，绕过了 rnd() 包装函数。</p>
+</div><p>现在，过滤条件引用的是 random()，直接调用它，绕过了 rnd() 包装函数。</p>
 <h3>8.2.3 调用返回集合的函数<span class="hx-absolute -hx-mt-20" id="823-调用返回集合的函数"></span>
     <a href="#823-%e8%b0%83%e7%94%a8%e8%bf%94%e5%9b%9e%e9%9b%86%e5%90%88%e7%9a%84%e5%87%bd%e6%95%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当返回集合的函数作为表表达式出现在 FROM 中时，PostgreSQL 用 Function Scan 表示它。此时，会先物化函数返回的全部行，再传给父计划节点。这是当前实现的一个限制。</p>
 <p>当返回集合的表达式出现在目标列表中时，PostgreSQL 使用 ProjectSet，可以按需生成行。SQL 函数、大多数用 C 编写的内置函数，以及返回迭代器的 PL/Python 函数，都可以这样工作。其他编程语言的函数，如果其语言实现支持同一接口，也可以采用这种方式。</p>
 <p>使用 LIMIT 时，两者的差别可能非常大。在 FROM 中调用 generate_series：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, buffers off)
+SELECT * FROM generate_series(1,10_000_000)
+LIMIT 10;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT * FROM generate_series(1,10_000_000)
-</span></span><span class="line"><span class="cl">LIMIT 10;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Limit (actual time=290.495..290.497 rows=10.00 loops=1)
-</span></span><span class="line"><span class="cl">   -&gt; Function Scan on generate_series (actual time=290....
-</span></span><span class="line"><span class="cl"> Planning Time: 0.025 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 296.988 ms
-</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Limit (actual time=290.495..290.497 rows=10.00 loops=1)
+   -&gt; <mark class="plan-highlight" data-source-page="156">Function Scan</mark> on generate_series (actual time=290....
+ Planning Time: 0.025 ms
+ Execution Time: 296.988 ms
+(4 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1115,25 +1037,19 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>现在，将返回集合的函数放入目标列表：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, buffers off)
+SELECT generate_series(1,10_000_000)
+LIMIT 10;
 
-  
-</div>
-<p>现在，将返回集合的函数放入目标列表：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT generate_series(1,10_000_000)
-</span></span><span class="line"><span class="cl">LIMIT 10;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Limit (actual time=0.002..0.003 rows=10.00 loops=1)
-</span></span><span class="line"><span class="cl">   -&gt; ProjectSet (actual time=0.001..0.002 rows=10.00 lo...
-</span></span><span class="line"><span class="cl">       -&gt; Result (actual time=0.000..0.000 rows=1.00 loo...
-</span></span><span class="line"><span class="cl"> Planning Time: 0.020 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 0.010 ms
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Limit (actual time=0.002..0.003 rows=10.00 loops=1)
+   -&gt; <mark class="plan-highlight" data-source-page="156">ProjectSet</mark> (actual time=0.001..0.002 rows=10.00 lo...
+       -&gt; Result (actual time=0.000..0.000 rows=1.00 loo...
+ Planning Time: 0.020 ms
+ Execution Time: 0.010 ms
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1142,10 +1058,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>第一个计划中，Function Scan 先获取函数的全部结果行，再应用 Limit。第二个计划中，ProjectSet 只生成十行，恰好满足 Limit 的请求，查询执行时间降低了几个数量级。Result 节点对应省略了 FROM 子句的情形，向父节点传递恰好一行。</p>
+</div><p>第一个计划中，Function Scan 先获取函数的全部结果行，再应用 Limit。第二个计划中，ProjectSet 只生成十行，恰好满足 Limit 的请求，查询执行时间降低了几个数量级。Result 节点对应省略了 FROM 子句的情形，向父节点传递恰好一行。</p>
 <p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter08/images/chapter08-function-scan-projectset.png" target="_blank" rel="noopener" aria-label="打开原图：Function Scan 与 ProjectSet：前者先保存函数结果，后者可通过支持按需返回的函数接口逐行生成；是否能按需返回还取决于函数语言的实现。">
     <img src="/query-optimization-18/chapter08/images/chapter08-function-scan-projectset.png" width="892" height="509" alt="Function Scan 与 ProjectSet：前者先保存函数结果，后者可通过支持按需返回的函数接口逐行生成；是否能按需返回还取决于函数语言的实现。" loading="lazy">
@@ -1155,7 +1068,6 @@
 </p>
 <p>这并不意味着所有函数语言都能以流式方式返回行。例如，PL/pgSQL 返回集合的函数目前会先物化全部结果，再将它们交给调用方的执行器接口。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION plpgsql_rows() RETURNS SETOF integer
 </span></span><span class="line"><span class="cl">AS $$
@@ -1185,10 +1097,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>计划中仍然有 ProjectSet，但函数实现必须在返回第一行之前，先完成那些开销很大的工作。执行时间清楚地说明了这一点。</p>
+</div><p>计划中仍然有 ProjectSet，但函数实现必须在返回第一行之前，先完成那些开销很大的工作。执行时间清楚地说明了这一点。</p>
 <h3>8.2.4 COST 与 ROWS<span class="hx-absolute -hx-mt-20" id="824-cost-与-rows"></span>
     <a href="#824-cost-%e4%b8%8e-rows" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>当函数不能内联时，规划器往往只能在很大程度上将它视为黑盒。CREATE FUNCTION 允许我们提供两项重要的估算信息。</p>
 <p><span class="marginalia" data-note="C / internal：1；其他语言：100">COST</span> 是预估执行成本，以 <em>cpu_operator_cost</em> 为单位。对于返回集合的函数，它表示每个返回行的成本。<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
@@ -1202,7 +1111,6 @@
 </p>
 <p>创建一个返回一周各天名称的 PL/pgSQL 函数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION days_of_week() RETURNS SETOF text
 </span></span><span class="line"><span class="cl">AS $$
@@ -1221,11 +1129,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+</div><div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM days_of_week();
 </span></span><span class="line"><span class="cl">
@@ -1247,20 +1151,14 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>查询计划如下：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN SELECT * FROM days_of_week();
 
-  
-</div>
-<p>查询计划如下：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT * FROM days_of_week();
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">               QUERY PLAN
-</span></span><span class="line"><span class="cl">-----------------------------------------
-</span></span><span class="line"><span class="cl"> Function Scan on days_of_week
-</span></span><span class="line"><span class="cl">   (cost=0.25..10.25 rows=1000 width=32)
-</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+               QUERY PLAN
+-----------------------------------------
+ Function Scan on days_of_week
+   (cost=<mark class="plan-highlight" data-source-page="159">0.25</mark>..10.25 rows=1000 width=32)
+(2 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1269,13 +1167,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>服务器将这个函数结果的基数估算为 1000 行，而实际只有七行。</p>
+</div><p>服务器将这个函数结果的基数估算为 1000 行，而实际只有七行。</p>
 <p>启动成本部分反映了函数成本估算：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT 100 * current_setting(&#39;cpu_operator_cost&#39;)::float;
 </span></span><span class="line"><span class="cl">
@@ -1291,21 +1185,15 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>提高函数成本：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>ALTER FUNCTION days_of_week COST 10000;
+EXPLAIN SELECT * FROM days_of_week();
 
-  
-</div>
-<p>提高函数成本：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION days_of_week COST 10000;
-</span></span><span class="line"><span class="cl">EXPLAIN SELECT * FROM days_of_week();
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------
-</span></span><span class="line"><span class="cl"> Function Scan on days_of_week
-</span></span><span class="line"><span class="cl">   (cost=25.00..35.00 rows=1000 width=32)
-</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                QUERY PLAN
+------------------------------------------
+ Function Scan on days_of_week
+   (cost=<mark class="plan-highlight" data-source-page="159">25.00</mark>..35.00 rows=1000 width=32)
+(2 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1314,21 +1202,15 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>设置函数预期返回的行数：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>ALTER FUNCTION days_of_week ROWS 10;
+EXPLAIN SELECT * FROM days_of_week();
 
-  
-</div>
-<p>设置函数预期返回的行数：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION days_of_week ROWS 10;
-</span></span><span class="line"><span class="cl">EXPLAIN SELECT * FROM days_of_week();
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">               QUERY PLAN
-</span></span><span class="line"><span class="cl">----------------------------------------
-</span></span><span class="line"><span class="cl"> Function Scan on days_of_week
-</span></span><span class="line"><span class="cl">   (cost=25.00..25.10 rows=10 width=32)
-</span></span><span class="line"><span class="cl">(2 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+               QUERY PLAN
+----------------------------------------
+ Function Scan on days_of_week
+   (cost=25.00..<mark class="plan-highlight" data-source-page="160">25.10</mark> rows=<mark class="plan-highlight" data-source-page="160">10</mark> width=32)
+(2 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1337,12 +1219,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>得到的预估成本为：</p>
+</div><p>得到的预估成本为：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT 10000 * current_setting(&#39;cpu_operator_cost&#39;)::float
 </span></span><span class="line"><span class="cl">  + 10 * current_setting(&#39;cpu_tuple_cost&#39;)::float;
@@ -1359,33 +1237,27 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>可以通过 pg_proc 或元命令查看这些值：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SELECT procost, prorows
+ FROM pg_proc WHERE proname='days_of_week';
 
-  
-</div>
-<p>可以通过 pg_proc 或元命令查看这些值：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+ procost | prorows
+---------+---------
+   10000 |      10
+(1 row)
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT procost, prorows
-</span></span><span class="line"><span class="cl"> FROM pg_proc WHERE proname=&#39;days_of_week&#39;;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"> procost | prorows
-</span></span><span class="line"><span class="cl">---------+---------
-</span></span><span class="line"><span class="cl">   10000 |      10
-</span></span><span class="line"><span class="cl">(1 row)
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">\sf days_of_week
-</span></span><span class="line"><span class="cl">CREATE OR REPLACE FUNCTION bookings.days_of_week()
-</span></span><span class="line"><span class="cl"> RETURNS SETOF text
-</span></span><span class="line"><span class="cl"> LANGUAGE plpgsql
-</span></span><span class="line"><span class="cl"> COST 10000 ROWS 10
-</span></span><span class="line"><span class="cl">AS $function$
-</span></span><span class="line"><span class="cl">BEGIN
-</span></span><span class="line"><span class="cl">  FOR i IN 7 .. 13 LOOP
-</span></span><span class="line"><span class="cl">    RETURN NEXT to_char(to_date(i::text,&#39;J&#39;),&#39;TMDy&#39;);
-</span></span><span class="line"><span class="cl">  END LOOP;
-</span></span><span class="line"><span class="cl">END;
-</span></span><span class="line"><span class="cl">$function$</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+\sf days_of_week
+CREATE OR REPLACE FUNCTION bookings.days_of_week()
+ RETURNS SETOF text
+ LANGUAGE plpgsql
+ <mark class="plan-highlight" data-source-page="160">COST 10000 ROWS 10</mark>
+AS $function$
+BEGIN
+  FOR i IN 7 .. 13 LOOP
+    RETURN NEXT to_char(to_date(i::text,'J'),'TMDy');
+  END LOOP;
+END;
+$function$</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1394,10 +1266,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>8.2.5 规划器支持函数<span class="hx-absolute -hx-mt-20" id="825-规划器支持函数"></span>
+</div><h3>8.2.5 规划器支持函数<span class="hx-absolute -hx-mt-20" id="825-规划器支持函数"></span>
     <a href="#825-%e8%a7%84%e5%88%92%e5%99%a8%e6%94%af%e6%8c%81%e5%87%bd%e6%95%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>COST 和 ROWS 子句让我们以常量形式指定函数成本和行数。但固定值并不总是足够准确。<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup></p>
 <p>在 PostgreSQL 中，一个目标函数可以关联一个<strong>规划器支持函数</strong>，根据目标函数的实参值，向规划器提供相应的信息。</p>
 <p><figure class="query-book-figure">
@@ -1430,7 +1299,6 @@
 <p>用户定义函数的默认标签是 PARALLEL UNSAFE。用户定义的聚合函数也需要指定并行安全标签。</p>
 <p>所有基本的标准函数都是并行安全的。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT proparallel, count(*)
 </span></span><span class="line"><span class="cl">FROM pg_proc
@@ -1450,13 +1318,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>具体数量取决于已经安装的扩展和 PostgreSQL 的小版本。</p>
+</div><p>具体数量取决于已经安装的扩展和 PostgreSQL 的小版本。</p>
 <p>psql 也会显示这个标签：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">\x \df+ random numeric \x
 </span></span><span class="line"><span class="cl">Expanded display is on.
@@ -1485,12 +1349,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>现在创建一个函数，计算一张机票所有航段的价格之和：</p>
+</div><p>现在创建一个函数，计算一张机票所有航段的价格之和：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE FUNCTION ticket_price(ticket_no char(13))
 </span></span><span class="line"><span class="cl">RETURNS numeric
@@ -1512,12 +1372,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>在一个子查询中使用它，再将总额与另一个子查询得到的预订总金额比较：</p>
+</div><p>在一个子查询中使用它，再将总额与另一个子查询得到的预订总金额比较：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off) SELECT
 </span></span><span class="line"><span class="cl">  (SELECT sum(ticket_price(ticket_no)) FROM tickets) =
@@ -1547,13 +1403,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>函数标记为 SAFE 时，两个子查询都可以使用并行计划。</p>
+</div><p>函数标记为 SAFE 时，两个子查询都可以使用并行计划。</p>
 <p>将它标记为 UNSAFE：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION ticket_price PARALLEL UNSAFE;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off) SELECT
@@ -1578,13 +1430,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>一个 UNSAFE 函数，就会禁用整条语句的并行查询。</p>
+</div><p>一个 UNSAFE 函数，就会禁用整条语句的并行查询。</p>
 <p>现在将它标记为 RESTRICTED：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">ALTER FUNCTION ticket_price PARALLEL RESTRICTED;
 </span></span><span class="line"><span class="cl">EXPLAIN (costs off) SELECT
@@ -1612,10 +1460,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>调用 RESTRICTED 函数的子查询必须在领导者进程中运行，而独立的 bookings 子查询仍然可以使用并行工作进程。</p>
+</div><p>调用 RESTRICTED 函数的子查询必须在领导者进程中运行，而独立的 bookings 子查询仍然可以使用并行工作进程。</p>
 <p>SAFE 标签不只是一个性能提示。错误的标签可能导致报错或错误结果。无法确定时，应使用限制更严格的标签。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>

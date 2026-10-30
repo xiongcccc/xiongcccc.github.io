@@ -76,6 +76,11 @@
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
+  
 
 
   
@@ -485,7 +490,6 @@
           <h2>4.1 排序<span class="hx-absolute -hx-mt-20" id="41-排序"></span>
     <a href="#41-%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>B 树索引可以按索引顺序返回行。当这一顺序与查询的 ORDER BY 要求一致时，PostgreSQL 有时可以省去显式排序：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT * FROM flights
@@ -503,12 +507,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>如果访问路径无法提供所需的顺序，PostgreSQL 就需要分两步完成：先获取行，再对它们排序。</p>
+</div><p>如果访问路径无法提供所需的顺序，PostgreSQL 就需要分两步完成：先获取行，再对它们排序。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT * FROM flights
@@ -528,26 +528,20 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>4.1.1 内存排序<span class="hx-absolute -hx-mt-20" id="411-内存排序"></span>
+</div><h3>4.1.1 内存排序<span class="hx-absolute -hx-mt-20" id="411-内存排序"></span>
     <a href="#411-%e5%86%85%e5%ad%98%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>最简单的情况是，待排序数据能够放入 <em>work_mem</em> 为排序操作限定的可用内存中。此时，PostgreSQL 可以在内存中完成排序。EXPLAIN ANALYZE 会显示所使用的排序方法和内存用量：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off, buffers off)
+SELECT *
+FROM seats
+ORDER BY seat_no;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM seats
-</span></span><span class="line"><span class="cl">ORDER BY seat_no;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Sort  (cost=121.13..125.48 rows=1741 width=15) (actual ...
-</span></span><span class="line"><span class="cl">   Sort Key: seat_no
-</span></span><span class="line"><span class="cl">   Sort Method: quicksort  Memory: 103kB
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741 wid...
-</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Sort  (cost=121.13..125.48 rows=1741 width=15) (actual ...
+   Sort Key: seat_no
+   Sort Method: <mark class="plan-highlight" data-source-page="70">quicksort</mark>  Memory: 103kB
+   -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741 wid...
+(4 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -556,28 +550,22 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>常规的 Sort 节点必须读取全部输入并完成排序，才能返回第一行。因此，它的启动成本包含读取全部输入的成本。对于基于比较的排序，工作量通常按 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>M</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log M)</annotation></semantics></math> 的量级增长，其中 M 为输入行数。</p>
+</div><p>常规的 Sort 节点必须读取全部输入并完成排序，才能返回第一行。因此，它的启动成本包含读取全部输入的成本。对于基于比较的排序，工作量通常按 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>M</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log M)</annotation></semantics></math> 的量级增长，其中 M 为输入行数。</p>
 <p>如果查询只需要排序结果中的前 N 行，例如使用了 LIMIT，PostgreSQL 就可以使用只保留前 N 行的 Top-N 排序，而不必对所有行进行完整排序：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off, buffers off)
+SELECT *
+FROM seats
+ORDER BY seat_no
+LIMIT 100;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM seats
-</span></span><span class="line"><span class="cl">ORDER BY seat_no
-</span></span><span class="line"><span class="cl">LIMIT 100;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Limit  (cost=93.95..94.20 rows=100 width=15) (actual ro...
-</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=93.95..98.30 rows=1741 width=15) (actu...
-</span></span><span class="line"><span class="cl">       Sort Key: seat_no
-</span></span><span class="line"><span class="cl">       Sort Method: top-N heapsort  Memory: 30kB
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Limit  (cost=93.95..94.20 rows=100 width=15) (actual ro...
+   -&gt; Sort  (cost=93.95..98.30 rows=1741 width=15) (actu...
+       Sort Key: seat_no
+       Sort Method: <mark class="plan-highlight" data-source-page="71">top-N heapsort</mark>  Memory: 30kB
+       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -586,10 +574,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>查询的估算成本降低了，排序使用的内存也更少。Top-N 堆排序的工作量为 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>N</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log N)</annotation></semantics></math>，无须对全部 M 行进行完整排序。</p>
+</div><p>查询的估算成本降低了，排序使用的内存也更少。Top-N 堆排序的工作量为 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>M</mi><mi>log</mi><mi>N</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(M \log N)</annotation></semantics></math>，无须对全部 M 行进行完整排序。</p>
 <h3>4.1.2 外排<span class="hx-absolute -hx-mt-20" id="412-外排"></span>
     <a href="#412-%e5%a4%96%e6%8e%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果数据集过大，无法在可用内存中完成排序，PostgreSQL 就会使用外排。</p>
 <p>排序器先读取内存能够容纳的一部分输入，对其排序，然后将得到的有序数据段 (run) 写入临时文件。</p>
@@ -611,26 +596,23 @@
 </figure>
 </p>
 <p>如果内存不足以在一轮中归并所有 run，PostgreSQL 就会执行多轮归并：先将若干 run 归并成更大的 run，再继续归并，直到能够生成最终的有序数据流。对于较大的排序操作，EXPLAIN ANALYZE 会显示临时存储的使用情况：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off)
+SELECT *
+FROM bookings
+ORDER BY total_amount;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">ORDER BY total_amount;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Sort  (cost=406880.90..413097.68 rows=2486710 width=21)...
-</span></span><span class="line"><span class="cl">   Sort Key: total_amount
-</span></span><span class="line"><span class="cl">   Sort Method: external merge  Disk: 78176kB
-</span></span><span class="line"><span class="cl">   Buffers: shared read=15856, temp read=19539
-</span></span><span class="line"><span class="cl">   written=19578
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on bookings  (cost=0.00..40723.10 rows=24...
-</span></span><span class="line"><span class="cl">       Buffers: shared read=15856
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=34 read=2 dirtied=1
-</span></span><span class="line"><span class="cl">(9 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Sort  (cost=406880.90..413097.68 rows=2486710 width=21)...
+   Sort Key: total_amount
+   Sort Method: <mark class="plan-highlight" data-source-page="73">external merge</mark>  Disk: 78176kB
+   Buffers: shared read=15856, temp read=19539
+   written=19578
+   -&gt; Seq Scan on bookings  (cost=0.00..40723.10 rows=24...
+       Buffers: shared read=15856
+ Planning:
+   Buffers: shared hit=34 read=2 dirtied=1
+(9 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -639,10 +621,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>Sort Method: external merge 表明排序已溢出到磁盘，使用了外部归并排序。Disk 给出该排序使用的临时磁盘空间，temp 缓冲区计数则反映临时 I/O。</p>
+</div><p>Sort Method: external merge 表明排序已溢出到磁盘，使用了外部归并排序。Disk 给出该排序使用的临时磁盘空间，temp 缓冲区计数则反映临时 I/O。</p>
 <h3>4.1.3 增量排序<span class="hx-absolute -hx-mt-20" id="413-增量排序"></span>
     <a href="#413-%e5%a2%9e%e9%87%8f%e6%8e%92%e5%ba%8f" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>假设查询需要按 <math><semantics><mrow><msub><mi>K</mi><mn>1</mn></msub><mo>…</mo><msub><mi>K</mi><mi>m</mi></msub><mo>…</mo><msub><mi>K</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">K_1 \ldots K_m \ldots K_n</annotation></semantics></math> 排序，而输入已经按前 m 个键排好序，就没有必要重新对整个数据集排序。PostgreSQL 可以按照预排序前缀 <math><semantics><mrow><msub><mi>K</mi><mn>1</mn></msub><mo>…</mo><msub><mi>K</mi><mi>m</mi></msub></mrow><annotation encoding="application/x-tex">K_1 \ldots K_m</annotation></semantics></math> 的值，将输入划分成一组组连续的行；每组内这些键的值都相同，只需再按剩余的键 <math><semantics><mrow><msub><mi>K</mi><mrow><mi>m</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>…</mo><msub><mi>K</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">K_{m+1} \ldots K_n</annotation></semantics></math> 排序。这就是增量排序。</p>
 <p>由于每次只对较小的一部分输入排序，增量排序可以降低内存需求，减少溢出到磁盘的可能性。它还可以缩短返回首批结果的等待时间：第一组排好序后，PostgreSQL 就能开始返回行，无须等待全部输入排序完成。代价是识别和处理大量分组会带来额外开销。</p>
@@ -657,7 +636,6 @@
 <p>可以通过 <em>enable_incremental_sort</em> 禁用增量排序。</p>
 <p>在 bookings.total_amount 上创建索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON bookings(total_amount);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -668,33 +646,27 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>然后增大 <em>work_mem</em>，并按 total_amount 和 book_date 排序：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SET work_mem = '8 MB';
+EXPLAIN (analyze, costs off, timing off, buffers off)
+SELECT *
+FROM bookings
+ORDER BY total_amount, book_date;
 
-  
-</div>
-<p>然后增大 <em>work_mem</em>，并按 total_amount 和 book_date 排序：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;8 MB&#39;;
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">ORDER BY total_amount, book_date;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Incremental Sort (actual rows=2486710.00 loops=1)
-</span></span><span class="line"><span class="cl">   Sort Key: total_amount, book_date
-</span></span><span class="line"><span class="cl">   Presorted Key: total_amount
-</span></span><span class="line"><span class="cl">   Full-sort Groups: 3132  Sort Method: quicksort
-</span></span><span class="line"><span class="cl">   Average Memory: 27kB  Peak Memory: 27kB
-</span></span><span class="line"><span class="cl">   Pre-sorted Groups: 2449  Sort Method: quicksort
-</span></span><span class="line"><span class="cl">   Average Memory: 6442kB  Peak Memory: 6464kB
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using bookings_total_amount_idx on book...
-</span></span><span class="line"><span class="cl">       Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.128 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 934.215 ms
-</span></span><span class="line"><span class="cl">(11 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Incremental Sort (actual rows=2486710.00 loops=1)
+   <mark class="plan-highlight" data-source-page="75">Sort Key</mark>: total_amount, book_date
+   <mark class="plan-highlight" data-source-page="75">Presorted Key</mark>: total_amount
+   <mark class="plan-highlight" data-source-page="75">Full-sort Groups</mark>: 3132  Sort Method: quicksort
+   Average Memory: 27kB  Peak Memory: 27kB
+   <mark class="plan-highlight" data-source-page="75">Pre-sorted Groups</mark>: 2449  Sort Method: quicksort
+   Average Memory: 6442kB  Peak Memory: 6464kB
+   -&gt; Index Scan using bookings_total_amount_idx on book...
+       Index Searches: 1
+ Planning Time: 0.128 ms
+ Execution Time: 934.215 ms
+(11 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -703,15 +675,11 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>索引扫描返回的行已经按 total_amount 排序，这就是 Presorted Key 所显示的内容。Incremental Sort 只需进一步按 book_date 排序。</p>
+</div><p>索引扫描返回的行已经按 total_amount 排序，这就是 Presorted Key 所显示的内容。Incremental Sort 只需进一步按 book_date 排序。</p>
 <p>Pre-sorted Groups 对应较大的分组：处理这些分组时，利用了已有的 total_amount 顺序，只需再按 book_date 排序。Full-sort Groups 对应那些合并起来、按全部排序键进行完整排序的小分组。</p>
 <p>本例中，两类分组都能完全放入内存，均使用快排。</p>
 <p>现在减小 <em>work_mem</em>：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;128 kB&#39;;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -722,32 +690,26 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>再次运行查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, buffers off)
+SELECT *
+FROM bookings
+ORDER BY total_amount, book_date;
 
-  
-</div>
-<p>再次运行查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM bookings
-</span></span><span class="line"><span class="cl">ORDER BY total_amount, book_date;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Incremental Sort (actual rows=2486710.00 loops=1)
-</span></span><span class="line"><span class="cl">   Sort Key: total_amount, book_date
-</span></span><span class="line"><span class="cl">   Presorted Key: total_amount
-</span></span><span class="line"><span class="cl">   Full-sort Groups: 3132  Sort Method: quicksort
-</span></span><span class="line"><span class="cl">   Average Memory: 27kB  Peak Memory: 27kB
-</span></span><span class="line"><span class="cl">   Pre-sorted Groups: 2449  Sort Method: external merge
-</span></span><span class="line"><span class="cl">   Average Disk: 2662kB  Peak Disk: 2672kB
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using bookings_total_amount_idx on book...
-</span></span><span class="line"><span class="cl">       Index Searches: 1
-</span></span><span class="line"><span class="cl"> Planning Time: 0.044 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 912.199 ms
-</span></span><span class="line"><span class="cl">(11 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Incremental Sort (actual rows=2486710.00 loops=1)
+   Sort Key: total_amount, book_date
+   Presorted Key: total_amount
+   Full-sort Groups: 3132  Sort Method: quicksort
+   Average Memory: 27kB  Peak Memory: 27kB
+   Pre-sorted Groups: 2449  Sort Method: <mark class="plan-highlight" data-source-page="76">external merge</mark>
+   Average Disk: 2662kB  Peak Disk: 2672kB
+   -&gt; Index Scan using bookings_total_amount_idx on book...
+       Index Searches: 1
+ Planning Time: 0.044 ms
+ Execution Time: 912.199 ms
+(11 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -756,13 +718,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>可用内存减少后，较大的预排序分组改用外部归并排序，EXPLAIN 也明确显示了它们使用的临时磁盘空间。</p>
+</div><p>可用内存减少后，较大的预排序分组改用外部归并排序，EXPLAIN 也明确显示了它们使用的临时磁盘空间。</p>
 <p>恢复参数设置，并删除演示用的索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">RESET work_mem;
 </span></span><span class="line"><span class="cl">DROP INDEX bookings_total_amount_idx;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -774,10 +732,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>4.1.4 构建 B 树<span class="hx-absolute -hx-mt-20" id="414-构建-b-树"></span>
+</div><h3>4.1.4 构建 B 树<span class="hx-absolute -hx-mt-20" id="414-构建-b-树"></span>
     <a href="#414-%e6%9e%84%e5%bb%ba-b-%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>原则上，PostgreSQL 可以从一棵空的 B 树开始，在扫描表的过程中逐条插入索引项，以此构建索引。但对于批量构建索引来说，这种方式效率很低。</p>
 <p>实际采用的方式是：先生成索引项，按索引键排序，然后依次填充叶子层，再逐层构建上层节点，直到只剩下根节点。这里使用的排序机制与前面讨论的排序密切相关，但创建索引使用的是 <em>maintenance_work_mem</em>，而不是常规的 <em>work_mem</em>。维护操作相对不频繁，因此为它们分配更大的内存额度通常是合理的。</p>
 <p>B 树索引也可以并行构建。工作进程数量的选择方式与并行查询相同，取决于表的大小，但受 <em>max_parallel_maintenance_workers</em> 限制。</p>
@@ -804,7 +759,6 @@
 </p>
 <p>基于哈希的聚合在执行计划中对应 HashAggregate 节点：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN
 </span></span><span class="line"><span class="cl">SELECT airplane_code, count(*)
@@ -825,13 +779,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>启动成本较高，是因为 HashAggregate 必须先读取输入并建立聚合状态，才能返回最终的分组结果。</p>
+</div><p>启动成本较高，是因为 HashAggregate 必须先读取输入并建立聚合状态，才能返回最终的分组结果。</p>
 <p>EXPLAIN ANALYZE 会显示内存用量：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, costs off, buffers off)
 </span></span><span class="line"><span class="cl">SELECT airplane_code, count(*)
@@ -855,10 +805,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<h3>4.2.3 对有序数据分组<span class="hx-absolute -hx-mt-20" id="423-对有序数据分组"></span>
+</div><h3>4.2.3 对有序数据分组<span class="hx-absolute -hx-mt-20" id="423-对有序数据分组"></span>
     <a href="#423-%e5%af%b9%e6%9c%89%e5%ba%8f%e6%95%b0%e6%8d%ae%e5%88%86%e7%bb%84" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果输入行已按分组键排序，去重和分组也可以利用这一顺序。</p>
 <p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-sorted-grouping.png" target="_blank" rel="noopener" aria-label="打开原图：对有序数据去重和分组：Unique 返回 year 的非重复值，GroupAggregate 返回各个 year 及其出现次数。">
@@ -873,7 +820,6 @@
 <p>这些节点会保留分组键的顺序，有时可以直接满足后续 ORDER BY 的要求，无须再次排序。</p>
 <p>下面这个 GroupAggregate 的输入顺序直接来自索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT ticket_no, count(ticket_no)
@@ -894,12 +840,8 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>DISTINCT 查询可以使用 Unique：</p>
+</div><p>DISTINCT 查询可以使用 Unique：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT DISTINCT ticket_no
@@ -919,10 +861,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>索引已经按 ORDER BY 要求的顺序返回 ticket_no，而 Unique 保留了这一顺序，因此不需要额外的 Sort 节点。</p>
+</div><p>索引已经按 ORDER BY 要求的顺序返回 ticket_no，而 Unique 保留了这一顺序，因此不需要额外的 Sort 节点。</p>
 <h3>4.2.4 窗口函数<span class="hx-absolute -hx-mt-20" id="424-窗口函数"></span>
     <a href="#424-%e7%aa%97%e5%8f%a3%e5%87%bd%e6%95%b0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>与普通聚合函数不同，窗口函数为每一行输出计算一个值，而不是将整个组缩减为一行。函数名后面的 OVER 子句定义了一个窗口：它规定对于每一行结果，窗口函数应处理哪一组行。这样的一组行称为 frame。</p>
 <p><figure class="query-book-figure">
@@ -936,7 +875,6 @@
 <p>如果窗口定义包含用于指定行顺序的 ORDER BY 子句，默认 frame 会覆盖从第一行到当前行的所有行。</p>
 <p>来看一个计算预订金额累计和的例子：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN
 </span></span><span class="line"><span class="cl">SELECT *, sum(total_amount) OVER (ORDER BY book_date)
@@ -958,27 +896,21 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>窗口函数由 WindowAgg 计算。这里，其子节点 Sort 提供窗口所需的顺序。该排序可以使用任何适用的排序策略。输入较小时，可以在内存中完成：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off, buffers off)
+SELECT *, count(*) OVER (ORDER BY seat_no)
+FROM seats;
 
-  
-</div>
-<p>窗口函数由 WindowAgg 计算。这里，其子节点 Sort 提供窗口所需的顺序。该排序可以使用任何适用的排序策略。输入较小时，可以在内存中完成：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *, count(*) OVER (ORDER BY seat_no)
-</span></span><span class="line"><span class="cl">FROM seats;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> WindowAgg  (cost=121.18..151.59 rows=1741 width=23) (ac...
-</span></span><span class="line"><span class="cl">   Window: w1 AS (ORDER BY seat_no)
-</span></span><span class="line"><span class="cl">   Storage: Memory  Maximum Storage: 17kB
-</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=121.13..125.48 rows=1741 width=15) (ac...
-</span></span><span class="line"><span class="cl">       Sort Key: seat_no
-</span></span><span class="line"><span class="cl">       Sort Method: quicksort  Memory: 103kB
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
-</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ WindowAgg  (cost=121.18..151.59 rows=1741 width=23) (ac...
+   Window: w1 AS (ORDER BY seat_no)
+   Storage: Memory  Maximum Storage: 17kB
+   -&gt; Sort  (cost=121.13..125.48 rows=1741 width=15) (ac...
+       Sort Key: seat_no
+       Sort Method: <mark class="plan-highlight" data-source-page="83">quicksort</mark>  Memory: 103kB
+       -&gt; Seq Scan on seats  (cost=0.00..27.41 rows=1741...
+(7 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -987,27 +919,21 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>输入较大时，可能需要外排：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, timing off, summary off, buffers off)
+SELECT *, sum(total_amount) OVER (ORDER BY book_date)
+FROM bookings;
 
-  
-</div>
-<p>输入较大时，可能需要外排：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, timing off, summary off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT *, sum(total_amount) OVER (ORDER BY book_date)
-</span></span><span class="line"><span class="cl">FROM bookings;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> WindowAgg  (cost=406880.92..450398.33 rows=2486710 widt...
-</span></span><span class="line"><span class="cl">   Window: w1 AS (ORDER BY book_date)
-</span></span><span class="line"><span class="cl">   Storage: Memory  Maximum Storage: 17kB
-</span></span><span class="line"><span class="cl">   -&gt; Sort  (cost=406880.90..413097.68 rows=2486710 widt...
-</span></span><span class="line"><span class="cl">       Sort Key: book_date
-</span></span><span class="line"><span class="cl">       Sort Method: external merge  Disk: 75760kB
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings  (cost=0.00..40723.10 row...
-</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ WindowAgg  (cost=406880.92..450398.33 rows=2486710 widt...
+   Window: w1 AS (ORDER BY book_date)
+   <mark class="plan-highlight" data-source-page="83">Storage</mark>: Memory  Maximum Storage: 17kB
+   -&gt; Sort  (cost=406880.90..413097.68 rows=2486710 widt...
+       Sort Key: book_date
+       Sort Method: <mark class="plan-highlight" data-source-page="83">external merge</mark>  Disk: 75760kB
+       -&gt; Seq Scan on bookings  (cost=0.00..40723.10 row...
+(7 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1016,10 +942,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>对于内部需要存储行的节点，例如 WindowAgg、CTE Scan 或 Recursive Union，Storage 行会显示所使用的存储类型及最大用量。数据能放入内存时，类型为 Memory；使用临时文件时，则为 Disk。</p>
+</div><p>对于内部需要存储行的节点，例如 WindowAgg、CTE Scan 或 Recursive Union，Storage 行会显示所使用的存储类型及最大用量。数据能放入内存时，类型为 Memory；使用临时文件时，则为 Disk。</p>
 <p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter04/images/chapter04-partition-frame.png" target="_blank" rel="noopener" aria-label="打开原图：PARTITION BY 将输入划分为独立分区；左侧各 frame 包含整个分区，右侧带 ORDER BY 的 frame 只在所属分区内扩展。">
     <img src="/query-optimization-18/chapter04/images/chapter04-partition-frame.png" width="859" height="446" alt="PARTITION BY 将输入划分为独立分区；左侧各 frame 包含整个分区，右侧带 ORDER BY 的 frame 只在所属分区内扩展。" loading="lazy">

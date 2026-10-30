@@ -30,7 +30,7 @@
   
   <meta itemprop="name" content="第 2 章：规划与执行">
   <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 2 章：规划与执行。对应原书第 15–31 页。">
-  <meta itemprop="wordCount" content="712">
+  <meta itemprop="wordCount" content="725">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 2 章：规划与执行">
   <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 2 章：规划与执行。对应原书第 15–31 页。">
@@ -75,6 +75,11 @@
 
   
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
+  
+    
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
+    
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
   
 
 
@@ -577,7 +582,6 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
 <p>规划器会考虑执行查询的不同方式，并利用数学模型，根据称为<strong>统计信息</strong>的数据描述来估算这些方式的成本。估算成本最低的候选方案会被表示为一棵计划树。</p>
 <p>本例的部分计划如下：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">Sort
 </span></span><span class="line"><span class="cl">  Sort Key: c.relname
@@ -594,10 +598,7 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p><figure class="query-book-figure">
+</div><p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter02/images/chapter02-plan-tree.png" target="_blank" rel="noopener" aria-label="打开原图：执行计划与计划树节点的对应关系">
     <img src="/query-optimization-18/chapter02/images/chapter02-plan-tree.png" width="872" height="476" alt="执行计划与计划树节点的对应关系" loading="lazy">
   </a>
@@ -631,7 +632,6 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <a href="#22-%e6%89%a9%e5%b1%95%e6%9f%a5%e8%af%a2%e5%8d%8f%e8%ae%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>默认情况下，客户端使用简单查询协议：它向服务器发送一条 SQL 语句；如果是 SELECT 或带有 RETURNING 的命令，就接收返回的结果行。</p>
 <p>例如：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT model FROM airplanes WHERE airplane_code = &#39;77W&#39;;
 </span></span><span class="line"><span class="cl">
@@ -647,10 +647,7 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>使用简单查询协议时，每条查询都会经过前面介绍的全部处理阶段，即使同一条查询被反复执行也是如此。</p>
+</div><p>使用简单查询协议时，每条查询都会经过前面介绍的全部处理阶段，即使同一条查询被反复执行也是如此。</p>
 <p>PostgreSQL 还提供扩展查询协议，将查询处理拆分为更明确的步骤。在实际使用中，这些步骤可用于语句预备和游标操作。<sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup></p>
 <h3>2.2.1 预备语句<span class="hx-absolute -hx-mt-20" id="221-预备语句"></span>
     <a href="#221-%e9%a2%84%e5%a4%87%e8%af%ad%e5%8f%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了预备一条语句，客户端向服务器发送查询，其中可以包含参数。服务器对查询进行解析、分析和转换，并将预备语句的状态保存在后端进程中。</p>
@@ -661,7 +658,6 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
 <p>预备语句也是防止 SQL 注入的重要手段：来自不可信来源的值可以作为参数单独发送，而不必拼接到 SQL 文本中。这种保护适用于通过参数传递的值；表名、列名等动态 SQL 结构仍然需要以安全的方式构造。</p>
 <p>预备一条带参数的语句：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">PREPARE model(varchar) AS
 </span></span><span class="line"><span class="cl">SELECT model
@@ -677,12 +673,8 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>通过名称执行它：</p>
+</div><p>通过名称执行它：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXECUTE model(&#39;CR7&#39;);
 </span></span><span class="line"><span class="cl">
@@ -698,28 +690,22 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>执行时，先绑定参数值，再根据需要对语句进行规划，然后执行。</p>
+</div><p>执行时，先绑定参数值，再根据需要对语句进行规划，然后执行。</p>
 <p>可以通过 pg_prepared_statements 视图查看预备语句：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SELECT * FROM pg_prepared_statements \gx
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SELECT * FROM pg_prepared_statements \gx
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">-[ RECORD 1 ]---+--------------------------------
-</span></span><span class="line"><span class="cl">name            | model
-</span></span><span class="line"><span class="cl">statement       | PREPARE model(varchar) AS       +
-</span></span><span class="line"><span class="cl">                | SELECT model                   +
-</span></span><span class="line"><span class="cl">                | FROM airplanes                 +
-</span></span><span class="line"><span class="cl">                | WHERE airplane_code = $1;
-</span></span><span class="line"><span class="cl">prepare_time    | 2026-09-25 17:14:48.990998+03
-</span></span><span class="line"><span class="cl">parameter_types | {&#34;character varying&#34;}
-</span></span><span class="line"><span class="cl">result_types    | {text}
-</span></span><span class="line"><span class="cl">from_sql        | t
-</span></span><span class="line"><span class="cl">generic_plans   | 0
-</span></span><span class="line"><span class="cl">custom_plans    | 1</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+-[ RECORD 1 ]---+--------------------------------
+name            | model
+statement       | PREPARE model(varchar) AS       +
+                | SELECT model                   +
+                | FROM airplanes                 +
+                | WHERE airplane_code = $1;
+prepare_time    | 2026-09-25 17:14:48.990998+03
+parameter_types | {&quot;character varying&quot;}
+result_types    | {text}
+from_sql        | t
+generic_plans   | 0
+custom_plans    | 1</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -728,17 +714,16 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>最后两列分别表示语句使用 generic plan 和 custom plan 的次数。不再需要某条预备语句时，可以通过 DEALLOCATE 将其移除。</p>
+</div><div class="query-plan-notes" data-plan-block="4" role="note" aria-label="执行计划标注">
+<p data-label="executions with a generic plan" data-style="plain" data-start="447" data-length="19" data-source-page="24"><strong>executions with a generic plan</strong>：<code>generic_plans   | 0</code></p>
+<p data-label="executions with custom plans" data-style="plain" data-start="467" data-length="19" data-source-page="24"><strong>executions with custom plans</strong>：<code>custom_plans    | 1</code></p>
+</div><p>最后两列分别表示语句使用 generic plan 和 custom plan 的次数。不再需要某条预备语句时，可以通过 DEALLOCATE 将其移除。</p>
 <p>PREPARE、EXECUTE 和 DEALLOCATE 都是 SQL 命令。其他编程语言以不同的方式提供相同的功能，但数据库驱动最终使用的是同一套客户端／服务器协议。</p>
 <h3>2.2.2 游标<span class="hx-absolute -hx-mt-20" id="222-游标"></span>
     <a href="#222-%e6%b8%b8%e6%a0%87" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>游标允许逐步获取查询结果，而不是一次接收所有行。应用通常使用命令式语言编写，并以迭代方式处理结果集，因此游标很常见。</p>
 <p>有关已打开游标的信息保存在后端进程中。</p>
 <p>在 SQL 中声明一个游标，并获取第一行。游标通常存在于事务之内：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">BEGIN;
 </span></span><span class="line"><span class="cl">BEGIN
@@ -758,12 +743,8 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>获取第二行 (事务结束时，游标会自动关闭)：</p>
+</div><p>获取第二行 (事务结束时，游标会自动关闭)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">FETCH c;
 </span></span><span class="line"><span class="cl">
@@ -782,10 +763,7 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>数据库 API 提供了判断是否还有结果数据的方法，因此应用可以在循环中从游标获取数据。</p>
+</div><p>数据库 API 提供了判断是否还有结果数据的方法，因此应用可以在循环中从游标获取数据。</p>
 <p><figure class="query-book-figure">
   <a class="query-diagram" href="/query-optimization-18/chapter02/images/chapter02-extended-protocol.png" target="_blank" rel="noopener" aria-label="打开原图：语句预备、参数绑定和执行总览：PREPARE 后保留查询树，EXECUTE 时绑定参数并选择 generic plan 或 custom plan，可返回部分结果">
     <img src="/query-optimization-18/chapter02/images/chapter02-extended-protocol.png" width="872" height="470" alt="语句预备、参数绑定和执行总览：PREPARE 后保留查询树，EXECUTE 时绑定参数并选择 generic plan 或 custom plan，可返回部分结果" loading="lazy">
@@ -850,7 +828,6 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
 <h3>2.3.5 查看查询计划<span class="hx-absolute -hx-mt-20" id="235-查看查询计划"></span>
     <a href="#235-%e6%9f%a5%e7%9c%8b%e6%9f%a5%e8%af%a2%e8%ae%a1%e5%88%92" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>EXPLAIN 用于显示查询计划。它是分析查询性能不可或缺的工具，学会准确解读其输出十分重要。下面是前面那条查询的执行计划：<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN SELECT schemaname, tablename
 </span></span><span class="line"><span class="cl">FROM pg_tables
@@ -878,12 +855,8 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>添加 analyze 选项后，PostgreSQL 会实际执行查询，同时显示估算值和实际执行统计信息：</p>
+</div><p>添加 analyze 选项后，PostgreSQL 会实际执行查询，同时显示估算值和实际执行统计信息：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, buffers off) SELECT schemaname, tablename
 </span></span><span class="line"><span class="cl">FROM pg_tables
@@ -920,10 +893,7 @@ WHERE <span class="query-predicate">tableowner = 'postgres'</span>
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>对修改数据的语句使用 EXPLAIN ANALYZE 时要格外小心：语句会被实际执行。</p>
+</div><p>对修改数据的语句使用 EXPLAIN ANALYZE 时要格外小心：语句会被实际执行。</p>
 <p>在某些平台上，收集每个计划节点的计时信息会明显拖慢查询。如果不需要节点级别的计时信息，可以使用 timing off 将其关闭。</p>
 <div class="footnotes" role="doc-endnotes">
 <hr>

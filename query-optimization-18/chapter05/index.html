@@ -30,7 +30,7 @@
   
   <meta itemprop="name" content="第 5 章：连接方法">
   <meta itemprop="description" content="PostgreSQL 18 查询优化中文审阅版：第 5 章：连接方法。对应原书第 85–101 页。">
-  <meta itemprop="wordCount" content="1314">
+  <meta itemprop="wordCount" content="1320">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="第 5 章：连接方法">
   <meta name="twitter:description" content="PostgreSQL 18 查询优化中文审阅版：第 5 章：连接方法。对应原书第 85–101 页。">
@@ -77,9 +77,9 @@
   <link rel="stylesheet" href="/query-book.min.a4b8bec5b55c813212526ea0f0482141e27eeac0136c9e2d8a2fd5100bfab5c4.css">
   
     
-    <link rel="stylesheet" href="/plan-callouts.min.b1691331e23c7fed70b8d26cb0fef1456425ce9de33255888750f9d1a7d555f4.css">
+    <link rel="stylesheet" href="/plan-callouts.min.69047f95d936144cc175474a7581fbe155bcbdfebda443bf9e2c24f23ed7fd41.css">
     
-    <script defer src="/js/plan-callouts.min.ce831018bed7f3f3f6079760ef6c1feec719bb6e09949467519dc89930e29b12.js"></script>
+    <script defer src="/js/plan-callouts.min.dda741f1b2128e27a2a0b2454f8a3153d414a51f82cd4146c9ad2a6c41187f86.js"></script>
   
 
 
@@ -527,22 +527,19 @@
     <a href="#52-%e5%b5%8c%e5%a5%97%e5%be%aa%e7%8e%af%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>嵌套循环的基本算法很简单：对于一个输入中的每一行，扫描另一个输入，并返回匹配的行。从概念上看，这就是两个嵌套的循环，名称也由此而来。</p>
 <p>第一个输入通常称为<strong>外集合</strong>，第二个称为<strong>内集合</strong>。如果 PostgreSQL 能利用外集合当前行中的值，以很低的成本在内集合中查找，嵌套循环就尤其有吸引力。索引是典型的例子。如果外集合的每一行都要求从头到尾扫描内集合，同样的无关行就可能被反复检查。</p>
 <p>对于很小的输入，即使重复扫描，成本也可能很低。下面是一个返回少量结果的典型嵌套循环计划。我们查找两张机票对应的航段：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off) SELECT *
+FROM tickets t
+JOIN segments tf ON tf.ticket_no = t.ticket_no
+WHERE t.ticket_no IN ('0005432312163','0005432312164');
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off) SELECT *
-</span></span><span class="line"><span class="cl">FROM tickets t
-</span></span><span class="line"><span class="cl">JOIN segments tf ON tf.ticket_no = t.ticket_no
-</span></span><span class="line"><span class="cl">WHERE t.ticket_no IN (&#39;0005432312163&#39;,&#39;0005432312164&#39;);
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Nested Loop
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using tickets_pkey on tickets t
-</span></span><span class="line"><span class="cl">       Index Cond: (ticket_no = ANY (&#39;{0005432312163,000...
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using segments_pkey on segments tf
-</span></span><span class="line"><span class="cl">       Index Cond: (ticket_no = t.ticket_no)
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ <mark class="plan-highlight" data-source-page="86">Nested Loop</mark>
+   -&gt; Index Scan using tickets_pkey on tickets t
+       Index Cond: (ticket_no = ANY ('{0005432312163,000...
+   -&gt; Index Scan using segments_pkey on segments tf
+       Index Cond: (ticket_no = t.ticket_no)
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -551,17 +548,12 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="query-plan-notes" data-plan-node="Nested Loop" role="note" aria-label="执行计划标注">
-<p data-label="outer input"><strong>outer input（外集合）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
-<p data-label="inner input"><strong>inner input（内集合）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
-</div>
-<p>这是一个<strong>参数化的嵌套循环连接</strong>。外集合的 Index Scan 返回一行机票数据，该行的 t.ticket_no 值成为内集合中 segments 的 Index Scan 的参数。每次迭代时，内集合中的查找实际上都采用 ticket_no = constant 这样的条件。这个过程持续到外集合读取完毕。</p>
+</div><div class="query-plan-notes" data-plan-block="0" role="note" aria-label="执行计划标注">
+<p data-label="outer input" data-style="boxed" data-start="264" data-length="42" data-source-page="86"><strong>outer input（外集合）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
+<p data-label="inner input" data-style="boxed" data-start="373" data-length="45" data-source-page="86"><strong>inner input（内集合）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
+</div><p>这是一个<strong>参数化的嵌套循环连接</strong>。外集合的 Index Scan 返回一行机票数据，该行的 t.ticket_no 值成为内集合中 segments 的 Index Scan 的参数。每次迭代时，内集合中的查找实际上都采用 ticket_no = constant 这样的条件。这个过程持续到外集合读取完毕。</p>
 <p>再看另一个嵌套循环。对于两个给定距离，我们分别列出航程足够的飞机：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off) SELECT *
 </span></span><span class="line"><span class="cl">FROM ( VALUES (1000), (10000) ) d(range)
@@ -583,44 +575,38 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这个连接<strong>没有参数化</strong>。内集合没有使用根据外集合当前行生成的访问条件，而是反复读取内集合的行，再由 Join Filter 检查每一对行。Materialize 保存这个很小的 VALUES 结果，以便重复扫描，PostgreSQL 无须在每次迭代时从头重新生成它。从概念上看，这是先求笛卡尔积，再进行过滤。</p>
+</div><p>这个连接<strong>没有参数化</strong>。内集合没有使用根据外集合当前行生成的访问条件，而是反复读取内集合的行，再由 Join Filter 检查每一对行。Materialize 保存这个很小的 VALUES 结果，以便重复扫描，PostgreSQL 无须在每次迭代时从头重新生成它。从概念上看，这是先求笛卡尔积，再进行过滤。</p>
 <p>嵌套循环不要求等值条件。PostgreSQL 能够求值的连接谓词，基本都可以由它实现。</p>
 <h3>5.2.1 缓存行 (Memoize)<span class="hx-absolute -hx-mt-20" id="521-缓存行-memoize"></span>
     <a href="#521-%e7%bc%93%e5%ad%98%e8%a1%8c-memoize" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果参数化的内集合查找多次使用相同的参数值，反复执行同样的工作就会造成浪费。PostgreSQL 可以在内集合计划上方放置 Memoize 节点，缓存这些查找结果。</p>
 <p>如果规划器的估算错误地认为缓存行会有收益，可以将 <em>enable_memoize</em> 设为 off 来禁用它。</p>
 <p>来看 routes 和 airports 的连接：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, buffers off)
+SELECT * FROM routes r
+ JOIN airports a ON a.airport_code = r.departure_airport
+WHERE r.departure_airport in ('BOM', 'SVO');
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT * FROM routes r
-</span></span><span class="line"><span class="cl"> JOIN airports a ON a.airport_code = r.departure_airport
-</span></span><span class="line"><span class="cl">WHERE r.departure_airport in (&#39;BOM&#39;, &#39;SVO&#39;);
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Nested Loop (actual rows=108.00 loops=1)
-</span></span><span class="line"><span class="cl">   -&gt; Bitmap Heap Scan on routes r (actual rows=108.00 l...
-</span></span><span class="line"><span class="cl">       Recheck Cond: (departure_airport = ANY
-</span></span><span class="line"><span class="cl">       (&#39;{BOM,SVO}&#39;::bpchar[]))
-</span></span><span class="line"><span class="cl">       Heap Blocks: exact=33
-</span></span><span class="line"><span class="cl">       -&gt; Bitmap Index Scan on routes_departure_airport_...
-</span></span><span class="line"><span class="cl">           Index Cond: (departure_airport = ANY
-</span></span><span class="line"><span class="cl">           (&#39;{BOM,SVO}&#39;::bpchar[]))
-</span></span><span class="line"><span class="cl">           Index Searches: 2
-</span></span><span class="line"><span class="cl">   -&gt; Memoize (actual rows=1.00 loops=108)
-</span></span><span class="line"><span class="cl">       Cache Key: r.departure_airport
-</span></span><span class="line"><span class="cl">       Cache Mode: logical
-</span></span><span class="line"><span class="cl">       Hits: 106  Misses: 2  Evictions: 0  Overflows: 0
-</span></span><span class="line"><span class="cl">       Memory Usage: 1kB
-</span></span><span class="line"><span class="cl">       -&gt; Index Scan using airports_data_pkey on airport...
-</span></span><span class="line"><span class="cl">           Index Cond: (airport_code =
-</span></span><span class="line"><span class="cl">           r.departure_airport)
-</span></span><span class="line"><span class="cl">           Index Searches: 2
-</span></span><span class="line"><span class="cl">(18 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ <mark class="plan-highlight" data-source-page="88">Nested Loop</mark> (actual rows=108.00 loops=1)
+   -&gt; Bitmap Heap Scan on routes r (actual rows=108.00 l...
+       Recheck Cond: (departure_airport = ANY
+       ('{BOM,SVO}'::bpchar[]))
+       Heap Blocks: exact=33
+       -&gt; Bitmap Index Scan on routes_departure_airport_...
+           Index Cond: (departure_airport = ANY
+           ('{BOM,SVO}'::bpchar[]))
+           Index Searches: 2
+   -&gt; <mark class="plan-highlight" data-source-page="88">Memoize</mark> (actual rows=1.00 loops=108)
+       Cache Key: r.departure_airport
+       Cache Mode: logical
+       Hits: 106  Misses: 2  Evictions: 0  Overflows: 0
+       Memory Usage: 1kB
+       -&gt; Index Scan using airports_data_pkey on airport...
+           Index Cond: (airport_code =
+           r.departure_airport)
+           Index Searches: 2
+(18 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -629,14 +615,10 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="query-plan-notes" data-plan-node="Nested Loop" role="note" aria-label="执行计划标注">
-<p data-label="caching"><strong>caching（缓存）</strong>：<code>Memoize</code></p>
-<p data-label="inner input"><strong>inner input（内集合）</strong>：<code>Memoize</code> 下方的 <code>Index Scan using airports_data_pkey</code></p>
-</div>
-<p>这个例子是特意选择的：传给内集合的参数只有 BOM 和 SVO 两个非重复值。</p>
+</div><div class="query-plan-notes" data-plan-block="2" role="note" aria-label="执行计划标注">
+<p data-label="caching" data-style="boxed" data-start="665" data-length="36" data-source-page="88"><strong>caching（缓存）</strong>：<code>Memoize</code></p>
+<p data-label="inner input" data-style="boxed" data-start="858" data-length="49" data-source-page="88"><strong>inner input（内集合）</strong>：<code>Index Scan using airports_data_pkey</code></p>
+</div><p>这个例子是特意选择的：传给内集合的参数只有 BOM 和 SVO 两个非重复值。</p>
 <p>每个值的首次查找都未命中缓存，因此 Misses: 2。</p>
 <p>其余 106 次查找都由缓存提供结果，因此 Hits: 106。</p>
 <p>没有条目需要被逐出 (Evictions: 0)，也没有某个参数对应的缓存结果超出可用空间 (Overflows: 0)，整个缓存只使用了 1 kB。</p>
@@ -649,25 +631,22 @@
     <a href="#523-%e5%b9%b6%e8%a1%8c%e8%ae%a1%e5%88%92%e4%b8%ad%e7%9a%84%e5%b5%8c%e5%a5%97%e5%be%aa%e7%8e%af" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>嵌套循环可以参与并行计划。</p>
 <p>多个工作进程并行扫描外集合。每个工作进程获取一部分外集合行，并独立执行相应的内集合扫描。</p>
 <p>查找低价航段对应的机票：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+SELECT t.ticket_no, s.price
+FROM tickets t
+  JOIN segments s ON s.ticket_no = t.ticket_no
+WHERE s.price &lt; 1000;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">SELECT t.ticket_no, s.price
-</span></span><span class="line"><span class="cl">FROM tickets t
-</span></span><span class="line"><span class="cl">  JOIN segments s ON s.ticket_no = t.ticket_no
-</span></span><span class="line"><span class="cl">WHERE s.price &lt; 1000;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                        QUERY PLAN
-</span></span><span class="line"><span class="cl">----------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Gather
-</span></span><span class="line"><span class="cl">   Workers Planned: 2
-</span></span><span class="line"><span class="cl">   -&gt; Nested Loop
-</span></span><span class="line"><span class="cl">       -&gt; Parallel Seq Scan on segments s
-</span></span><span class="line"><span class="cl">           Filter: (price &lt; &#39;1000&#39;::numeric)
-</span></span><span class="line"><span class="cl">       -&gt; Index Only Scan using tickets_pkey on tickets t
-</span></span><span class="line"><span class="cl">           Index Cond: (ticket_no = s.ticket_no)
-</span></span><span class="line"><span class="cl">(7 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                        QUERY PLAN
+----------------------------------------------------------
+ <mark class="plan-highlight" data-source-page="90">Gather</mark>
+   Workers Planned: 2
+   -&gt; <mark class="plan-highlight" data-source-page="90">Nested Loop</mark>
+       -&gt; Parallel Seq Scan on segments s
+           Filter: (price &lt; '1000'::numeric)
+       -&gt; Index Only Scan using tickets_pkey on tickets t
+           Index Cond: (ticket_no = s.ticket_no)
+(7 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -676,10 +655,10 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>每个参与进程扫描 segments 的一部分。对于每个满足条件的航段，它都在 tickets 中独立执行一次仅索引查找。外集合的扫描是并行的，并不意味着内集合也自动变成共享的；每个进程都要针对分配给自己的外集合行执行内集合计划。</p>
+</div><div class="query-plan-notes" data-plan-block="3" role="note" aria-label="执行计划标注">
+<p data-label="outer input" data-style="boxed" data-start="285" data-length="31" data-source-page="90"><strong>outer input（外集合）</strong>：<code>Parallel Seq Scan</code></p>
+<p data-label="inner input" data-style="boxed" data-start="372" data-length="47" data-source-page="90"><strong>inner input（内集合）</strong>：<code>Index Only Scan</code></p>
+</div><p>每个参与进程扫描 segments 的一部分。对于每个满足条件的航段，它都在 tickets 中独立执行一次仅索引查找。外集合的扫描是并行的，并不意味着内集合也自动变成共享的；每个进程都要针对分配给自己的外集合行执行内集合计划。</p>
 <h2>5.3 哈希连接<span class="hx-absolute -hx-mt-20" id="53-哈希连接"></span>
     <a href="#53-%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>5.3.1 单批次哈希连接<span class="hx-absolute -hx-mt-20" id="531-单批次哈希连接"></span>
     <a href="#531-%e5%8d%95%e6%89%b9%e6%ac%a1%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>在<strong>构建阶段</strong>，PostgreSQL 读取内集合中的行，并根据连接键计算哈希值。</p>
@@ -689,22 +668,19 @@
 <p>在<strong>探测阶段</strong>，PostgreSQL 顺序读取外集合。对于外集合中的每一行，它都会计算相应的哈希值，定位候选桶，然后检查实际的连接条件。</p>
 <p>仅检查哈希码还不够。首先，并非查询中的所有连接条件都能用于哈希连接：哈希函数不保留值的顺序，因此哈希定位需要使用等值连接键。 其次，不同的值可能得到相同的哈希码，也就是发生哈希冲突。发生的概率虽然较小，但不能排除。</p>
 <p>下面的例子需要读取两个输入中的大部分数据，因此选择哈希连接很自然：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off)
+SELECT *
+FROM airplanes a
+  JOIN seats s ON a.airplane_code = s.airplane_code;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM airplanes a
-</span></span><span class="line"><span class="cl">  JOIN seats s ON a.airplane_code = s.airplane_code;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                    QUERY PLAN
-</span></span><span class="line"><span class="cl">---------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join
-</span></span><span class="line"><span class="cl">   Hash Cond: (s.airplane_code = ml.airplane_code)
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on seats s
-</span></span><span class="line"><span class="cl">   -&gt; Hash
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on airplanes_data ml
-</span></span><span class="line"><span class="cl">(5 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                    QUERY PLAN
+---------------------------------------------------
+ <mark class="plan-highlight" data-source-page="91">Hash Join</mark>
+   Hash Cond: (s.airplane_code = ml.airplane_code)
+   -&gt; Seq Scan on seats s
+   -&gt; Hash
+       -&gt; Seq Scan on airplanes_data ml
+(5 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -713,16 +689,11 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="query-plan-notes" data-plan-node="Hash Join" role="note" aria-label="执行计划标注">
-<p data-label="hash table"><strong>hash table（哈希表）</strong>：<code>Hash</code></p>
-</div>
-<p>Hash Join 首先让其 Hash 子节点读取内集合并构建哈希表，然后读取外集合，在哈希表中查找匹配项，找到后就返回。</p>
+</div><div class="query-plan-notes" data-plan-block="4" role="note" aria-label="执行计划标注">
+<p data-label="hash table" data-style="boxed" data-start="277" data-length="4" data-source-page="91"><strong>hash table（哈希表）</strong>：<code>Hash</code></p>
+</div><p>Hash Join 首先让其 Hash 子节点读取内集合并构建哈希表，然后读取外集合，在哈希表中查找匹配项，找到后就返回。</p>
 <p>运行查询：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
 </span></span><span class="line"><span class="cl">SELECT *
@@ -748,10 +719,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>哈希表能够放入内存。它使用 1024 个桶，占用约 10 kB。规划器选择了小得多的 airplanes_data 作为构建侧输入。</p>
+</div><p>哈希表能够放入内存。它使用 1024 个桶，占用约 10 kB。规划器选择了小得多的 airplanes_data 作为构建侧输入。</p>
 <h3>5.3.2 多批次哈希连接<span class="hx-absolute -hx-mt-20" id="532-多批次哈希连接"></span>
     <a href="#532-%e5%a4%9a%e6%89%b9%e6%ac%a1%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果规划器估算哈希表无法放入 <em>work_mem</em> × <em>hash_mem_multiplier</em> 大小的内存，就会将内集合划分为多个批次，分别处理。与桶数一样，批次数始终是 2 的幂；批次编号由哈希值中的若干位决定。可能相互匹配的行总是属于同一个批次。理想情况下，各批次的行数大致相同，但如果行中的值有重复，就可能出现数据倾斜。</p>
 <p>规划查询时，会预先计算所需的最少批次数，使每个批次对应的哈希表能够放入内存。即使后来发现规划器的估算偏保守，这个批次数也不会减少，但会根据需要动态增加。</p>
@@ -761,31 +729,28 @@
 <p>随后释放哈希表占用的内存。此时，连接已经得到第一个批次的部分结果。</p>
 <p>接下来，PostgreSQL 逐个处理保存在磁盘上的批次：从临时文件中将该批次的内集合行载入哈希表，从另一个临时文件中读取对应的外集合行，然后进行连接。已处理的临时文件会被删除。这个过程不断重复，直到所有批次都完成连接。</p>
 <p>连接 bookings 和 tickets 这两张大表：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, summary off)
+SELECT *
+FROM bookings b
+  JOIN tickets t ON b.book_ref = t.book_ref;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, summary off)
-</span></span><span class="line"><span class="cl">SELECT *
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">  JOIN tickets t ON b.book_ref = t.book_ref;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join (actual rows=5598473.00 loops=1)
-</span></span><span class="line"><span class="cl">   Hash Cond: (t.book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=15839 read=57833 written=2, temp
-</span></span><span class="line"><span class="cl">   read=60337 written=60337
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on tickets t (actual rows=5598473.00 loop...
-</span></span><span class="line"><span class="cl">       Buffers: shared read=57816 written=2
-</span></span><span class="line"><span class="cl">   -&gt; Hash (actual rows=2486710.00 loops=1)
-</span></span><span class="line"><span class="cl">       Buckets: 131072  Batches: 32  Memory Usage: 5155kB
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=15839 read=17, temp
-</span></span><span class="line"><span class="cl">       written=12364
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings b (actual rows=2486710.00...
-</span></span><span class="line"><span class="cl">           Buffers: shared hit=15839 read=17
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=34 read=14
-</span></span><span class="line"><span class="cl">(14 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Hash Join (actual rows=5598473.00 loops=1)
+   Hash Cond: (t.book_ref = b.book_ref)
+   Buffers: shared hit=15839 read=57833 written=2, temp
+   read=60337 written=60337
+   -&gt; Seq Scan on tickets t (actual rows=5598473.00 loop...
+       Buffers: shared read=57816 written=2
+   -&gt; <mark class="plan-highlight" data-source-page="94">Hash</mark> (actual rows=2486710.00 loops=1)
+       Buckets: 131072  Batches: <mark class="plan-highlight" data-source-page="94">32</mark>  Memory Usage: <mark class="plan-highlight" data-source-page="94">5155kB</mark>
+       Buffers: shared hit=15839 read=17, temp
+       written=12364
+       -&gt; Seq Scan on bookings b (actual rows=2486710.00...
+           Buffers: shared hit=15839 read=17
+ Planning:
+   Buffers: shared hit=34 read=14
+(14 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -794,35 +759,29 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这次哈希连接使用了 32 个批次。Hash 节点将构建侧的数据溢出到磁盘，而在处理各个批次时，Hash Join 节点也会读写临时数据。</p>
+</div><p>这次哈希连接使用了 32 个批次。Hash 节点将构建侧的数据溢出到磁盘，而在处理各个批次时，Hash Join 节点也会读写临时数据。</p>
 <p>现在只返回一列：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, summary off)
+SELECT b.book_ref
+FROM bookings b
+  JOIN tickets t ON b.book_ref = t.book_ref;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, summary off)
-</span></span><span class="line"><span class="cl">SELECT b.book_ref
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">  JOIN tickets t ON b.book_ref = t.book_ref;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Hash Join (actual rows=5598473.00 loops=1)
-</span></span><span class="line"><span class="cl">   Hash Cond: (t.book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=15950 read=57722, temp read=25850
-</span></span><span class="line"><span class="cl">   written=25850
-</span></span><span class="line"><span class="cl">   -&gt; Seq Scan on tickets t (actual rows=5598473.00 loop...
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=94 read=57722
-</span></span><span class="line"><span class="cl">   -&gt; Hash (actual rows=2486710.00 loops=1)
-</span></span><span class="line"><span class="cl">       Buckets: 262144  Batches: 32  Memory Usage: 5002kB
-</span></span><span class="line"><span class="cl">       Buffers: shared hit=15856, temp written=7927
-</span></span><span class="line"><span class="cl">       -&gt; Seq Scan on bookings b (actual rows=2486710.00...
-</span></span><span class="line"><span class="cl">           Buffers: shared hit=15856
-</span></span><span class="line"><span class="cl"> Planning:
-</span></span><span class="line"><span class="cl">   Buffers: shared hit=18
-</span></span><span class="line"><span class="cl">(13 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Hash Join (actual rows=5598473.00 loops=1)
+   Hash Cond: (t.book_ref = b.book_ref)
+   Buffers: shared hit=15950 read=57722, temp read=25850
+   written=25850
+   -&gt; Seq Scan on tickets t (actual rows=5598473.00 loop...
+       Buffers: shared hit=94 read=57722
+   -&gt; <mark class="plan-highlight" data-source-page="94">Hash</mark> (actual rows=2486710.00 loops=1)
+       Buckets: 262144  Batches: <mark class="plan-highlight" data-source-page="94">32</mark>  Memory Usage: <mark class="plan-highlight" data-source-page="94">5002kB</mark>
+       Buffers: shared hit=15856, temp written=7927
+       -&gt; Seq Scan on bookings b (actual rows=2486710.00...
+           Buffers: shared hit=15856
+ Planning:
+   Buffers: shared hit=18
+(13 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -831,10 +790,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>内存用量减少了，因为哈希表现在只包含一个字段，而不是 bookings 表中一行的三个字段。</p>
+</div><p>内存用量减少了，因为哈希表现在只包含一个字段，而不是 bookings 表中一行的三个字段。</p>
 <p>因此，下面两点很重要：</p>
 <ul>
 <li>只将真正需要的字段放入哈希表。</li>
@@ -849,32 +805,29 @@
     <a href="#534-%e5%b9%b6%e8%a1%8c%e5%93%88%e5%b8%8c%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>与其他连接方法不同，哈希连接不仅可以参与并行计划，还具有高效的并行协作算法。它会将连接的两个阶段都并行化：从内集合构建哈希表，以及利用外集合中的行探测哈希表。该功能由 <span class="marginalia" data-note="on"><em>enable_parallel_hash</em></span> 控制。</p>
 <p>此时的内存额度为 <em>work_mem</em> × <em>hash_mem_multiplier</em> × 进程数。所有进程都可以参与扫描内集合，并共同构建一张共享哈希表。构建阶段完成后，它们再协作扫描外集合，探测这张共享哈希表。</p>
 <p>增加每个进程可用于构建哈希表的内存，然后运行一个聚合查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>SET work_mem = '32MB';
+EXPLAIN (analyze, costs off, timing off, buffers off)
+SELECT count(*)
+FROM bookings b
+  JOIN tickets t ON b.book_ref = t.book_ref;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;32MB&#39;;
-</span></span><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">  JOIN tickets t ON b.book_ref = t.book_ref;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate (actual rows=1.00 loops=1)
-</span></span><span class="line"><span class="cl">   -&gt; Gather (actual rows=3.00 loops=1)
-</span></span><span class="line"><span class="cl">       Workers Planned: 2
-</span></span><span class="line"><span class="cl">       Workers Launched: 2
-</span></span><span class="line"><span class="cl">       -&gt; Partial Aggregate (actual rows=1.00 loops=3)
-</span></span><span class="line"><span class="cl">           -&gt; Parallel Hash Join (actual rows=1866157.67...
-</span></span><span class="line"><span class="cl">               Hash Cond: (t.book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">               -&gt; Parallel Seq Scan on tickets t (actual...
-</span></span><span class="line"><span class="cl">               -&gt; Parallel Hash (actual rows=828903.33 l...
-</span></span><span class="line"><span class="cl">                   Buckets: 4194304  Batches: 1  Memory
-</span></span><span class="line"><span class="cl">                   Usage: 130080kB
-</span></span><span class="line"><span class="cl">                   -&gt; Parallel Seq Scan on bookings b (a...
-</span></span><span class="line"><span class="cl"> Planning Time: 0.161 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 625.430 ms
-</span></span><span class="line"><span class="cl">(14 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Finalize Aggregate (actual rows=1.00 loops=1)
+   -&gt; Gather (actual rows=3.00 loops=1)
+       Workers Planned: 2
+       Workers Launched: 2
+       -&gt; Partial Aggregate (actual rows=1.00 loops=3)
+           -&gt; Parallel Hash Join (actual rows=1866157.67...
+               Hash Cond: (t.book_ref = b.book_ref)
+               -&gt; Parallel Seq Scan on tickets t (actual...
+               -&gt; <mark class="plan-highlight" data-source-page="96">Parallel Hash</mark> (actual rows=828903.33 l...
+                   Buckets: 4194304  Batches: <mark class="plan-highlight" data-source-page="96">1</mark>  Memory
+                   Usage: <mark class="plan-highlight" data-source-page="96">130080kB</mark>
+                   -&gt; Parallel Seq Scan on bookings b (a...
+ Planning Time: 0.161 ms
+ Execution Time: 625.430 ms
+(14 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -883,10 +836,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>注意，已分配的内存超过了单个进程的额度：本例中，<em>work_mem</em> × <em>hash_mem_multiplier</em> = 64 MB。Batches: 1 表明这次连接仍然只使用一个批次。</p>
+</div><p>注意，已分配的内存超过了单个进程的额度：本例中，<em>work_mem</em> × <em>hash_mem_multiplier</em> = 64 MB。Batches: 1 表明这次连接仍然只使用一个批次。</p>
 <p>如果各并行进程合计可用的内存仍然不足以容纳整个哈希表，PostgreSQL 就会使用<strong>多批次</strong>并行算法。</p>
 <p>首先，各进程并行读取内集合，将其划分为批次，并将各批次写入临时文件。与串行算法不同，所有批次都会写入磁盘，包括第一个批次：每个进程只读取内集合的一部分，因此没有哪个进程单独拥有一个完整的批次。</p>
 <p>随后，外集合也会被并行读取、划分批次并写入临时文件。读完外集合后，N 个批次对应 2N 个临时文件，每个批次各有一个内集合文件和一个外集合文件。</p>
@@ -895,7 +845,6 @@
 <p>与让所有进程共同处理一张大型共享哈希表相比，采用多张较小的哈希表可以简化协调，减少同步开销。</p>
 <p>减小内存设置：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">SET work_mem = &#39;16MB&#39;;</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -906,35 +855,29 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>运行相同的查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (analyze, costs off, timing off, buffers off)
+SELECT count(*)
+FROM bookings b
+  JOIN tickets t ON b.book_ref = t.book_ref;
 
-  
-</div>
-<p>运行相同的查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (analyze, costs off, timing off, buffers off)
-</span></span><span class="line"><span class="cl">SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">  JOIN tickets t ON b.book_ref = t.book_ref;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate (actual rows=1.00 loops=1)
-</span></span><span class="line"><span class="cl">   -&gt; Gather (actual rows=3.00 loops=1)
-</span></span><span class="line"><span class="cl">       Workers Planned: 2
-</span></span><span class="line"><span class="cl">       Workers Launched: 2
-</span></span><span class="line"><span class="cl">       -&gt; Partial Aggregate (actual rows=1.00 loops=3)
-</span></span><span class="line"><span class="cl">           -&gt; Parallel Hash Join (actual rows=1866157.67...
-</span></span><span class="line"><span class="cl">               Hash Cond: (t.book_ref = b.book_ref)
-</span></span><span class="line"><span class="cl">               -&gt; Parallel Seq Scan on tickets t (actual...
-</span></span><span class="line"><span class="cl">               -&gt; Parallel Hash (actual rows=828903.33 l...
-</span></span><span class="line"><span class="cl">                   Buckets: 1048576  Batches: 8  Memory
-</span></span><span class="line"><span class="cl">                   Usage: 20416kB
-</span></span><span class="line"><span class="cl">                   -&gt; Parallel Seq Scan on bookings b (a...
-</span></span><span class="line"><span class="cl"> Planning Time: 0.112 ms
-</span></span><span class="line"><span class="cl"> Execution Time: 647.388 ms
-</span></span><span class="line"><span class="cl">(14 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Finalize Aggregate (actual rows=1.00 loops=1)
+   -&gt; Gather (actual rows=3.00 loops=1)
+       Workers Planned: 2
+       Workers Launched: 2
+       -&gt; Partial Aggregate (actual rows=1.00 loops=3)
+           -&gt; Parallel Hash Join (actual rows=1866157.67...
+               Hash Cond: (t.book_ref = b.book_ref)
+               -&gt; Parallel Seq Scan on tickets t (actual...
+               -&gt; <mark class="plan-highlight" data-source-page="98">Parallel Hash</mark> (actual rows=828903.33 l...
+                   Buckets: 1048576  Batches: <mark class="plan-highlight" data-source-page="98">8</mark>  Memory
+                   Usage: 20416kB
+                   -&gt; Parallel Seq Scan on bookings b (a...
+ Planning Time: 0.112 ms
+ Execution Time: 647.388 ms
+(14 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -943,30 +886,24 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这次连接使用了八个批次。</p>
+</div><p>这次连接使用了八个批次。</p>
 <h2>5.4 归并连接<span class="hx-absolute -hx-mt-20" id="54-归并连接"></span>
     <a href="#54-%e5%bd%92%e5%b9%b6%e8%bf%9e%e6%8e%a5" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>第三种主要的连接方法是归并连接。它利用有序输入：如果两个行集已经按相容的连接键排序，PostgreSQL 就可以按键的顺序推进两个输入，组合匹配的行组。Gather Merge 节点的工作方式与此相似：它将已经有序的多个数据流归并成一个有序数据流。</p>
 <p>排序的成本可能很高，基于比较的排序通常需要 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>N</mi><mi>log</mi><mi>N</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(N \log N)</annotation></semantics></math> 的工作量，但不一定需要显式排序。B 树索引可能已经提供了所需的顺序，前面的计划节点也可能保留了这一顺序。</p>
 <p>可以用一个简化过程来理解归并连接：当前键较小的输入向前推进，直到两个键相同；键相等时，就生成匹配的行。重复的连接键会让这一过程复杂一些。如果一个或两个输入中有多行具有相同的键，PostgreSQL 就必须生成该键对应的所有匹配组合。</p>
 <p>来看一个两个输入都已经具有所需顺序的连接：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off) SELECT *
+FROM tickets t
+  JOIN segments tf ON tf.ticket_no = t.ticket_no
+ORDER BY t.ticket_no;
 
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off) SELECT *
-</span></span><span class="line"><span class="cl">FROM tickets t
-</span></span><span class="line"><span class="cl">  JOIN segments tf ON tf.ticket_no = t.ticket_no
-</span></span><span class="line"><span class="cl">ORDER BY t.ticket_no;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                     QUERY PLAN
-</span></span><span class="line"><span class="cl">----------------------------------------------------
-</span></span><span class="line"><span class="cl"> Merge Join
-</span></span><span class="line"><span class="cl">   Merge Cond: (t.ticket_no = tf.ticket_no)
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using tickets_pkey on tickets t
-</span></span><span class="line"><span class="cl">   -&gt; Index Scan using segments_pkey on segments tf
-</span></span><span class="line"><span class="cl">(4 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                     QUERY PLAN
+----------------------------------------------------
+ <mark class="plan-highlight" data-source-page="99">Merge Join</mark>
+   Merge Cond: (t.ticket_no = tf.ticket_no)
+   -&gt; Index Scan using tickets_pkey on tickets t
+   -&gt; Index Scan using segments_pkey on segments tf
+(4 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -975,17 +912,12 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<div class="query-plan-notes" data-plan-node="Merge Join" role="note" aria-label="执行计划标注">
-<p data-label="one input"><strong>one input（一个输入）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
-<p data-label="the other input"><strong>the other input（另一个输入）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
-</div>
-<p>本例利用了归并连接的一个重要性质：按排序顺序返回连接结果。 因此，生成的行集可以直接用于另一次归并连接，无须额外排序；也可以像本例一样直接返回给客户端。</p>
+</div><div class="query-plan-notes" data-plan-block="11" role="note" aria-label="执行计划标注">
+<p data-label="one input" data-style="boxed" data-start="263" data-length="42" data-source-page="99"><strong>one input（一个输入）</strong>：<code>Index Scan using tickets_pkey on tickets t</code></p>
+<p data-label="the other input" data-style="boxed" data-start="312" data-length="45" data-source-page="99"><strong>the other input（另一个输入）</strong>：<code>Index Scan using segments_pkey on segments tf</code></p>
+</div><p>本例利用了归并连接的一个重要性质：按排序顺序返回连接结果。 因此，生成的行集可以直接用于另一次归并连接，无须额外排序；也可以像本例一样直接返回给客户端。</p>
 <p>在下一个例子中，一个 Merge Join 从另一个 Merge Join 接收有序行集：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off)
 </span></span><span class="line"><span class="cl">SELECT t.ticket_no, bp.flight_id, bp.seat_no
@@ -1013,10 +945,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>这里先将 segments 与 boarding_passes 连接，再将 tickets 与这个已经按机票号排序的行集连接。</p>
+</div><p>这里先将 segments 与 boarding_passes 连接，再将 tickets 与这个已经按机票号排序的行集连接。</p>
 <h3>5.4.1 执行成本<span class="hx-absolute -hx-mt-20" id="541-执行成本"></span>
     <a href="#541-%e6%89%a7%e8%a1%8c%e6%88%90%e6%9c%ac" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>如果两个输入都已经按归并键排序，基本归并过程的工作量与输入规模呈线性关系，即 <math><semantics><mrow><mi>O</mi><mo>(</mo><mi>N</mi><mo>+</mo><mi>M</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">O(N+M)</annotation></semantics></math>。与哈希连接不同，归并连接无须先构建哈希表。因此，它既可以用于 OLTP 查询，也可以用于 OLAP 查询。</p>
 <p>不过，如果需要排序，成本就会与 <math><semantics><mrow><mi>N</mi><mi>log</mi><mi>N</mi></mrow><annotation encoding="application/x-tex">N \log N</annotation></semantics></math> 成正比。对于大量数据，这种方法很可能不如哈希连接。</p>
@@ -1026,7 +955,6 @@
 <p>对于大型连接，这些重复工作可能使并行哈希连接更有吸引力，因为并行哈希在设计上就让各进程共同承担构建和探测工作。</p>
 <p>创建一个索引，使 PostgreSQL 能以较低成本按 book_ref 顺序获取 tickets：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">CREATE INDEX ON tickets(book_ref);</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -1037,32 +965,26 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
+</div><p>现在来看下面的查询：</p>
+<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code"><pre><code>EXPLAIN (costs off) SELECT count(*)
+FROM bookings b
+  JOIN (
+    SELECT book_ref FROM tickets GROUP BY book_ref
+  ) t ON b.book_ref = t.book_ref;
 
-  
-</div>
-<p>现在来看下面的查询：</p>
-<div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
-
-<div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">EXPLAIN (costs off) SELECT count(*)
-</span></span><span class="line"><span class="cl">FROM bookings b
-</span></span><span class="line"><span class="cl">  JOIN (
-</span></span><span class="line"><span class="cl">    SELECT book_ref FROM tickets GROUP BY book_ref
-</span></span><span class="line"><span class="cl">  ) t ON b.book_ref = t.book_ref;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                         QUERY PLAN
-</span></span><span class="line"><span class="cl">------------------------------------------------------------
-</span></span><span class="line"><span class="cl"> Finalize Aggregate
-</span></span><span class="line"><span class="cl">   -&gt; Gather
-</span></span><span class="line"><span class="cl">       Workers Planned: 2
-</span></span><span class="line"><span class="cl">       -&gt; Partial Aggregate
-</span></span><span class="line"><span class="cl">           -&gt; Merge Join
-</span></span><span class="line"><span class="cl">               Merge Cond: (b.book_ref = tickets.book_ref)
-</span></span><span class="line"><span class="cl">               -&gt; Parallel Index Only Scan using booking...
-</span></span><span class="line"><span class="cl">               -&gt; Group
-</span></span><span class="line"><span class="cl">                   Group Key: tickets.book_ref
-</span></span><span class="line"><span class="cl">                   -&gt; Index Only Scan using tickets_book...
-</span></span><span class="line"><span class="cl">(10 rows)</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
+                         QUERY PLAN
+------------------------------------------------------------
+ Finalize Aggregate
+   -&gt; Gather
+       Workers Planned: 2
+       -&gt; Partial Aggregate
+           -&gt; <mark class="plan-highlight" data-source-page="101">Merge Join</mark>
+               Merge Cond: (b.book_ref = tickets.book_ref)
+               -&gt; <mark class="plan-highlight" data-source-page="101">Parallel Index Only Scan</mark> using booking...
+               -&gt; Group
+                   Group Key: tickets.book_ref
+                   -&gt; Index Only Scan using tickets_book...
+(10 rows)</code></pre><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
     class="hextra-code-copy-btn hx-group/copybtn hx-transition-all active:hx-opacity-50 hx-bg-primary-700/5 hx-border hx-border-black/5 hx-text-gray-600 hover:hx-text-gray-900 hx-rounded-md hx-p-1.5 dark:hx-bg-primary-300/10 dark:hx-border-white/10 dark:hx-text-gray-400 dark:hover:hx-text-gray-50"
     title="Copy code"
@@ -1071,13 +993,9 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
-</div>
-<p>bookings_pkey 上的扫描是并行的。但对于 tickets 上的分组子查询，每个执行归并连接的参与进程都会独立读取它。</p>
+</div><p>bookings_pkey 上的扫描是并行的。但对于 tickets 上的分组子查询，每个执行归并连接的参与进程都会独立读取它。</p>
 <p>删除演示用的索引：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-text" data-lang="text"><span class="line"><span class="cl">DROP INDEX tickets_book_ref_idx;
 </span></span><span class="line"><span class="cl">DROP INDEX</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -1089,10 +1007,7 @@
     <div class="success-icon hx-hidden group-[.copied]/copybtn:hx-block hx-pointer-events-none hx-h-4 hx-w-4"></div>
   </button>
 </div>
-
-  
 </div>
-
         </div>
         <div class="hx-mt-16"></div>
         
