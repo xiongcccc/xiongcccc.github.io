@@ -1,8 +1,8 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>PostgreSQL 14 Internals – 关于译者</title>
+    <title>PostgreSQL 14 Internals – 关于译者 · xiongcc</title>
     <link>https://postgres-internals.cn/translator/</link>
-    <description>Recent content in 关于译者 on PostgreSQL 14 Internals</description>
+    <description>Recent content in 关于译者 · xiongcc on PostgreSQL 14 Internals</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
     
