@@ -22,18 +22,18 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 搜索始终是深度优先的：算法会尽可能快地到达叶子页面。因此，它可以立即开始返回结果，如果用户只需要获取最前面的几行，这是非常有意义的。
 要将新值插入到 GiST 树中，无法使用 consistency 函数，因为我们需要选择一个确切的节点来下降。3 这个节点必须具有最小的插入成本；它由操作符类的 penalty 函数确定。" />
 
-  
-    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter26/" itemprop="url" />
-  
 
-  
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter26/" itemprop="url" />
+
+
+
 
 <meta property="og:title" content="第 26 章：GiST" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://postgres-internals.cn/docs/chapter26/" />
 
-  
+
   <meta itemprop="name" content="第 26 章：GiST">
   <meta itemprop="description" content="26.1 总览 GiST (通用搜索树) 1 是一种访问方法，实际上是平衡搜索树的广义化，适用于那些支持数据值之间相对位置关系的数据类型。B 树的适用性仅限于允许比较操作的数据类型 (但对这些类型的支持非常高效)。至于 GiST，其操作符类允许为树中的数据分布定义任意标准。GiST 索引可以适用于空间数据的 R 树、集合的 RD 树，以及任何数据类型 (包括文本和图像) 的签名树。
 得益于可扩展性，你可以通过实现索引引擎的接口，从头开始在 PostgreSQL 中创建一个新的访问方法。然而，除了设计索引逻辑之外，你还必须定义页面布局、高效的锁策略和 WAL 的支持。这一切都需要强大的编程技能和大量的实施工作。GiST 简化了这项任务，解决了所有底层技术问题，并为搜索算法提供了基础。要将 GiST 方法用于新的数据类型，你只需添加一个包含十几个支持函数的新操作符类。与为 B 树提供的简单操作符类不同，这样的类包含了大部分索引逻辑。GiST 可以被视为在 PostgreSQL 中构建新访问方法的框架。
@@ -62,14 +62,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 
 
 
-  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
+  <link href="/css/custom.min.56aaad1a05fcc36045784038abb4ac81f55bed02271ad4a579b9932484739e51.css" rel="stylesheet" integrity="sha256-VqqtGgX8w2BFeEA4q7SsgfVb7QInGtSlebmTJIRznlE=" />
 
 
 
 
 
   <script>
-     
+
     const defaultTheme = 'light';
 
     const setDarkTheme = () => {
@@ -92,26 +92,27 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </script>
 
   <script defer src="/js/marginalia.js"></script>
-<script defer src="/js/site-stats.js"></script>
 
-  
+
     <script defer src="https://cloud.umami.is/script.js" data-website-id="8dd965d7-a696-48b4-b1fd-d62be941a304" data-domains="postgres-internals.cn" data-exclude-search="true" data-exclude-hash="true"></script>
-  
 
 
 
 
-  
+
+
+
+
   <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
 
 
-  
+
   <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
 
 
-  
+
   <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
-  
+
   <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
 
 
@@ -128,14 +129,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
     </a><a
             title="Docs"
             href="/docs"
-            
+
             class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
           >
             <span class="hx-text-center">Docs</span>
           </a><a
             title="About"
             href="/about"
-            
+
             class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
           >
             <span class="hx-text-center">About</span>
@@ -184,7 +185,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
 <aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
-  
+
   <div class="hx-px-4 hx-pt-4 md:hx-hidden">
     <div class="search-wrapper hx-relative md:hx-w-64">
   <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
@@ -213,20 +214,20 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </div>
   <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
     <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
-      
-      
+
+
           <li class=""><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/about/"
-    
+
   >About
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/"
-    
+
   >Docs
         <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
     </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
@@ -234,210 +235,210 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter01/"
-    
+
   >第 1 章：介绍
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter02/"
-    
+
   >第 2 章：隔离性
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter03/"
-    
+
   >第 3 章：页与元组
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter04/"
-    
+
   >第 4 章：快照
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter05/"
-    
+
   >第 5 章：页剪枝与 HOT 更新
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter06/"
-    
+
   >第 6 章：Vacuum 与 Autovacuum
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter07/"
-    
+
   >第 7 章：冻结
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter08/"
-    
+
   >第 8 章：重建表与索引
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter09/"
-    
+
   >第 9 章：缓冲区缓存
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter10/"
-    
+
   >第 10 章：预写式日志
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter11/"
-    
+
   >第 11 章：WAL 模式
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter12/"
-    
+
   >第 12 章：关系级锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter13/"
-    
+
   >第 13 章：行级锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter14/"
-    
+
   >第 14 章：多样的锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter15/"
-    
+
   >第 15 章：内存结构上的锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter16/"
-    
+
   >第 16 章：查询执行阶段
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter17/"
-    
+
   >第 17 章：统计信息
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter18/"
-    
+
   >第 18 章：表访问方法
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter19/"
-    
+
   >第 19 章：索引访问方法
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter20/"
-    
+
   >第 20 章：索引扫描
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter21/"
-    
+
   >第 21 章：嵌套循环
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter22/"
-    
+
   >第 22 章：哈希
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter23/"
-    
+
   >第 23 章：排序与归并
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter24/"
-    
+
   >第 24 章：Hash
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter25/"
-    
+
   >第 25 章：B-tree
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
     href="/docs/chapter26/"
-    
+
   >第 26 章：GiST
     </a>
-  
+
     <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
               <a
                 href="#261-%e6%80%bb%e8%a7%88"
@@ -463,268 +464,268 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
               >26.4 其他数据类型</a>
             </li>
           </ul>
-  
-              
+
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter27/"
-    
+
   >第 27 章：SP-GiST
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter28/"
-    
+
   >第 28 章：GIN
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter29/"
-    
+
   >第 29 章：BRIN
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter30/"
-    
+
   >结论
     </a>
-              
+
             </li></ul>
       </div></li>
           <li class=""><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/recommend/"
-    
+
   >Recommend
     </a></li>
     </ul>
 
     <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
-        
+
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter01/"
-    
+
   >第 1 章：介绍
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter02/"
-    
+
   >第 2 章：隔离性
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter03/"
-    
+
   >第 3 章：页与元组
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter04/"
-    
+
   >第 4 章：快照
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter05/"
-    
+
   >第 5 章：页剪枝与 HOT 更新
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter06/"
-    
+
   >第 6 章：Vacuum 与 Autovacuum
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter07/"
-    
+
   >第 7 章：冻结
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter08/"
-    
+
   >第 8 章：重建表与索引
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter09/"
-    
+
   >第 9 章：缓冲区缓存
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter10/"
-    
+
   >第 10 章：预写式日志
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter11/"
-    
+
   >第 11 章：WAL 模式
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter12/"
-    
+
   >第 12 章：关系级锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter13/"
-    
+
   >第 13 章：行级锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter14/"
-    
+
   >第 14 章：多样的锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter15/"
-    
+
   >第 15 章：内存结构上的锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter16/"
-    
+
   >第 16 章：查询执行阶段
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter17/"
-    
+
   >第 17 章：统计信息
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter18/"
-    
+
   >第 18 章：表访问方法
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter19/"
-    
+
   >第 19 章：索引访问方法
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter20/"
-    
+
   >第 20 章：索引扫描
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter21/"
-    
+
   >第 21 章：嵌套循环
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter22/"
-    
+
   >第 22 章：哈希
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter23/"
-    
+
   >第 23 章：排序与归并
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter24/"
-    
+
   >第 24 章：Hash
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter25/"
-    
+
   >第 25 章：B-tree
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
     href="/docs/chapter26/"
-    
+
   >第 26 章：GiST
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter27/"
-    
+
   >第 27 章：SP-GiST
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter28/"
-    
+
   >第 28 章：GIN
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter29/"
-    
+
   >第 29 章：BRIN
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter30/"
-    
+
   >结论
     </a></li>
-        
+
       </ul>
     </div>
-  
-  
+
+
     <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
   title="Change theme"
   data-theme="light"
@@ -768,7 +769,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
     </details>
   </template>
 
-    
+
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -841,7 +842,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 
     <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
       <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
-        
+
   <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
         <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
           <a href="/docs/">Docs</a>
@@ -870,7 +871,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>叶节点应该包含索引点本身，但 GiST 要求所有条目具有相同的数据类型；因此，叶节点条目也用矩形表示，只是简化为点。</p>
 <p>为了更好地可视化此结构，让我们看一下在机场坐标上建立的 R 树的三个层级。对于这个例子，我已经将示例数据库中的 airports 表扩展到了五千行。<sup id="fnref:5"><a href="#fn:5" class="footnote-ref" role="doc-noteref">5</a></sup> 我还降低了 <span class="marginalia" data-note="90"><em>fillfactor</em></span> 值以使树更深；默认值得到的是一个单层树。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE airports_big AS
 </span></span><span class="line"><span class="cl">  SELECT * FROM airports_data<span class="p">;</span>
@@ -887,7 +888,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>在上层，所有点都被包含在几个 (部分重叠的) 边界框中：</p>
 <img src="26-1.png" style="width:80%; float:left" />
@@ -905,7 +906,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>与 B 树索引不同，GiST 没有元页面，零页始终是树的根。如果根页面被分裂，旧的根会被移动到一个单独的页面，新的根则会取代它的位置。</p>
 <p>这是根页面的内容：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT ctid, keys
 </span></span><span class="line"><span class="cl">FROM gist_page_items<span class="o">(</span>
@@ -927,7 +928,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>这四行对应于第一张图片中显示的上层的四个矩形。不幸的是，此处键显示为点 (这对叶子页面而言是有意义的)，而不是矩形 (这对内部页而言将更合乎逻辑)。但我们总是可以获取原始数据并自行解释它。</p>
 <blockquote>
@@ -936,7 +937,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <h3>26.2.2 操作符类<span class="hx-absolute -hx-mt-20" id="2622-操作符类"></span>
     <a href="#2622-%e6%93%8d%e4%bd%9c%e7%ac%a6%e7%b1%bb" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>以下查询返回支持函数的列表，这些函数实现了树的搜索和插入操作的逻辑：<sup id="fnref:7"><a href="#fn:7" class="footnote-ref" role="doc-noteref">7</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT amprocnum, amproc::regproc
 </span></span><span class="line"><span class="cl">FROM pg_am am
@@ -966,7 +967,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>我已经列出了上面的必需函数：</p>
 <p>1 consistency 函数，用于在搜索时遍历树</p>
@@ -976,7 +977,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>7 same 函数，检查两个键是否相等</p>
 <p>point_ops 操作符类包括以下操作符：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT amopopr::regoperator, amopstrategy AS st, oprcode::regproc,
 </span></span><span class="line"><span class="cl">  left<span class="o">(</span>obj_description<span class="o">(</span>opr.oid, <span class="s1">&#39;pg_operator&#39;</span><span class="o">)</span>, 19<span class="o">)</span> description
@@ -1010,7 +1011,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>操作符名称通常并不能告诉我们太多关于操作符语义的信息，因此这个查询还显示了底层函数的名称及其描述。无论如何，所有的操作符都涉及几何形状的相对位置 (左边、右边、上方、下方、包含、被包含) 以及它们之间的距离。</p>
 <p>与 B 树相比，GiST 提供了更多的策略。一些策略编号对几种类型的索引是通用的，<sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup> 而其他一些则通过公式计算 (例如，28、48 和 68 实际上代表相同的策略：矩形、多边形和圆形的&quot;被包含&quot;)。此外，GiST 支持一些过时的操作符名称 (&laquo;| 和 |&raquo;)。</p>
@@ -1019,7 +1020,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
     <a href="#2623-%e6%90%9c%e7%b4%a2%e5%8c%85%e5%90%ab%e7%9a%84%e5%85%83%e7%b4%a0" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>一个可以通过索引加速的典型查询会返回指定区域内的所有点。</p>
 <p>例如，让我们找到所有位于莫斯科中心一度范围以内的机场：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT airport_code, airport_name-&gt;&gt;<span class="s1">&#39;en&#39;</span>
 </span></span><span class="line"><span class="cl">FROM airports_big
@@ -1053,7 +1054,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>我们可以通过下图中的一个简单示例来更详细地了解这个操作符：</p>
 <img src="26-4.png" style="width:70%; float:left" />
@@ -1074,7 +1075,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>但也有一组排序操作符，它们返回参数之间的距离。这些操作符用在 ORDER BY 子句中，并且通常由具有 Distance Orderable 属性的索引支持，这使你能够快速找到指定数量的最近邻。这种类型的搜索被称为 k-NN，或 k-最近邻搜索。</p>
 <p>例如，我们可以找到最靠近科斯特罗马的 10 个机场：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT airport_code, airport_name-&gt;&gt;<span class="s1">&#39;en&#39;</span>
 </span></span><span class="line"><span class="cl">FROM airports_big
@@ -1112,7 +1113,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>由于索引扫描可以逐个返回结果，并且可以随时停止，因此可以非常快速地找到前几个值。</p>
 <blockquote>
@@ -1120,7 +1121,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 </blockquote>
 <p>你可以在系统目录中看到操作符类型 (&ldquo;s&rdquo; 代表搜索，&ldquo;o&rdquo; 代表排序操作符)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT amopopr::regoperator, amoppurpose, amopstrategy
 </span></span><span class="line"><span class="cl">FROM pg_am am
@@ -1152,7 +1153,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>为了支持这样的查询，操作符类必须定义一个额外的支持函数：距离函数，该函数在索引条目上调用，用于计算此条目中存储的值与其他某个值之间的距离。</p>
 <p>对于表示索引值的叶元素，此函数必须返回到该值的距离。在点的情况下，<sup id="fnref:10"><a href="#fn:10" class="footnote-ref" role="doc-noteref">10</a></sup> 它是常规的欧几里得距离，等于 $\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}$。</p>
@@ -1195,7 +1196,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 </ul>
 <p>尝试一下，让我们创建一个约束，禁止机场彼此靠得太近。这个条件可以表述如下：以机场坐标为中心的特定半径的圆不能重叠：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER TABLE airports_data ADD EXCLUDE
 </span></span><span class="line"><span class="cl">USING gist <span class="o">(</span>circle<span class="o">(</span>coordinates,0.2<span class="o">)</span> WITH <span class="o">&amp;&amp;)</span><span class="p">;</span>
@@ -1220,13 +1221,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>当定义了排它约束，会自动添加一个索引来强制执行它。此处是一个基于表达式创建的 GiST 索引。</p>
 <p>让我们来看一个更复杂的例子。假设我们允许机场距离接近，但前提是它们属于同一个城市。一个可能的解决方案是定义一个新的完整性约束，可以如下表述：如果圆的中心位于机场坐标，并且对应的城市名称不同 (!=)，则禁止存在具有相交 (&amp;&amp;) 的圆的一组行。</p>
 <p>尝试创建这样的约束会导致报错，因为 text 数据类型没有操作符类：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER TABLE airports_data
 </span></span><span class="line"><span class="cl">DROP CONSTRAINT airports_data_circle_excl<span class="p">;</span> -- delete old <span class="nv">data</span>
@@ -1247,11 +1248,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>然而，GiST 确实提供了像 &ldquo;<em>strictly left of</em>&quot;、&quot;<em>strictly right of</em>&rdquo; 和 &ldquo;<em>same</em>&rdquo; 的策略，这些策略也可以应用于常规的允许比较和排序的数据类型，例如数字或文本字符串。btree_gist 扩展专门用于实现 GiST 对通常与 B 树一起使用的操作的支持：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE EXTENSION btree_gist<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER TABLE airports_data ADD EXCLUDE USING gist <span class="o">(</span>
@@ -1268,11 +1269,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>约束现已创建。现在我们不能添加属于同名城镇的茹科夫斯基机场，因为莫斯科的机场太近了：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO airports_data<span class="o">(</span>
 </span></span><span class="line"><span class="cl">  airport_code, airport_name, city, coordinates, timezone
@@ -1295,11 +1296,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>但如果我们指定这个机场的城市为莫斯科，我们就可以做到：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO airports_data<span class="o">(</span>
 </span></span><span class="line"><span class="cl">  airport_code, airport_name, city, coordinates, timezone
@@ -1317,13 +1318,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>重要的是要记住，即使 GiST 支持大于、小于和等于操作，但在这方面 B 树要高效得多，尤其是在访问一系列值时。因此，只有在 GiST 索引确实因其他合理原因而需要时，上面所展示的 btree_gist 扩展技巧才有意义。</p>
 <h3>26.2.7 属性<span class="hx-absolute -hx-mt-20" id="2627-属性"></span>
     <a href="#2627-%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p><strong>访问方法属性</strong>。以下是 GiST 方法的属性：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT a.amname, p.name, pg_indexam_has_property<span class="o">(</span>a.oid, p.name<span class="o">)</span>
 </span></span><span class="line"><span class="cl">FROM pg_am a, unnest<span class="o">(</span>array<span class="o">[</span>
@@ -1348,14 +1349,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>唯一约束和排序是不被支持的。</p>
 <p>创建 GiST 索引时可以<span class="marginalia" data-note="v. 12">包含额外的 INCLUDE 列</span>。</p>
 <p>正如我们所知，我们可以在多个列上创建索引，也可以在完整性约束中使用。</p>
 <p><strong>索引级属性</strong>。这些属性在索引级别定义：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT p.name, pg_index_has_property<span class="o">(</span><span class="s1">&#39;airports_gist_idx&#39;</span>, p.name<span class="o">)</span>
 </span></span><span class="line"><span class="cl">FROM unnest<span class="o">(</span>array<span class="o">[</span>
@@ -1377,13 +1378,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>GiST 索引可用于聚簇。</p>
 <p>至于数据检索方法，既支持常规 (逐行) 索引扫描，也支持位图扫描。但是，不允许对 GiST 索引进行反向扫描。</p>
 <p><strong>列级属性</strong>。大多数列级属性都是在访问方法级别定义的，并且保持不变：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT p.name,
 </span></span><span class="line"><span class="cl">  pg_index_column_has_property<span class="o">(</span><span class="s1">&#39;airports_gist_idx&#39;</span>, 1, p.name<span class="o">)</span>
@@ -1405,13 +1406,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>所有与排序相关的属性都被禁用。</p>
 <p>空值是允许的，但 GiST 在处理它们时并不是很高效。空值不会增大边界框；这样的值会被插入到随机的子树中，所以在整个树中都需要搜索它们。</p>
 <p>然而，一些列级属性确实依赖于特定的操作符类：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT p.name,
 </span></span><span class="line"><span class="cl">  pg_index_column_has_property<span class="o">(</span><span class="s1">&#39;airports_gist_idx&#39;</span>, 1, p.name<span class="o">)</span>
@@ -1432,13 +1433,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>仅索引扫描是允许的，因为叶节点保留了完整的索引键。</p>
 <p>正如我们上面看到的，这个操作符类提供了用于最近邻搜索的距离操作符。到空值的距离被认为是空；这些值最后返回 (类似于 B 树中的 NULLS LAST 子句)。</p>
 <p>然而，没有针对范围类型 (代表线段，即线性几何而不是面积几何) 的距离操作符，因此为此类类型创建的索引属性有所不同：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE reservations<span class="o">(</span>during tsrange<span class="o">)</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON reservations USING gist<span class="o">(</span>during<span class="o">)</span><span class="p">;</span>
@@ -1462,14 +1463,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <h2>26.3 用于全文检索的 RD 树<span class="hx-absolute -hx-mt-20" id="263-用于全文检索的-rd-树"></span>
     <a href="#263-%e7%94%a8%e4%ba%8e%e5%85%a8%e6%96%87%e6%a3%80%e7%b4%a2%e7%9a%84-rd-%e6%a0%91" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><h3>26.3.1 关于全文检索<span class="hx-absolute -hx-mt-20" id="2631-关于全文检索"></span>
     <a href="#2631-%e5%85%b3%e4%ba%8e%e5%85%a8%e6%96%87%e6%a3%80%e7%b4%a2" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>全文检索的目的 <sup id="fnref:14"><a href="#fn:14" class="footnote-ref" role="doc-noteref">14</a></sup> 是从提供的数据集中选择那些与搜索查询相匹配的文档。</p>
 <p>为了进行搜索，文档被转换为 tsvector 类型，其中包含词素以及它们在文档中的位置。词素是被转换成适合搜索格式的单词。默认情况下，所有单词都会被标准化为小写，并且它们的词尾被切除：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SET <span class="nv">default_text_search_config</span> <span class="o">=</span> english<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT to_tsvector<span class="o">(</span>
@@ -1489,12 +1490,12 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>所谓的停止词 (如 &ldquo;the&rdquo; 或 &ldquo;from&rdquo;) 被过滤掉：它们被认为出现得太频繁，以至于搜索不会返回任何有意义的结果。当然，所有这些转换都是可配置的。</p>
 <p>搜索查询由另一种类型表示：tsquery。任何查询都包含一个或多个由逻辑连接词组合的词素：&amp; (与)，| (或)，! (非)。你还可以使用括号来定义操作符的优先级。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT to_tsquery<span class="o">(</span><span class="s1">&#39;wind &amp; (comes | goes)&#39;</span><span class="o">)</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl">         to_tsquery
@@ -1510,11 +1511,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>用于全文检索的唯一操作符是匹配操作符 @@：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT amopopr::regoperator, oprcode::regproc, amopstrategy
 </span></span><span class="line"><span class="cl">FROM pg_am am
@@ -1537,11 +1538,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>这个操作符决定了文档是否满足查询条件。这里有一个例子：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT to_tsvector<span class="o">(</span><span class="s1">&#39;Where the wind comes from, where the wind goes&#39;</span><span class="o">)</span>
 </span></span><span class="line"><span class="cl">  @@ to_tsquery<span class="o">(</span><span class="s1">&#39;wind &amp; coming&#39;</span><span class="o">)</span><span class="p">;</span>
@@ -1558,14 +1559,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>这绝不是全文检索的详尽描述，但这些信息应该足以理解索引基础。</p>
 <h3>26.3.2 索引 tsvector 数据<span class="hx-absolute -hx-mt-20" id="2632-索引-tsvector-数据"></span>
     <a href="#2632-%e7%b4%a2%e5%bc%95-tsvector-%e6%95%b0%e6%8d%ae" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>为了高效工作，全文检索必须由索引支持。<sup id="fnref:15"><a href="#fn:15" class="footnote-ref" role="doc-noteref">15</a></sup> 由于索引的不是文档本身，而是 tsvector 值，因此你有两个选择：要么在表达式上创建一个索引并执行类型转换，要么添加一个 tsvector 类型的单独列并索引这个列。第一种方法的好处是它不会浪费存储 tsvector 值的空间，因为这些值实际上并不需要。但它比第二种选择要慢，因为索引引擎必须重新检查由访问方法返回的所有堆元组。这意味着对于每个重新检查的行，tsvector 值必须重新计算，正如我们很快会看到的，GiST 会重新检查所有行。</p>
 <p>让我们构造一个简单的例子。我们将创建一个两列的表：第一列存储文档，而第二列保存 tsvector 值。我们可以使用触发器来更新第二列，<sup id="fnref:16"><a href="#fn:16" class="footnote-ref" role="doc-noteref">16</a></sup> 但声明该列为<span class="marginalia" data-note="v. 12">生成列</span>会更为方便：<sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup></p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE TABLE ts<span class="o">(</span>
 </span></span><span class="line"><span class="cl">  doc text,
@@ -1584,14 +1585,14 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <blockquote>
 <p>在上面的例子中，我使用了带有单个参数的 to_tsvector 函数，并设置了 <span class="marginalia" data-note="english"><em>default_text_search_config</em></span> 参数来定义全文检索配置。由于此函数的这一版本隐式依赖于参数值，其稳定性类别是 STABLE。但在这里，我使用了另一个明确定义配置的版本；此版本是 IMMUTABLE 的，可以用在生成表达式中。</p>
 </blockquote>
 <p>让我们插入几行：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; INSERT INTO ts<span class="o">(</span>doc<span class="o">)</span>
 </span></span><span class="line"><span class="cl">VALUES
@@ -1633,7 +1634,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>因此，R 树不适合用于索引文档，因为对它们来说，边界框的概念没有意义。因此，使用了它的 RD 树  (俄罗斯套娃) 修改版本。这样的树不使用边界框，而是使用边界集，即包含其子集所有元素的集合。对于全文检索，这样的集合包含文档的词素，但在一般情况下，边界集可以是任意的。</p>
 <p>在索引条目中，有几种方法可以表示边界集。最简单的方法是枚举集合的所有元素。</p>
@@ -1664,7 +1665,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 <p>误报降低了索引的效率，但不以任何方式影响其正确性：由于保证排除了漏报 (false negative)，所以不可能错过所需的值。</p>
 <p>显然，签名的实际大小更大。默认情况下，它占用 124 字节 (992 比特)，因此冲突的可能性比这个例子中的要低得多。<span class="marginalia" data-note="v. 13">如果需要</span>，你可以使用操作符类参数将签名大小进一步增加到大约 2000 字节：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">CREATE INDEX ... USING gist<span class="o">(</span>column tsvector_ops<span class="o">(</span><span class="nv">siglen</span> <span class="o">=</span> size<span class="o">))</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -1676,13 +1677,13 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>此外，如果值足够小 (略小于页面的 1/16，对于标准页面大约是 500 字节)，<sup id="fnref:19"><a href="#fn:19" class="footnote-ref" role="doc-noteref">19</a></sup> 那么在索引的叶子页面上，tsvector_ops 操作符类保留的是 tsvector 值本身，而不是它们的签名。</p>
 <p>要了解索引在实际数据上是如何工作的，我们可以使用 pgsql-hackers 邮件列表归档。<sup id="fnref:20"><a href="#fn:20" class="footnote-ref" role="doc-noteref">20</a></sup> 它包含了 356125 封电子邮件及其发送日期、主题、作者姓名和正文。</p>
 <p>让我们添加一个 tsvector 类型的列并建立索引。在这里，我将三个值 (主题、作者和正文) 合并成一个单一向量，以展示文档可以动态生成，而不必存储在单一列中。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER TABLE mail_messages ADD COLUMN tsv tsvector
 </span></span><span class="line"><span class="cl">GENERATED ALWAYS AS <span class="o">(</span> to_tsvector<span class="o">(</span>
@@ -1710,11 +1711,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>在填充列的过程中，由于大小的原因，一定数量的最大单词被过滤掉了。但是一旦索引准备好了，它就可以在搜索查询中使用。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; EXPLAIN <span class="o">(</span>analyze, costs off, timing off, summary off<span class="o">)</span>
 </span></span><span class="line"><span class="cl">SELECT *
@@ -1736,11 +1737,11 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>除了满足条件的 898 行外，访问方法还返回了 7859 行，这些行稍后将在重新检查期间被过滤掉。如果我们增加了签名的容量，这将提高准确性 (因此也提高了索引的效率)，但索引大小会增加：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; DROP INDEX mail_messages_tsv_idx<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; CREATE INDEX ON mail_messages
@@ -1772,12 +1773,12 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <h3>26.3.3 属性<span class="hx-absolute -hx-mt-20" id="2633-属性"></span>
     <a href="#2633-%e5%b1%9e%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>我已经展示了访问方法的属性，其中大多数对于所有操作符类都是相同的。但是，以下两个列级属性值得一提：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT p.name,
 </span></span><span class="line"><span class="cl">  pg_index_column_has_property<span class="o">(</span><span class="s1">&#39;mail_messages_tsv_idx&#39;</span>, 1, p.name<span class="o">)</span>
@@ -1798,7 +1799,7 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   </button>
 </div>
 
-  
+
 </div>
 <p>现在无法进行仅索引扫描，因为无法从其签名恢复原始值。在这个特定情况下，这是完全可以接受的：tsvector 值仅用于搜索，而我们需要检索的是文档本身。</p>
 <p>对于 tsvector_ops 类，排序操作符也没有定义。</p>
@@ -1897,8 +1898,8 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
 
         </div>
         <div class="hx-mt-16"></div>
-        
-        
+
+
       </main>
     </article>
   </div>
@@ -1906,12 +1907,16 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
       <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
     class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
   >
-    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+      <div class="site-visit-stats" aria-label="访问统计">
+    <a class="site-stats-link" href="https://cloud.umami.is/share/h9AwlAG8vkVyvPwC" target="_blank" rel="noopener noreferrer" aria-label="查看访问统计（Umami，在新标签页打开）">查看访问统计</a>
+    <span class="site-stats-source">Umami</span>
+  </div><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
     </div>
   </div>
 </footer>
-    
-    
+
+
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
@@ -1922,8 +1927,8 @@ GiST 树搜索依赖于 consistency 函数，这是操作符类定义的支持�
   <script defer src="/lib/katex/auto-render.min.7b57d427ac6270677daf8d8380ded2cc73336f9149a167b8e1fe0d6ef66604ae.js" integrity="sha256-e1fUJ6xicGd9r42DgN7SzHMzb5FJoWe44f4NbvZmBK4="></script>
   <script defer src="/lib/katex/mhchem.min.f0ca03df194b8c3d6017ff455db6a0ef98857905663fa311a6cded788b15340b.js" integrity="sha256-8MoD3xlLjD1gF/9FXbag75iFeQVmP6MRps3teIsVNAs="></script>
   <script>
-    
-    
+
+
     document.addEventListener("DOMContentLoaded", function () {
       renderMathInElement(document.body, {
         delimiters: [

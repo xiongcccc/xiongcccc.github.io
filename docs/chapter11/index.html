@@ -23,18 +23,18 @@ WAL 条目可以按以下模式之一写入：
 从此刻起，ACID 的持久性要求得到保证 — 事务被认为已可靠提交了 4。这就是为什么同步模式是默认模式的原因。
 同步提交的缺点是延迟较长 (COMMIT 命令直到同步结束才返回控制) 和较低的系统吞吐量，尤其是对于 OLTP 负载。" />
 
-  
-    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter11/" itemprop="url" />
-  
 
-  
+    <link rel="canonical" href="https://postgres-internals.cn/docs/chapter11/" itemprop="url" />
+
+
+
 
 <meta property="og:title" content="第 11 章：WAL 模式" />
 <meta property="og:description" content="" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://postgres-internals.cn/docs/chapter11/" />
 
-  
+
   <meta itemprop="name" content="第 11 章：WAL 模式">
   <meta itemprop="description" content="11.1 性能 当服务器正常运行时，WAL 文件会不断写入磁盘。然而，这些写入是顺序的：几乎没有随机访问，因此即使是 HDD 也能应对这项任务。因为这种类型的负载与典型的数据文件访问非常不同，因此可能值得为 WAL 文件设置单独的物理存储，并将 PGDATA/pg_wal 目录替换为指向已挂载文件系统中目录的符号链接。
 有几种情况需要同时写入和读取 WAL 文件。第一个显而易见的例子是崩溃恢复；第二个是流复制。walsender 1 进程直接从文件中读取 WAL 条目 2，如果备库没有接收到需要的 WAL 条目，那么 walsender 进程将从文件中读取，只是读取过程是顺序的，而不是随机的 (也有可能在主库的操作系统缓存中找到相应的 WAL 条目)。
@@ -65,14 +65,14 @@ WAL 条目可以按以下模式之一写入：
 
 
 
-  <link href="/css/custom.min.96a7ce42d3537e1c11c87c295865d50dc8b6cbdd834e2b9f02be6ee9e466b0dd.css" rel="stylesheet" integrity="sha256-lqfOQtNTfhwRyHwpWGXVDci2y92DTiufAr5u6eRmsN0=" />
+  <link href="/css/custom.min.56aaad1a05fcc36045784038abb4ac81f55bed02271ad4a579b9932484739e51.css" rel="stylesheet" integrity="sha256-VqqtGgX8w2BFeEA4q7SsgfVb7QInGtSlebmTJIRznlE=" />
 
 
 
 
 
   <script>
-     
+
     const defaultTheme = 'light';
 
     const setDarkTheme = () => {
@@ -95,26 +95,27 @@ WAL 条目可以按以下模式之一写入：
   </script>
 
   <script defer src="/js/marginalia.js"></script>
-<script defer src="/js/site-stats.js"></script>
 
-  
+
     <script defer src="https://cloud.umami.is/script.js" data-website-id="8dd965d7-a696-48b4-b1fd-d62be941a304" data-domains="postgres-internals.cn" data-exclude-search="true" data-exclude-hash="true"></script>
-  
 
 
 
 
-  
+
+
+
+
   <link rel="stylesheet" href="/reader-media.min.53897845c8e0a772c3eb9b8407043ed2216dd41d2875900d1e7c085a8be22ee1.css">
 
 
-  
+
   <script defer src="/js/reader-media.min.f922615cf9eb8288581ada1e0cbf580e2be11348693c2f047852afb9a22a45d3.js"></script>
 
 
-  
+
   <link rel="stylesheet" href="/reading-navigation.min.6b34355b925f10d42f58b8d61957202deec1d48f8c5ed0b75d211cde5400fcfe.css">
-  
+
   <script defer src="/js/reading-navigation.min.3f22476c38f573ad74ffe78a89b1f6f522abed40dd669aeee21839af27386b4b.js"></script>
 
 
@@ -131,14 +132,14 @@ WAL 条目可以按以下模式之一写入：
     </a><a
             title="Docs"
             href="/docs"
-            
+
             class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-font-medium"
           >
             <span class="hx-text-center">Docs</span>
           </a><a
             title="About"
             href="/about"
-            
+
             class="hx-text-sm contrast-more:hx-text-gray-700 contrast-more:dark:hx-text-gray-100 hx-relative -hx-ml-2 hx-hidden hx-whitespace-nowrap hx-p-2 md:hx-inline-block hx-text-gray-600 hover:hx-text-gray-800 dark:hx-text-gray-400 dark:hover:hx-text-gray-200"
           >
             <span class="hx-text-center">About</span>
@@ -187,7 +188,7 @@ WAL 条目可以按以下模式之一写入：
   <div class='hx-mx-auto hx-flex hx-max-w-[90rem]'>
     <div class="mobile-menu-overlay [transition:background-color_1.5s_ease] hx-fixed hx-inset-0 hx-z-10 hx-bg-black/80 dark:hx-bg-black/60 hx-hidden"></div>
 <aside class="sidebar-container hx-flex hx-flex-col print:hx-hidden md:hx-top-16 md:hx-shrink-0 md:hx-w-64 md:hx-self-start max-md:[transform:translate3d(0,-100%,0)] md:hx-sticky">
-  
+
   <div class="hx-px-4 hx-pt-4 md:hx-hidden">
     <div class="search-wrapper hx-relative md:hx-w-64">
   <div class="hx-relative hx-flex hx-items-center hx-text-gray-900 contrast-more:hx-text-gray-800 dark:hx-text-gray-300 contrast-more:dark:hx-text-gray-300">
@@ -216,20 +217,20 @@ WAL 条目可以按以下模式之一写入：
   </div>
   <div class="hextra-scrollbar hx-overflow-y-auto hx-overflow-x-hidden hx-p-4 hx-grow md:hx-h-[calc(100vh-var(--navbar-height)-var(--menu-height))]">
     <ul class="hx-flex hx-flex-col hx-gap-1 md:hx-hidden">
-      
-      
+
+
           <li class=""><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/about/"
-    
+
   >About
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/"
-    
+
   >Docs
         <span class="hextra-sidebar-collapsible-button"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="hx-h-[18px] hx-min-w-[18px] hx-rounded-sm hx-p-0.5 hover:hx-bg-gray-800/5 dark:hover:hx-bg-gray-100/5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" class="hx-origin-center hx-transition-transform rtl:-hx-rotate-180"></path></svg></span>
     </a><div class="ltr:hx-pr-0 hx-overflow-hidden">
@@ -237,90 +238,90 @@ WAL 条目可以按以下模式之一写入：
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter01/"
-    
+
   >第 1 章：介绍
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter02/"
-    
+
   >第 2 章：隔离性
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter03/"
-    
+
   >第 3 章：页与元组
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter04/"
-    
+
   >第 4 章：快照
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter05/"
-    
+
   >第 5 章：页剪枝与 HOT 更新
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter06/"
-    
+
   >第 6 章：Vacuum 与 Autovacuum
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter07/"
-    
+
   >第 7 章：冻结
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter08/"
-    
+
   >第 8 章：重建表与索引
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter09/"
-    
+
   >第 9 章：缓冲区缓存
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter10/"
-    
+
   >第 10 章：预写式日志
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
     href="/docs/chapter11/"
-    
+
   >第 11 章：WAL 模式
     </a>
-  
+
     <ul class='hx-flex hx-flex-col hx-gap-1 hx-relative before:hx-absolute before:hx-inset-y-1 before:hx-w-px before:hx-bg-gray-200 before:hx-content-[""] dark:before:hx-bg-neutral-800 ltr:hx-pl-3 ltr:before:hx-left-0 rtl:hx-pr-3 rtl:before:hx-right-0 ltr:hx-ml-3 rtl:hx-mr-3'><li>
               <a
                 href="#111-%e6%80%a7%e8%83%bd"
@@ -340,388 +341,388 @@ WAL 条目可以按以下模式之一写入：
               >11.3 WAL 级别</a>
             </li>
           </ul>
-  
-              
+
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter12/"
-    
+
   >第 12 章：关系级锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter13/"
-    
+
   >第 13 章：行级锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter14/"
-    
+
   >第 14 章：多样的锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter15/"
-    
+
   >第 15 章：内存结构上的锁
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter16/"
-    
+
   >第 16 章：查询执行阶段
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter17/"
-    
+
   >第 17 章：统计信息
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter18/"
-    
+
   >第 18 章：表访问方法
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter19/"
-    
+
   >第 19 章：索引访问方法
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter20/"
-    
+
   >第 20 章：索引扫描
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter21/"
-    
+
   >第 21 章：嵌套循环
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter22/"
-    
+
   >第 22 章：哈希
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter23/"
-    
+
   >第 23 章：排序与归并
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter24/"
-    
+
   >第 24 章：Hash
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter25/"
-    
+
   >第 25 章：B-tree
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter26/"
-    
+
   >第 26 章：GiST
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter27/"
-    
+
   >第 27 章：SP-GiST
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter28/"
-    
+
   >第 28 章：GIN
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter29/"
-    
+
   >第 29 章：BRIN
     </a>
-              
+
             </li><li class="hx-flex hx-flex-col open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter30/"
-    
+
   >结论
     </a>
-              
+
             </li></ul>
       </div></li>
           <li class=""><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/recommend/"
-    
+
   >Recommend
     </a></li>
     </ul>
 
     <ul class="hx-flex hx-flex-col hx-gap-1 max-md:hx-hidden">
-        
+
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter01/"
-    
+
   >第 1 章：介绍
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter02/"
-    
+
   >第 2 章：隔离性
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter03/"
-    
+
   >第 3 章：页与元组
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter04/"
-    
+
   >第 4 章：快照
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter05/"
-    
+
   >第 5 章：页剪枝与 HOT 更新
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter06/"
-    
+
   >第 6 章：Vacuum 与 Autovacuum
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter07/"
-    
+
   >第 7 章：冻结
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter08/"
-    
+
   >第 8 章：重建表与索引
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter09/"
-    
+
   >第 9 章：缓冲区缓存
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter10/"
-    
+
   >第 10 章：预写式日志
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       sidebar-active-item hx-bg-primary-100 hx-font-semibold hx-text-primary-800 contrast-more:hx-border contrast-more:hx-border-primary-500 dark:hx-bg-primary-400/10 dark:hx-text-primary-600 contrast-more:dark:hx-border-primary-500"
     href="/docs/chapter11/"
-    
+
   >第 11 章：WAL 模式
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter12/"
-    
+
   >第 12 章：关系级锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter13/"
-    
+
   >第 13 章：行级锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter14/"
-    
+
   >第 14 章：多样的锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter15/"
-    
+
   >第 15 章：内存结构上的锁
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter16/"
-    
+
   >第 16 章：查询执行阶段
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter17/"
-    
+
   >第 17 章：统计信息
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter18/"
-    
+
   >第 18 章：表访问方法
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter19/"
-    
+
   >第 19 章：索引访问方法
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter20/"
-    
+
   >第 20 章：索引扫描
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter21/"
-    
+
   >第 21 章：嵌套循环
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter22/"
-    
+
   >第 22 章：哈希
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter23/"
-    
+
   >第 23 章：排序与归并
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter24/"
-    
+
   >第 24 章：Hash
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter25/"
-    
+
   >第 25 章：B-tree
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter26/"
-    
+
   >第 26 章：GiST
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter27/"
-    
+
   >第 27 章：SP-GiST
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter28/"
-    
+
   >第 28 章：GIN
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter29/"
-    
+
   >第 29 章：BRIN
     </a></li>
           <li class="open"><a
     class="hx-flex hx-items-center hx-justify-between hx-gap-2 hx-cursor-pointer hx-rounded hx-px-2 hx-py-1.5 hx-text-sm hx-transition-colors [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [word-break:break-word]
       hx-text-gray-500 hover:hx-bg-gray-100 hover:hx-text-gray-900 contrast-more:hx-border contrast-more:hx-border-transparent contrast-more:hx-text-gray-900 contrast-more:hover:hx-border-gray-900 dark:hx-text-neutral-400 dark:hover:hx-bg-primary-100/5 dark:hover:hx-text-gray-50 contrast-more:dark:hx-text-gray-50 contrast-more:dark:hover:hx-border-gray-50"
     href="/docs/chapter30/"
-    
+
   >结论
     </a></li>
-        
+
       </ul>
     </div>
-  
-  
+
+
     <div class="  hx-sticky hx-bottom-0 hx-bg-white dark:hx-bg-dark hx-mx-4 hx-py-4 hx-shadow-[0_-12px_16px_#fff] hx-flex hx-items-center hx-gap-2 dark:hx-border-neutral-800 dark:hx-shadow-[0_-12px_16px_#111] contrast-more:hx-border-neutral-400 contrast-more:hx-shadow-none contrast-more:dark:hx-shadow-none hx-border-t" data-toggle-animation="show"><div class="hx-flex hx-grow hx-flex-col"><button
   title="Change theme"
   data-theme="light"
@@ -760,7 +761,7 @@ WAL 条目可以按以下模式之一写入：
     </details>
   </template>
 
-    
+
 <nav class="hextra-toc hx-order-last hx-hidden hx-w-64 hx-shrink-0 xl:hx-block print:hx-hidden hx-px-4" aria-label="table of contents">
     <div class="hextra-scrollbar hx-sticky hx-top-16 hx-overflow-y-auto hx-pr-4 hx-pt-6 hx-text-sm [hyphens:auto] hx-max-h-[calc(100vh-var(--navbar-height)-env(safe-area-inset-bottom))] ltr:hx--mr-4 rtl:hx--ml-4"><p class="hx-mb-4 hx-font-semibold hx-tracking-tight">On this page</p><ul>
       <li class="hx-my-2 hx-scroll-my-6 hx-scroll-py-6">
@@ -813,7 +814,7 @@ WAL 条目可以按以下模式之一写入：
 
     <article class="hx-w-full hx-break-words hx-flex hx-min-h-[calc(100vh-var(--navbar-height))] hx-min-w-0 hx-justify-center hx-pb-8 hx-pr-[calc(env(safe-area-inset-right)-1.5rem)]">
       <main class="hx-w-full hx-min-w-0 hx-max-w-6xl hx-px-6 hx-pt-4 md:hx-px-12">
-        
+
   <div class="hx-mt-1.5 hx-flex hx-items-center hx-gap-1 hx-overflow-hidden hx-text-sm hx-text-gray-500 dark:hx-text-gray-400 contrast-more:hx-text-current">
         <div class="hx-whitespace-nowrap hx-transition-colors hx-min-w-[24px] hx-overflow-hidden hx-text-ellipsis hover:hx-text-gray-900 dark:hover:hx-text-gray-100">
           <a href="/docs/">Docs</a>
@@ -852,7 +853,7 @@ WAL 条目可以按以下模式之一写入：
 <p>为了了解异步提交潜在的性能增益，让我们使用 pgbench <sup id="fnref:8"><a href="#fn:8" class="footnote-ref" role="doc-noteref">8</a></sup>  测试比较两种模式下的延迟和吞吐量。</p>
 <p>首先，初始化所需的表：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/pgbench -i internals</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -864,11 +865,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>在同步模式下开始一次 30 秒的测试：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/pgbench -T <span class="m">30</span> internals
 </span></span><span class="line"><span class="cl">pgbench <span class="o">(</span>14.7<span class="o">)</span>
@@ -892,11 +893,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>现在在异步模式下执行相同的测试：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM SET <span class="nv">synchronous_commit</span> <span class="o">=</span> off<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_reload_conf<span class="o">()</span><span class="p">;</span>
@@ -922,12 +923,12 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>在异步模式下，这个简单的基准测试体现了显著降低的延迟和更高的吞吐量 (TPS)。 当然，每个特定系统都会根据当前负载有自己的数据，但很明显，对短小 OLTP 事务的影响是非常明显的。</p>
 <p>让我们恢复默认设置：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM RESET synchronous_commit<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_reload_conf<span class="o">()</span><span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -940,7 +941,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <h2>11.2 容错性<span class="hx-absolute -hx-mt-20" id="112-容错性"></span>
     <a href="#112-%e5%ae%b9%e9%94%99%e6%80%a7" class="subheading-anchor" aria-label="Permalink for this section"></a></h2><p>不言而喻，预写日志必须保证在任何情况下都能进行崩溃恢复 (除非持久性存储本身损坏了)。影响数据一致性的因素有很多，但我将只介绍最重要的几个：缓存、数据损坏和非原子写入 <sup id="fnref:9"><a href="#fn:9" class="footnote-ref" role="doc-noteref">9</a></sup>。</p>
@@ -967,7 +968,7 @@ WAL 条目可以按以下模式之一写入：
 </ul>
 <p>让我们看一下只读 data_checksums 参数，以确保启用了校验和：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SHOW data_checksums<span class="p">;</span>
 </span></span><span class="line"><span class="cl"> data_checksums
@@ -983,11 +984,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>现在停止服务器，并将表的主分支的第零页中的若干字节清零：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_relation_filepath<span class="o">(</span><span class="s1">&#39;wal&#39;</span><span class="o">)</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"> pg_relation_filepath
@@ -1010,11 +1011,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>再次启动服务器：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ pg_ctl start -l /home/postgres/logfile</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -1026,12 +1027,12 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>实际上，我们可以让服务器保持运行 — 只需将页面写入磁盘并将其从缓存中驱逐 (否则，服务器将继续使用其缓存版本)。但这样的工作流程难以复现。</p>
 <p>现在，让我们尝试读取该表：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM wal LIMIT 1<span class="p">;</span>
 </span></span><span class="line"><span class="cl">WARNING: page verification failed, calculated checksum <span class="m">20397</span> but
@@ -1046,11 +1047,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>如果无法从备份中恢复数据，那么至少尝试读取损坏的页面是有意义的 (有可能得到混乱的输出)。 为此，你需要启用 <span class="marginalia" data-note="off"><em>ignore_checksum_failure</em></span> 参数：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SET <span class="nv">ignore_checksum_failure</span> <span class="o">=</span> on<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT * FROM wal LIMIT 1<span class="p">;</span>
@@ -1069,7 +1070,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>在此情况下，一切都进行得很顺利，因为我们损坏的是页头的非关键部分 (最新 WAL 条目的 LSN)，而不是数据本身。</p>
 <h3>11.2.3 非原子写<span class="hx-absolute -hx-mt-20" id="1123-非原子写"></span>
@@ -1080,7 +1081,7 @@ WAL 条目可以按以下模式之一写入：
 <p>即使日志机制从 FPI <sup id="fnref:17"><a href="#fn:17" class="footnote-ref" role="doc-noteref">17</a></sup>  中排除了空白空间，生成的 WAL 文件的大小仍然会显著增加。如果通过 <span class="marginalia" data-note="off"><em>wal_compression</em></span> 参数启用了 WAL 压缩，这种情况可以大大改善。</p>
 <p>让我们使用 pgbench 工具进行一个简单的实验。我们将执行一个检查点，并立即开始一项带有事务数量限制的基准测试：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; CHECKPOINT<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_wal_insert_lsn<span class="o">()</span><span class="p">;</span>
@@ -1104,11 +1105,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>这是生成的 WAL 条目的大小：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_size_pretty<span class="o">(</span><span class="s1">&#39;0/449755C0&#39;</span>::pg_lsn - <span class="s1">&#39;0/42CE5DA8&#39;</span>::pg_lsn<span class="o">)</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"> pg_size_pretty
@@ -1124,11 +1125,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>在此示例中，FPIs 占总 WAL 大小的一半以上。你可以在收集的统计数据中查看，其中显示了每种资源类型 (Type) 的 WAL 条目数量 (N)、常规条目的大小 (Record size) 以及 FPI 大小：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/pg_waldump --stats <span class="se">\
 </span></span></span><span class="line"><span class="cl"><span class="se"></span>-p /usr/local/pgsql/data/pg_wal -s 0/42CE5DA8 -e 0/449755C0
@@ -1153,12 +1154,12 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>如果数据页在检查点之间被多次修改，这个比率会更小。这是另一个减少执行检查点的原因。</p>
 <p>重复相同的实验，看看压缩是否有帮助。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM SET <span class="nv">wal_compression</span> <span class="o">=</span> on<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_reload_conf<span class="o">()</span><span class="p">;</span>
@@ -1184,11 +1185,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>这是启用压缩后的 WAL 大小：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_size_pretty<span class="o">(</span><span class="s1">&#39;0/457653B0&#39;</span>::pg_lsn - <span class="s1">&#39;0/44D4C228&#39;</span>::pg_lsn<span class="o">)</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"> pg_size_pretty
@@ -1217,7 +1218,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>总而言之，当启用了校验和或 <em>full_page_writes</em> 导致了大量 FPI 时 (几乎总是如此)，尽管会有一些额外的 CPU 开销，使用压缩仍是有意义的。</p>
 <h2>11.3 WAL 级别<span class="hx-absolute -hx-mt-20" id="113-wal-级别"></span>
@@ -1230,7 +1231,7 @@ WAL 条目可以按以下模式之一写入：
 <p>让我们看看在 minimal 级别记录了什么。</p>
 <p>默认情况下，<span class="marginalia" data-note="v. 10">使用了更高的 replica 级别</span>，此级别支持数据复制。如果选择 minimal 级别，还必须在 <span class="marginalia" data-note="10"><em>max_wal_senders</em></span> 参数中将允许的 walsender 进程数设置为零：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM SET <span class="nv">wal_level</span> <span class="o">=</span> minimal<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM SET <span class="nv">max_wal_senders</span> <span class="o">=</span> 0<span class="p">;</span></span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
@@ -1243,11 +1244,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>为使这些更改生效，需要重启服务器：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ pg_ctl restart -l /home/postgres/logfile</span></span></code></pre></div></div><div class="hextra-code-copy-btn-container hx-opacity-0 hx-transition group-hover/code:hx-opacity-100 hx-flex hx-gap-1 hx-absolute hx-m-[11px] hx-right-0 hx-top-0">
   <button
@@ -1259,11 +1260,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>注意此时 WAL 的位置：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_wal_insert_lsn<span class="o">()</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"> pg_current_wal_insert_lsn
@@ -1279,11 +1280,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>截断表并在同一事务中继续插入新行，直至超过了 wal_skip_threshold：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; BEGIN<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; TRUNCATE TABLE wal<span class="p">;</span>
@@ -1304,14 +1305,14 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <blockquote>
 <p>我使用了 TRUNCATE 命令而不是创建新表，因为这生成的 WAL 条目更少。</p>
 </blockquote>
 <p>让我们使用已经掌握的 pg_waldump 工具来检查生成的 WAL。</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/pg_waldump <span class="se">\
 </span></span></span><span class="line"><span class="cl"><span class="se"></span>-p /usr/local/pgsql/data/pg_wal -s 0/45767698 -e 0/45767840#
@@ -1341,7 +1342,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>第一个条目记录了新表的创建 (因为 TRUNCATE 实际上重写了表)。</p>
 <p>接下来的四个条目与系统表操作相关。它们反映了 pg_class 表及其三个索引的更改。</p>
@@ -1354,7 +1355,7 @@ WAL 条目可以按以下模式之一写入：
 <p>从备份中进行数据恢复和使用物理复制的能力在 replica 级别下得到保证。</p>
 <p>默认使用 replica 级别 ，因此我们可以简单地重置上面配置的参数并重启服务器：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM RESET wal_level<span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; ALTER SYSTEM RESET max_wal_senders<span class="p">;</span>
@@ -1369,11 +1370,11 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>让我们重复与之前相同的工作流 (但这次我们将只插入一行，以获得更整洁的输出)：</p>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">=</span>&gt; SELECT pg_current_wal_insert_lsn<span class="o">()</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"> pg_current_wal_insert_lsn
@@ -1400,7 +1401,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <p>看一下生成的 WAL 条目。</p>
 <p>除了我们在 minimal 级别看到的内容之外，我们还获得了以下条目：</p>
@@ -1409,7 +1410,7 @@ WAL 条目可以按以下模式之一写入：
 <li>记录 INSERT + INIT 操作的条目，该操作初始化了一个新页面并将新行插入到此页面</li>
 </ul>
 <div class="hextra-code-block hx-relative hx-mt-6 first:hx-mt-0 hx-group/code">
-  
+
 
 <div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">postgres$ /usr/local/pgsql/bin/pg_waldump <span class="se">\
 </span></span></span><span class="line"><span class="cl"><span class="se"></span>-p /usr/local/pgsql/data/pg_wal -s 0/45D88E48 -e 0/45D89108
@@ -1450,7 +1451,7 @@ WAL 条目可以按以下模式之一写入：
   </button>
 </div>
 
-  
+
 </div>
 <h3>11.3.3 Logical<span class="hx-absolute -hx-mt-20" id="1133-logical"></span>
     <a href="#1133-logical" class="subheading-anchor" aria-label="Permalink for this section"></a></h3><p>最后但同样重要的是，logical 级别支持逻辑解码和逻辑复制。它必须在发布端激活。</p>
@@ -1523,8 +1524,8 @@ WAL 条目可以按以下模式之一写入：
 
         </div>
         <div class="hx-mt-16"></div>
-        
-        
+
+
       </main>
     </article>
   </div>
@@ -1532,12 +1533,16 @@ WAL 条目可以按以下模式之一写入：
       <footer class="hextra-footer hx-bg-gray-100 hx-pb-[env(safe-area-inset-bottom)] dark:hx-bg-neutral-900 print:hx-bg-transparent"><div
     class="hx-max-w-screen-xl hx-mx-auto hx-flex hx-justify-center hx-py-12 hx-pl-[max(env(safe-area-inset-left),1.5rem)] hx-pr-[max(env(safe-area-inset-right),1.5rem)] hx-text-gray-600 dark:hx-text-gray-400 md:hx-justify-start"
   >
-    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start"><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
+    <div class="hx-flex hx-w-full hx-flex-col hx-items-center sm:hx-items-start">
+      <div class="site-visit-stats" aria-label="访问统计">
+    <a class="site-stats-link" href="https://cloud.umami.is/share/h9AwlAG8vkVyvPwC" target="_blank" rel="noopener noreferrer" aria-label="查看访问统计（Umami，在新标签页打开）">查看访问统计</a>
+    <span class="site-stats-source">Umami</span>
+  </div><div class="hx-mt-6 hx-text-xs">本中文译文版权归熊灿灿所有。英文原文版权归 Postgres Professional 所有。本译文根据授权翻译与发布。</div>
     </div>
   </div>
 </footer>
-    
-    
+
+
     <script defer src="/js/main.min.d1048f02f76d9018acd295a4df4c057510adf57b63a51446829eb33941ddbed6.js" integrity="sha256-0QSPAvdtkBis0pWk30wFdRCt9XtjpRRGgp6zOUHdvtY="></script>
 
 
